@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <rect width="400" height="300" rx="16" fill="#F8FAFC"/>
+  <!-- Folded Cotton Shirt -->
+  <path d="M130 90 L170 70 L200 100 L230 70 L270 90 L290 140 L260 150 L250 250 L150 250 L140 150 L110 140 Z" fill="#3B82F6"/>
+  <!-- Collar -->
+  <polygon points="170,70 200,120 185,120 160,85" fill="#1D4ED8"/>
+  <polygon points="230,70 200,120 215,120 240,85" fill="#1D4ED8"/>
+  <!-- Buttons strip -->
+  <rect x="195" y="115" width="10" height="135" fill="#1E40AF"/>
+  <circle cx="200" cy="140" r="3" fill="#FFFFFF"/>
+  <circle cx="200" cy="170" r="3" fill="#FFFFFF"/>
+  <circle cx="200" cy="200" r="3" fill="#FFFFFF"/>
+  <!-- Pocket with orange stitch -->
+  <rect x="160" y="145" width="25" height="30" rx="3" fill="#2563EB"/>
+  <line x1="160" y1="145" x2="185" y2="145" stroke="#F97316" stroke-width="2"/>
+</svg>

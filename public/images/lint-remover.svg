@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <rect width="400" height="300" rx="16" fill="#F8FAFC"/>
+  <!-- Lint Remover Body -->
+  <rect x="150" y="70" width="100" height="150" rx="40" fill="#3B82F6"/>
+  <circle cx="200" cy="115" r="35" fill="#1E293B"/>
+  <circle cx="200" cy="115" r="28" fill="#94A3B8"/>
+  <!-- Mesh holes -->
+  <circle cx="190" cy="105" r="3" fill="#FFFFFF"/>
+  <circle cx="210" cy="105" r="3" fill="#FFFFFF"/>
+  <circle cx="200" cy="115" r="3" fill="#FFFFFF"/>
+  <circle cx="190" cy="125" r="3" fill="#FFFFFF"/>
+  <circle cx="210" cy="125" r="3" fill="#FFFFFF"/>
+  <!-- Power button -->
+  <circle cx="200" cy="175" r="8" fill="#F97316"/>
+  <!-- Handle base -->
+  <path d="M175 220 L165 260 L235 260 L225 220 Z" fill="#1D4ED8"/>
+</svg>

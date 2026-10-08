@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bagGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="steelGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#CBD5E1"/>
+      <stop offset="50%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#94A3B8"/>
+    </linearGradient>
+    <linearGradient id="pouchOrange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <filter id="boxShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F1F3D" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="600" height="500" rx="20" fill="#F8FAFC"/>
+
+  <!-- Subtle pedestal -->
+  <ellipse cx="300" cy="420" rx="220" ry="25" fill="#E2E8F0" opacity="0.6"/>
+
+  <!-- Insulated Carry Pouch in Background -->
+  <g filter="url(#boxShadow)">
+    <rect x="260" y="100" width="220" height="290" rx="28" fill="url(#bagGrad)"/>
+    <!-- Pouch Zipper & Orange Accents -->
+    <path d="M260 160 Q370 170 480 160" stroke="#F97316" stroke-width="6" fill="none"/>
+    <rect x="290" y="210" width="160" height="15" rx="4" fill="#334155"/>
+    <circle cx="370" cy="217" r="4" fill="#F97316"/>
+    <!-- Handle -->
+    <path d="M330 100 C330 60 410 60 410 100" stroke="#F97316" stroke-width="12" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Stainless Steel Lunch Boxes (Stack of 3) -->
+  <g filter="url(#boxShadow)">
+    <!-- Container 3 (Bottom) -->
+    <rect x="110" y="310" width="190" height="75" rx="16" fill="url(#steelGrad1)"/>
+    <rect x="105" y="305" width="200" height="16" rx="8" fill="#64748B"/>
+    <rect x="130" y="335" width="150" height="25" rx="6" fill="#E2E8F0" opacity="0.4"/>
+
+    <!-- Container 2 (Middle) -->
+    <rect x="110" y="225" width="190" height="75" rx="16" fill="url(#steelGrad1)"/>
+    <rect x="105" y="220" width="200" height="16" rx="8" fill="#64748B"/>
+    <rect x="130" y="250" width="150" height="25" rx="6" fill="#E2E8F0" opacity="0.4"/>
+
+    <!-- Container 1 (Top) -->
+    <rect x="110" y="140" width="190" height="75" rx="16" fill="url(#steelGrad1)"/>
+    <rect x="105" y="135" width="200" height="18" rx="8" fill="#F97316"/>
+    <rect x="130" y="165" width="150" height="25" rx="6" fill="#E2E8F0" opacity="0.4"/>
+
+    <!-- Top Handle Clip -->
+    <path d="M170 135 C170 115 240 115 240 135" stroke="#94A3B8" stroke-width="6" stroke-linecap="round" fill="none"/>
+    
+    <!-- Lock clips on sides -->
+    <rect x="98" y="215" width="8" height="90" rx="3" fill="#475569"/>
+    <rect x="304" y="215" width="8" height="90" rx="3" fill="#475569"/>
+  </g>
+
+  <!-- Small Spoon / Fork detail -->
+  <path d="M130 400 L280 400" stroke="#CBD5E1" stroke-width="5" stroke-linecap="round"/>
+</svg>

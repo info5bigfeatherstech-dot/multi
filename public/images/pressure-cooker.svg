@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="metalBody" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#94A3B8"/>
+      <stop offset="30%" stop-color="#F1F5F9"/>
+      <stop offset="60%" stop-color="#E2E8F0"/>
+      <stop offset="100%" stop-color="#64748B"/>
+    </linearGradient>
+    <linearGradient id="lidGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#64748B"/>
+      <stop offset="35%" stop-color="#F8FAFC"/>
+      <stop offset="70%" stop-color="#CBD5E1"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="handleBlack" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <filter id="pcShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#0F1F3D" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="600" height="500" rx="20" fill="#F8FAFC"/>
+
+  <!-- Pedestal Shadow -->
+  <ellipse cx="280" cy="425" rx="210" ry="24" fill="#CBD5E1" opacity="0.6"/>
+
+  <g filter="url(#pcShadow)">
+    <!-- Base Induction Plate -->
+    <rect x="150" y="385" width="260" height="18" rx="7" fill="#334155"/>
+
+    <!-- Main Stainless Steel Pot Body -->
+    <path d="M150 250 C145 340 160 388 280 388 C400 388 415 340 410 250 Z" fill="url(#metalBody)"/>
+    
+    <!-- Pot Specular Highlight Reflection -->
+    <path d="M220 255 C215 320 225 380 250 380 C265 380 260 320 255 255 Z" fill="#FFFFFF" opacity="0.45"/>
+
+    <!-- Rim / Collar -->
+    <rect x="140" y="240" width="280" height="18" rx="6" fill="#475569"/>
+
+    <!-- Pressure Cooker Lid -->
+    <ellipse cx="280" cy="240" rx="140" ry="24" fill="url(#lidGrad)"/>
+    <path d="M200 236 C200 185 360 185 360 236 Z" fill="url(#lidGrad)"/>
+
+    <!-- Pressure Whistle / Weight Valve (Vent Tube) -->
+    <rect x="272" y="145" width="16" height="35" rx="4" fill="#64748B"/>
+    <rect x="264" y="130" width="32" height="22" rx="5" fill="#F97316"/>
+    <circle cx="280" cy="122" r="5" fill="#CBD5E1"/>
+
+    <!-- Safety Valve -->
+    <circle cx="230" cy="205" r="7" fill="#DC2626"/>
+
+    <!-- Bakelite Long Handle -->
+    <!-- Lid handle -->
+    <path d="M350 215 L505 210 C520 210 525 225 515 235 L355 240 Z" fill="url(#handleBlack)"/>
+    <rect x="420" y="212" width="20" height="8" rx="2" fill="#DC2626"/>
+    
+    <!-- Body matching handle -->
+    <path d="M350 245 L505 240 C520 240 525 255 515 265 L355 270 Z" fill="url(#handleBlack)"/>
+
+    <!-- Front Helper Grip Handle -->
+    <rect x="90" y="260" width="55" height="24" rx="8" fill="url(#handleBlack)"/>
+  </g>
+</svg>

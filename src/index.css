@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary-navy: #0F172A;
+    --theme-color: #A44101;
+    --theme-gold: #A44101;
+    --theme-gold-dark: #8C3701;
+    --theme-beige: #F8FAFC;
+    --bg-canvas: #FFFFFF;
+    --card-white: #FFFFFF;
+    --text-charcoal: #0F172A;
+    --text-muted: #64748B;
+    --sale-red: #A44101;
+  }
+
+  html {
+    font-family: 'Roboto', sans-serif;
+    background-color: #FFFFFF;
+    color: var(--text-charcoal);
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #FFFFFF;
+    overflow-x: hidden;
+    font-family: 'Roboto', sans-serif;
+  }
+
+  /* Global heading weight */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 500;
+  }
+
+  /* Keyboard focus states */
+  *:focus-visible {
+    outline: 2px solid #0F1F3D;
+    outline-offset: 2px;
+  }
+}
+
+/* Subtle pulse for discount badges */
+@keyframes discount-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+}
+
+.animate-discount-pulse {
+  animation: discount-pulse 3.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-discount-pulse {
+    animation: none !important;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

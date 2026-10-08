@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <rect width="400" height="300" rx="16" fill="#F8FAFC"/>
+  <!-- Mop bucket -->
+  <rect x="130" y="140" width="140" height="110" rx="16" fill="#0F1F3D"/>
+  <rect x="120" y="130" width="160" height="20" rx="8" fill="#F97316"/>
+  <!-- Steel wringer basket -->
+  <circle cx="170" cy="170" r="30" fill="#94A3B8"/>
+  <circle cx="170" cy="170" r="22" fill="#E2E8F0"/>
+  <!-- Handle pole -->
+  <line x1="230" y1="210" x2="280" y2="40" stroke="#38BDF8" stroke-width="10" stroke-linecap="round"/>
+  <!-- Mop microfiber head -->
+  <circle cx="230" cy="210" r="25" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="4"/>
+</svg>

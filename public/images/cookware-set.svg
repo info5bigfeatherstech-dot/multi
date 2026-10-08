@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="100%" height="100%">
+  <rect width="400" height="300" rx="16" fill="#F8FAFC"/>
+  <!-- Dosa Tawa Base -->
+  <ellipse cx="180" cy="180" rx="90" ry="35" fill="#1E293B"/>
+  <ellipse cx="180" cy="177" rx="84" ry="30" fill="#334155"/>
+  <ellipse cx="180" cy="175" rx="76" ry="25" fill="#475569"/>
+  <!-- Tawa Handle -->
+  <path d="M260 175 L340 160 C350 158 355 168 345 174 L260 185 Z" fill="#0F172A"/>
+  <circle cx="335" cy="168" r="4" fill="#F97316"/>
+
+  <!-- Fry Pan overlapping -->
+  <ellipse cx="160" cy="130" rx="65" ry="25" fill="#0F172A"/>
+  <ellipse cx="160" cy="127" rx="60" ry="21" fill="#DC2626"/>
+  <path d="M100 128 L40 115 C30 113 28 124 35 128 L100 135 Z" fill="#0F172A"/>
+</svg>
