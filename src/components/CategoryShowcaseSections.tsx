@@ -347,7 +347,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                     viewport={{ once: true }}
                     transition={{ delay: shouldReduceMotion ? 0 : prodIdx * 0.05, duration: 0.3 }}
                     onClick={() => onProductClick?.(product)}
-                    className="w-[210px] sm:w-[230px] lg:w-[245px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-300 flex flex-col justify-between overflow-hidden group cursor-pointer"
+                    className="w-[200px] sm:w-[220px] lg:w-[calc((100%-3*12px)/4)] xl:w-[calc((100%-4*14px)/5)] min-w-[190px] xl:min-w-[205px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-300 flex flex-col justify-between overflow-hidden group cursor-pointer"
                   >
                     {/* Product Visual with High-Res Photography */}
                     <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">

@@ -151,9 +151,9 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           MAIN CONTAINER: SIDEBAR + CONTENT VIEW
          ========================================================================= */}
       <div className="flex-1 flex overflow-hidden">
-        {/* SIDEBAR (Desktop & Mobile Drawer) */}
+        {/* SIDEBAR (Desktop & Mobile Drawer with Light Gray Background) */}
         <aside
-          className={`fixed inset-y-0 left-0 top-16 z-30 w-64 bg-slate-900 text-slate-300 flex flex-col justify-between transition-transform duration-300 lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 top-16 z-30 w-64 bg-slate-100/95 border-r border-slate-200/90 text-slate-700 flex flex-col justify-between transition-transform duration-300 lg:static lg:translate-x-0 ${
             isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
           }`}
         >
@@ -165,14 +165,14 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                 <button
                   type="button"
                   onClick={handleExitSettingsMode}
-                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer border border-white/10"
+                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white hover:bg-slate-200 text-navy text-xs font-bold transition-all cursor-pointer border border-slate-200 shadow-2xs"
                 >
                   <ArrowLeft className="w-4 h-4 text-[#A44101]" />
                   <span>← Back to admin</span>
                 </button>
 
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block px-3 mb-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-2">
                     System Settings
                   </span>
                   <div className="space-y-1 text-xs">
@@ -182,7 +182,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'settings'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <Sliders className="w-4 h-4" />
@@ -194,7 +194,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'settings-shipping'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <Truck className="w-4 h-4" />
@@ -206,7 +206,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'settings-backup'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <Database className="w-4 h-4" />
@@ -220,7 +220,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
               <div className="space-y-5 animate-fadeIn">
                 {/* CATEGORY 1: Overview */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
                     Overview
                   </span>
                   <div className="space-y-1 text-xs">
@@ -230,7 +230,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'dashboard'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <LayoutDashboard className="w-4 h-4" />
@@ -241,7 +241,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
                 {/* CATEGORY 2: Operations */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
                     Operations
                   </span>
                   <div className="space-y-1 text-xs">
@@ -251,14 +251,16 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'orders'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <ShoppingBag className="w-4 h-4" />
                         <span>Orders</span>
                       </div>
-                      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-bold">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        currentTab === 'orders' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
+                      }`}>
                         {mockAdminStore.getOrders().length}
                       </span>
                     </button>
@@ -268,7 +270,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'returns'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <RotateCcw className="w-4 h-4" />
@@ -280,7 +282,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'rto'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <Truck className="w-4 h-4" />
@@ -291,7 +293,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
                 {/* CATEGORY 3: Catalog */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
                     Catalog
                   </span>
                   <div className="space-y-1 text-xs">
@@ -301,14 +303,16 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'products'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <Package className="w-4 h-4" />
                         <span>Products</span>
                       </div>
-                      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-bold">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        currentTab === 'products' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
+                      }`}>
                         {mockAdminStore.getProducts().length}
                       </span>
                     </button>
@@ -318,7 +322,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'analytics'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <BarChart3 className="w-4 h-4" />
@@ -330,10 +334,10 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'outofstock'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
-                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
                       <span>Out of Stock</span>
                     </button>
                   </div>
@@ -341,7 +345,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
                 {/* CATEGORY 4: Growth */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
                     Growth
                   </span>
                   <div className="space-y-1 text-xs">
@@ -351,7 +355,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'leads'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <Users className="w-4 h-4" />
@@ -363,14 +367,14 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'abandoned'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <ShoppingCart className="w-4 h-4" />
                         <span>Abandoned Carts</span>
                       </div>
-                      <span className="text-[10px] bg-rose-500/80 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full font-bold shadow-2xs">
                         {mockAdminStore.getAbandonedCarts().length}
                       </span>
                     </button>
@@ -380,7 +384,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
                         currentTab === 'marketing'
                           ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
                       }`}
                     >
                       <Ticket className="w-4 h-4" />
@@ -390,17 +394,17 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                 </div>
 
                 {/* Settings Trigger */}
-                <div className="pt-2 border-t border-slate-800">
+                <div className="pt-2 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={handleEnterSettingsMode}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold text-xs text-slate-300 hover:bg-white/5 hover:text-white transition-all cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold text-xs text-slate-700 hover:bg-slate-200/80 hover:text-navy transition-all cursor-pointer"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Settings className="w-4 h-4 text-slate-400" />
+                      <Settings className="w-4 h-4 text-slate-500" />
                       <span>Store Settings</span>
                     </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
                   </button>
                 </div>
               </div>
@@ -408,19 +412,19 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           </div>
 
           {/* 2. Sidebar Footer: Profile Info & Sign Out */}
-          <div className="p-4 border-t border-slate-800 bg-slate-950/40">
+          <div className="p-4 border-t border-slate-200 bg-slate-200/40">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <img
                   src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
                   alt={currentUser.name}
-                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-slate-700"
+                  className="w-9 h-9 rounded-full object-cover shrink-0 ring-1 ring-slate-300"
                 />
                 <div className="min-w-0">
-                  <span className="text-xs font-bold text-white block truncate">
+                  <span className="text-xs font-bold text-navy block truncate">
                     {currentUser.name}
                   </span>
-                  <span className="text-[10px] text-slate-400 block truncate">
+                  <span className="text-[10px] text-slate-500 block truncate">
                     {currentUser.email}
                   </span>
                 </div>
@@ -429,7 +433,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
               <button
                 type="button"
                 onClick={onSignOut}
-                className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-slate-200 transition-colors cursor-pointer shrink-0"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />

@@ -722,7 +722,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5 min-[1280px]:grid-cols-5 gap-2.5 sm:gap-3 lg:gap-3.5">
                 {filteredProducts.map((product) => {
                   const isWishlisted = !!wishlistIds[product.id];
                   const isAdded = !!addedIds[product.id];
@@ -744,12 +744,12 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                         />
 
                         {/* Discount Pill Top Left */}
-                        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 items-start">
-                          <span className="bg-[#A44101] text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded shadow-sm">
+                        <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                          <span className="bg-[#A44101] text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm">
                             {product.discountPercentage}% OFF
                           </span>
                           {product.tag && (
-                            <span className="bg-navy/90 backdrop-blur-xs text-white text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded shadow-xs uppercase">
+                            <span className="bg-navy/90 backdrop-blur-xs text-white text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs uppercase">
                               {product.tag}
                             </span>
                           )}
@@ -759,7 +759,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                         <button
                           type="button"
                           onClick={(e) => toggleWishlist(product.id, e)}
-                          className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm cursor-pointer ${
+                          className={`absolute top-2 right-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all shadow-sm cursor-pointer ${
                             isWishlisted
                               ? 'bg-rose-50 text-rose-600 scale-105'
                               : 'bg-white/90 backdrop-blur-xs text-slate-500 hover:text-rose-600 hover:bg-white'
@@ -767,68 +767,68 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                           aria-label="Toggle Wishlist"
                         >
                           <Heart 
-                            className={`w-4 h-4 ${isWishlisted ? 'fill-rose-600 text-rose-600' : ''}`} 
+                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isWishlisted ? 'fill-rose-600 text-rose-600' : ''}`} 
                           />
                         </button>
                       </div>
 
                       {/* Bottom Content Container */}
-                      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
+                      <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">
                             {product.category}
                           </span>
-                          <h3 className="font-bold text-xs sm:text-sm text-navy line-clamp-2 mt-1 group-hover:text-[#A44101] transition-colors leading-snug">
+                          <h3 className="font-bold text-xs sm:text-[13px] text-navy line-clamp-2 mt-1 group-hover:text-[#A44101] transition-colors leading-snug" title={product.title}>
                             {product.title}
                           </h3>
 
                           {/* Ratings */}
-                          <div className="flex items-center gap-1.5 mt-2">
+                          <div className="flex items-center gap-1.5 mt-1.5">
                             <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded text-[10px] font-extrabold text-amber-900">
                               <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                               <span>{product.rating}</span>
                             </div>
-                            <span className="text-[11px] text-slate-400 font-medium">
+                            <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
                               ({product.reviews.toLocaleString()})
                             </span>
                           </div>
                         </div>
 
                         {/* Price & Action Row */}
-                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-base sm:text-lg font-black text-[#A44101] leading-none">
+                        <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-col gap-2">
+                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className="text-sm sm:text-base font-black text-[#A44101] leading-none">
                               ₹{product.currentPrice}
                             </span>
-                            <span className="text-xs text-slate-400 line-through">
+                            <span className="text-[11px] sm:text-xs text-slate-400 line-through">
                               ₹{product.originalPrice}
                             </span>
-                            <span className="text-[10px] font-bold text-emerald-600 hidden sm:inline">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600">
                               Save ₹{savings}
                             </span>
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="grid grid-cols-2 gap-1.5 pt-1">
+                          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                             <button
                               type="button"
                               onClick={(e) => handleAddToCart(product, e)}
-                              className={`py-2 px-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                              className={`py-1.5 sm:py-2 px-1 rounded-lg text-[11px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
                                 isAdded
                                   ? 'bg-emerald-600 text-white'
                                   : 'bg-navy hover:bg-[#0c1a2d] text-white shadow-2xs'
                               }`}
                             >
-                              <ShoppingCart className="w-3.5 h-3.5" />
+                              <ShoppingCart className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
                               <span className="truncate">{isAdded ? 'Added' : 'Add'}</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={(e) => handleBuyNow(product, e)}
-                              className="py-2 px-2 rounded-lg text-xs font-black bg-[#A44101] hover:bg-[#8C3701] text-white transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+                              className="py-1.5 sm:py-2 px-1 rounded-lg text-[11px] sm:text-xs font-black bg-[#A44101] hover:bg-[#8C3701] text-white transition-all shadow-2xs flex items-center justify-center gap-1 cursor-pointer active:scale-95"
                             >
-                              <Zap className="w-3.5 h-3.5 fill-current" />
+                              <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current shrink-0" />
                               <span className="truncate">Buy Now</span>
                             </button>
                           </div>
