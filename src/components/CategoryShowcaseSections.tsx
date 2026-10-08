@@ -216,33 +216,6 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               {section.tagline}
             </p>
           </div>
-
-          {/* Header Controls (prev/next + auto-scroll indicator) */}
-          <div className="hidden sm:flex items-center gap-2 shrink-0">
-            <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Auto-scroll</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => scrollOneProduct('left')}
-              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#A44101] text-navy hover:text-white flex items-center justify-center transition-all cursor-pointer border border-slate-200 active:scale-95"
-              aria-label="Previous product"
-              title="Previous product"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollOneProduct('right')}
-              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#A44101] text-navy hover:text-white flex items-center justify-center transition-all cursor-pointer border border-slate-200 active:scale-95"
-              aria-label="Next product"
-              title="Next product"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
         </div>
 
         {/* Showcase Container: Category Image Card on LEFT + Products Scroll Slider on RIGHT */}
