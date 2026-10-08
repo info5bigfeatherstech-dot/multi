@@ -367,13 +367,13 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm text-navy focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] focus:outline-none transition-all bg-white"
+                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm text-navy focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] focus:outline-none transition-all bg-white cursor-pointer"
                       >
-                        <option value="Order Tracking & Delay">🚚 Order Delivery &amp; Tracking Delay</option>
-                        <option value="Defective / Damaged Item">🔄 Defective or Damaged Item Replacement</option>
-                        <option value="Cancellation & Refund">💳 Cancellation &amp; Refund Assistance</option>
-                        <option value="Bulk Order & GST Invoice">💼 Bulk / B2B Corporate Gifting Query</option>
-                        <option value="General Question">❓ General Inquiry or Feedback</option>
+                        <option value="Order Tracking & Delay">Order Delivery &amp; Tracking Delay</option>
+                        <option value="Defective / Damaged Item">Defective or Damaged Item Replacement</option>
+                        <option value="Cancellation & Refund">Cancellation &amp; Refund Assistance</option>
+                        <option value="Bulk Order & GST Invoice">Bulk / B2B Corporate Gifting Query</option>
+                        <option value="General Question">General Inquiry or Feedback</option>
                       </select>
                     </div>
 
