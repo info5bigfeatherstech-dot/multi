@@ -20,7 +20,8 @@ import {
 export interface CategorySidebarItem {
   id: string;
   name: string;
-  targetSectionId: string;
+  targetSectionId?: string;
+  targetClass?: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -120,15 +121,16 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
       onCategoryClick(item);
     }
 
-    const targetEl = document.getElementById(item.targetSectionId);
+    const targetSelector = item.targetClass || (item.targetSectionId ? `.${item.targetSectionId}` : `.section-${item.id}`);
+    const targetEl = document.querySelector(targetSelector.startsWith('.') ? targetSelector : `.${targetSelector}`);
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
-      const catCardEl = document.getElementById(`category-card-${item.id}`);
+      const catCardEl = document.querySelector(`.category-card-${item.id}`);
       if (catCardEl) {
         catCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
-        const topCatEl = document.getElementById('top-categories');
+        const topCatEl = document.querySelector('.section-top-categories');
         if (topCatEl) {
           topCatEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -140,7 +142,7 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
     if (onViewAllClick) {
       onViewAllClick();
     } else {
-      const topCatEl = document.getElementById('top-categories');
+      const topCatEl = document.querySelector('.section-top-categories');
       if (topCatEl) {
         topCatEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }

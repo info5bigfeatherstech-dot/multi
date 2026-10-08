@@ -39,11 +39,11 @@ export const EverydayEssentialsSection: React.FC = () => {
   const shouldReduceMotion = useReducedMotion();
 
   const handleCardClick = (targetId: string) => {
-    const targetElement = document.getElementById(`section-${targetId}`);
+    const targetElement = document.querySelector(`.section-${targetId}`);
     if (targetElement) {
       targetElement.scrollIntoView({ behavior: 'smooth' });
     } else {
-      const topCategories = document.getElementById('top-categories');
+      const topCategories = document.querySelector('.section-top-categories');
       if (topCategories) {
         topCategories.scrollIntoView({ behavior: 'smooth' });
       }
@@ -51,7 +51,7 @@ export const EverydayEssentialsSection: React.FC = () => {
   };
 
   const handleAllCollectionsClick = () => {
-    const topCategories = document.getElementById('top-categories');
+    const topCategories = document.querySelector('.section-top-categories');
     if (topCategories) {
       topCategories.scrollIntoView({ behavior: 'smooth' });
     }
@@ -59,8 +59,7 @@ export const EverydayEssentialsSection: React.FC = () => {
 
   return (
     <section 
-      id="everyday-essentials" 
-      className="py-10 sm:py-14 bg-stone-50/80 border-y border-slate-200/80 relative"
+      className="section-everyday-essentials py-10 sm:py-14 bg-stone-50/80 border-y border-slate-200/80 relative"
       aria-labelledby="essentials-heading"
     >
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">

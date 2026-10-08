@@ -9,10 +9,10 @@ export const HeroGstCard: React.FC = () => {
     if (id === 'gst-inclusive') {
       setShowGstModal(true);
     } else if (id === 'lowest-prices') {
-      const el = document.getElementById('section-home-kitchen') || document.getElementById('top-categories');
+      const el = document.querySelector('.section-home-kitchen') || document.querySelector('.section-top-categories');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else if (id === 'no-moq') {
-      const el = document.getElementById('top-categories');
+      const el = document.querySelector('.section-top-categories');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     }
   };

@@ -57,8 +57,7 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
 
   return (
     <section 
-      id="every-product-catalog" 
-      className="py-12 sm:py-16 bg-white border-b border-slate-200"
+      className="section-every-product-catalog py-12 sm:py-16 bg-white border-b border-slate-200"
       aria-label="Complete Product Deals Catalog"
     >
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">

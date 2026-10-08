@@ -162,9 +162,17 @@ export const Hero: React.FC = () => {
 
             {/* Animated Banner Slide */}
             <AnimatePresence initial={false} custom={direction}>
-              <motion.a
+              <motion.div
                 key={currentBanner.id}
-                href={currentBanner.linkUrl}
+                onClick={() => {
+                  const targetClass = currentBanner.targetClass;
+                  if (targetClass) {
+                    const el = document.querySelector(`.${targetClass}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
                 custom={direction}
                 variants={bannerVariants}
                 initial="enter"
@@ -172,6 +180,18 @@ export const Hero: React.FC = () => {
                 exit="exit"
                 className="absolute inset-0 w-full h-full block cursor-pointer overflow-hidden focus:outline-none"
                 aria-label={currentBanner.alt}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    const targetClass = currentBanner.targetClass;
+                    if (targetClass) {
+                      const el = document.querySelector(`.${targetClass}`);
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }
+                }}
               >
                 <img
                   src={currentBanner.image}
@@ -179,7 +199,7 @@ export const Hero: React.FC = () => {
                   className="w-full h-full object-cover"
                   loading="eager"
                 />
-              </motion.a>
+              </motion.div>
             </AnimatePresence>
 
             {/* Dots Indicator Overlay at Bottom Center */}

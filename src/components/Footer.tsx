@@ -13,9 +13,15 @@ import {
 } from 'lucide-react';
 import { ANNOUNCEMENT_DATA, STORE_CATEGORIES } from '../data/storeData';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onSelectCategory?: (categoryId: string) => void;
+  onGoToAdmin?: () => void;
+  onGoToContact?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onGoToAdmin, onGoToContact }) => {
   return (
-    <footer className="bg-navy text-slate-300 pt-14 pb-8 border-t border-navy-light/40" role="contentinfo">
+    <footer className="site-footer bg-navy text-slate-300 pt-14 pb-8 border-t border-navy-light/40" role="contentinfo">
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Top Trust Features Strip */}
@@ -50,15 +56,25 @@ export const Footer: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-theme bg-[#A44101]/10 border border-[#A44101]/30 flex items-center justify-center text-[#A44101] shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (onGoToContact) onGoToContact();
+              else {
+                window.history.pushState(null, '', '/contact');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
+            }}
+            className="flex items-center gap-3.5 text-left group cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-theme bg-[#A44101]/10 border border-[#A44101]/30 group-hover:bg-[#A44101]/20 flex items-center justify-center text-[#A44101] shrink-0 transition-colors">
               <Headphones className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">24/7 Dedicated Support</h4>
+              <h4 className="text-sm font-bold text-white group-hover:text-[#A44101] transition-colors">24/7 Dedicated Support</h4>
               <p className="text-xs text-slate-400 mt-0.5">Direct WhatsApp &amp; phone assistance</p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Main Footer Columns */}
@@ -118,9 +134,12 @@ export const Footer: React.FC = () => {
             </h3>
             <ul className="space-y-2 text-xs sm:text-[13px]">
               <li key="u99-special">
-                <a 
-                  href="#under-99-store"
-                  className="text-[#A44101] font-bold hover:text-white transition-colors flex items-center justify-between group"
+                <button 
+                  type="button"
+                  onClick={() => {
+                    document.querySelector('.section-under-99-store')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full text-left text-[#A44101] font-bold hover:text-white transition-colors flex items-center justify-between group cursor-pointer"
                 >
                   <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#A44101] inline-block" />
@@ -129,17 +148,29 @@ export const Footer: React.FC = () => {
                   <span className="text-[9px] bg-[#A44101] text-white px-1.5 py-0.5 rounded font-black">
                     DHAMAKA
                   </span>
-                </a>
+                </button>
               </li>
               {STORE_CATEGORIES.slice(0, 6).map((cat) => (
                 <li key={cat.id}>
-                  <a 
-                    href={`#section-${cat.id}`}
-                    className="text-slate-400 hover:text-[#A44101] transition-colors flex items-center justify-between group"
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (onSelectCategory) {
+                        onSelectCategory(cat.id);
+                      } else {
+                        const targetEl = document.querySelector(`.section-${cat.id}`) || document.querySelector(`.category-card-${cat.id}`);
+                        if (targetEl) {
+                          targetEl.scrollIntoView({ behavior: 'smooth' });
+                        } else {
+                          document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }
+                    }}
+                    className="w-full text-left text-slate-400 hover:text-[#A44101] transition-colors flex items-center justify-between group cursor-pointer"
                   >
                     <span>{cat.name}</span>
                     <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-[#A44101] group-hover:translate-x-1 transition-all" />
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -153,32 +184,68 @@ export const Footer: React.FC = () => {
             </h3>
             <ul className="space-y-2 text-xs sm:text-[13px] text-slate-400">
               <li>
-                <a href="#track-order" className="hover:text-[#A44101] transition-colors">
-                  Track Your Order
-                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onGoToContact) onGoToContact();
+                    else {
+                      window.history.pushState(null, '', '/contact');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                  }}
+                  className="hover:text-[#A44101] transition-colors cursor-pointer text-left"
+                >
+                  Customer Support &amp; Help Desk
+                </button>
               </li>
               <li>
-                <a href="#replacement-policy" className="hover:text-[#A44101] transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onGoToContact) onGoToContact();
+                    else {
+                      window.history.pushState(null, '', '/contact');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                  }}
+                  className="hover:text-[#A44101] transition-colors cursor-pointer text-left"
+                >
+                  Track Your Order
+                </button>
+              </li>
+              <li>
+                <a href="/policy/replacement" onClick={(e) => e.preventDefault()} className="hover:text-[#A44101] transition-colors cursor-pointer">
                   Replacement Policy
                 </a>
               </li>
               <li>
-                <a href="#shipping-policy" className="hover:text-[#A44101] transition-colors">
+                <a href="/policy/shipping" onClick={(e) => e.preventDefault()} className="hover:text-[#A44101] transition-colors cursor-pointer">
                   Shipping &amp; Delivery
                 </a>
               </li>
               <li>
-                <a href="#privacy-policy" className="hover:text-[#A44101] transition-colors">
+                <a href="/policy/privacy" onClick={(e) => e.preventDefault()} className="hover:text-[#A44101] transition-colors cursor-pointer">
                   Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="#terms" className="hover:text-[#A44101] transition-colors">
+                <a href="/policy/terms" onClick={(e) => e.preventDefault()} className="hover:text-[#A44101] transition-colors cursor-pointer">
                   Terms of Service
                 </a>
               </li>
               <li>
-                <a href="#bulk-orders" className="hover:text-[#A44101] transition-colors">
+                <a
+                  href="/contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onGoToContact) onGoToContact();
+                    else {
+                      window.history.pushState(null, '', '/contact');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                  }}
+                  className="hover:text-[#A44101] transition-colors cursor-pointer"
+                >
                   Bulk &amp; Corporate Inquiries
                 </a>
               </li>
@@ -222,10 +289,24 @@ export const Footer: React.FC = () => {
 
         {/* Bottom Bar: Copyright & Verified Payment Badges */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-          <div className="flex items-center gap-1 text-center sm:text-left">
+          <div className="flex flex-wrap items-center gap-1.5 text-center sm:text-left">
             <span>© 2026 Apna Bharat Bazaar. Think Shopping, Think Us. Built with</span>
             <Heart className="w-3.5 h-3.5 text-[#A44101] inline fill-current" />
-            <span>for Indian Shoppers. All rights reserved.</span>
+            <span>for Indian Shoppers.</span>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (onGoToAdmin) onGoToAdmin();
+                else {
+                  window.history.pushState(null, '', '/admin/dashboard');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="text-slate-300 hover:text-amber-400 font-semibold underline underline-offset-2 transition-colors cursor-pointer"
+            >
+              Store Admin Portal
+            </button>
           </div>
 
           {/* Accepted Indian Payment Modes */}

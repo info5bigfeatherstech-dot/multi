@@ -13,12 +13,14 @@ import {
   Coins, 
   Tag, 
   QrCode, 
-  Lock, 
+  Lock,
   CheckCircle2, 
-  PartyPopper
+  PartyPopper,
+  MapPin
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
+import { AddAddressModal, NewAddressData } from './AddAddressModal';
 
 interface CheckoutPageProps {
   onBackToHome?: () => void;
@@ -31,29 +33,70 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 }) => {
   const { cartItems, updateQty, removeFromCart, clearCart } = useCart();
 
+  // Address selection: strictly empty until the person adds an address
+  const [addresses, setAddresses] = useState<Array<{ id: string; name: string; type: string; phone: string; address: string; city: string; pincode: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('abb_saved_addresses_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const userSaved = parsed
+            .filter((a: any) => a.id !== 'addr-1' && a.id !== 'addr-2' && a.name !== 'Rahul Sharma')
+            .map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              type: a.type || 'Home',
+              phone: a.phone,
+              address: a.addressLine || a.address || '',
+              city: a.city,
+              pincode: a.pincode,
+            }));
+          return userSaved;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return [];
+  });
 
-  // Address selection
-  const [selectedAddressId, setSelectedAddressId] = useState('addr-1');
-  const [addresses, setAddresses] = useState([
-    {
-      id: 'addr-1',
-      name: 'Rahul Sharma',
-      type: 'Home',
-      phone: '+91 98765 43210',
-      address: 'Flat 402, Sai Residency, Near Shivaji Park, Dadar West',
-      city: 'Mumbai',
-      pincode: '400028',
-    },
-    {
-      id: 'addr-2',
-      name: 'Rahul Sharma (Office)',
-      type: 'Work',
-      phone: '+91 98765 43210',
-      address: 'Prestige Technostar, 5th Floor, Whitefield Road',
-      city: 'Bengaluru',
-      pincode: '560066',
-    },
-  ]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('abb_saved_addresses_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const userSaved = parsed.filter((a: any) => a.id !== 'addr-1' && a.id !== 'addr-2' && a.name !== 'Rahul Sharma');
+          if (userSaved.length > 0) return userSaved[0].id;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return '';
+  });
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+
+  const handleSaveNewAddress = (newAddr: NewAddressData) => {
+    const formatted = {
+      id: newAddr.id,
+      name: newAddr.name,
+      type: newAddr.type,
+      phone: newAddr.phone,
+      address: newAddr.fullAddressString,
+      city: newAddr.city,
+      pincode: newAddr.pincode,
+    };
+    const updated = [formatted, ...addresses];
+    setAddresses(updated);
+    setSelectedAddressId(formatted.id);
+    setIsAddressModalOpen(false);
+    try {
+      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
+  };
 
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'cod' | 'netbanking'>('upi');
@@ -112,6 +155,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   const handlePlaceOrder = () => {
     if (cartItems.length === 0) return;
+    if (addresses.length === 0 || !selectedAddressId) {
+      setIsAddressModalOpen(true);
+      return;
+    }
     setIsPlacingOrder(true);
     setTimeout(() => {
       setIsPlacingOrder(false);
@@ -155,8 +202,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             </div>
           </div>
         </div>
-
-        {/* ORDER SUCCESS MODAL / SCREEN */}
         {orderPlaced ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -254,61 +299,66 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      const name = prompt('Enter Full Name:');
-                      const addr = prompt('Enter Delivery Street Address:');
-                      const pin = prompt('Enter 6-digit Pincode:');
-                      if (name && addr && pin) {
-                        const newA = {
-                          id: `addr-${Date.now()}`,
-                          name,
-                          type: 'Home',
-                          phone: '+91 98765 43210',
-                          address: addr,
-                          city: 'Mumbai',
-                          pincode: pin,
-                        };
-                        setAddresses((prev) => [...prev, newA]);
-                        setSelectedAddressId(newA.id);
-                      }
-                    }}
-                    className="text-xs font-bold text-[#A44101] hover:text-[#8C3701] flex items-center gap-1 cursor-pointer"
+                    onClick={() => setIsAddressModalOpen(true)}
+                    className="text-xs font-bold text-[#A44101] hover:text-[#8C3701] flex items-center gap-1.5 cursor-pointer bg-[#A44101]/10 hover:bg-[#A44101]/15 px-3 py-1.5 rounded-xl transition-all active:scale-98"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add New Address</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {addresses.map((addr) => {
-                    const isSelected = selectedAddressId === addr.id;
-                    return (
-                      <div
-                        key={addr.id}
-                        onClick={() => setSelectedAddressId(addr.id)}
-                        className={`p-4 rounded-xl border-2 transition-all cursor-pointer relative ${
-                          isSelected
-                            ? 'border-navy bg-stone-50/80 shadow-xs'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200 text-navy">
-                            {addr.type}
-                          </span>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-navy fill-white" />
-                          )}
+                {addresses.length === 0 ? (
+                  <div className="py-8 px-4 border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/70 text-center flex flex-col items-center justify-center space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-[#A44101]/10 text-[#A44101] flex items-center justify-center">
+                      <MapPin className="w-6 h-6 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-navy">No Delivery Address Added</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                        Please add your delivery address so we can ship your items safely.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressModalOpen(true)}
+                      className="px-5 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Add Delivery Address</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {addresses.map((addr) => {
+                      const isSelected = selectedAddressId === addr.id;
+                      return (
+                        <div
+                          key={addr.id}
+                          onClick={() => setSelectedAddressId(addr.id)}
+                          className={`p-4 rounded-xl border-2 transition-all cursor-pointer relative ${
+                            isSelected
+                              ? 'border-navy bg-stone-50/80 shadow-xs'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200 text-navy">
+                              {addr.type}
+                            </span>
+                            {isSelected && (
+                              <CheckCircle2 className="w-4 h-4 text-navy fill-white" />
+                            )}
+                          </div>
+                          <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
+                          <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                            {addr.address}, {addr.city} - <span className="font-bold">{addr.pincode}</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1.5">Phone: {addr.phone}</p>
                         </div>
-                        <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
-                        <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                          {addr.address}, {addr.city} - <span className="font-bold">{addr.pincode}</span>
-                        </p>
-                        <p className="text-[11px] text-slate-500 mt-1.5">Phone: {addr.phone}</p>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* SECTION 2: ORDER ITEMS REVIEW */}
@@ -651,6 +701,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   >
                     {isPlacingOrder ? (
                       <span>Processing Payment...</span>
+                    ) : addresses.length === 0 ? (
+                      <>
+                        <Plus className="w-4 h-4 text-white stroke-[2.5]" />
+                        <span>Add Delivery Address to Pay • ₹{finalTotal}</span>
+                      </>
                     ) : (
                       <>
                         <ShieldCheck className="w-4 h-4 text-white" />
@@ -687,6 +742,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         )}
 
       </div>
+
+      {/* 2-Step Add Address Modal Popup */}
+      <AddAddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onSaveAddress={handleSaveNewAddress}
+      />
     </div>
   );
 };

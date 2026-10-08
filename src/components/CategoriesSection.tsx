@@ -127,7 +127,13 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
   },
 ];
 
-export const CategoriesSection: React.FC = () => {
+interface CategoriesSectionProps {
+  onSelectCategory?: (categoryId: string) => void;
+}
+
+export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
+  onSelectCategory,
+}) => {
   const [showAll, setShowAll] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
@@ -151,23 +157,31 @@ export const CategoriesSection: React.FC = () => {
 
   const handleCardClick = (category: CategoryCardData) => {
     if (category.isExploreAll) {
-      setShowAll(true);
+      if (onSelectCategory) {
+        onSelectCategory('explore-all');
+      } else {
+        setShowAll(true);
+      }
       return;
     }
 
-    const targetSection = document.getElementById(`section-${category.id}`);
-    if (targetSection) {
-      targetSection.scrollIntoView({ behavior: 'smooth' });
+    if (onSelectCategory) {
+      onSelectCategory(category.id);
     } else {
-      const catalog = document.getElementById('top-categories');
-      if (catalog) catalog.scrollIntoView({ behavior: 'smooth' });
+      const targetSection = document.querySelector(`.section-${category.id}`);
+      if (targetSection) {
+        targetSection.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        const catalog = document.querySelector('.section-top-categories');
+        if (catalog) catalog.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   };
 
   const handleToggleViewMore = () => {
     if (showAll) {
       setShowAll(false);
-      document.getElementById('top-categories')?.scrollIntoView({ behavior: 'smooth' });
+      document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
     } else {
       setShowAll(true);
     }
@@ -175,8 +189,7 @@ export const CategoriesSection: React.FC = () => {
 
   return (
     <section 
-      id="top-categories" 
-      className="py-10 sm:py-14 bg-white border-b border-slate-200/80 relative"
+      className="section-top-categories py-10 sm:py-14 bg-white border-b border-slate-200/80 relative"
       aria-labelledby="categories-showcase-heading"
     >
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -188,7 +201,7 @@ export const CategoriesSection: React.FC = () => {
               id="categories-showcase-heading" 
               className="text-xl sm:text-2xl lg:text-3xl font-medium text-slate-800 tracking-tight font-roboto capitalize"
             >
-              Curated for retailers and shoppers
+              Shop By Category
             </h2>
           </div>
 
@@ -259,13 +272,12 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 }) => {
   return (
     <motion.div
-      id={`category-card-${category.id}`}
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: shouldReduceMotion ? 0 : index * 0.04, duration: 0.3 }}
       whileHover={shouldReduceMotion ? {} : { y: -3, scale: 1.015 }}
       onClick={onClick}
-      className={`group rounded-xl sm:rounded-2xl lg:rounded-3xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/10] sm:aspect-[7/4] ${category.bgColor || 'bg-slate-100'}`}
+      className={`category-card-${category.id} group rounded-xl sm:rounded-2xl lg:rounded-3xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/10] sm:aspect-[7/4] ${category.bgColor || 'bg-slate-100'}`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

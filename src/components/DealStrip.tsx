@@ -35,21 +35,27 @@ export const DealStrip: React.FC = () => {
               Popular Discount Categories
             </h2>
           </div>
-          <a
-            href="#all-deals"
-            className="text-xs sm:text-sm font-bold text-navy hover:text-[#A44101] flex items-center gap-1 transition-colors"
+          <button
+            type="button"
+            onClick={() => {
+              document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="text-xs sm:text-sm font-bold text-navy hover:text-[#A44101] flex items-center gap-1 transition-colors cursor-pointer"
           >
             <span>Explore All</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
-          </a>
+          </button>
         </div>
 
         {/* 4 Cards in a row on desktop, 2 on mobile */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
           {DEAL_STRIP_CATEGORIES.map((cat, idx) => (
-            <motion.a
+            <motion.div
               key={cat.id}
-              href={`#category-${cat.id}`}
+              onClick={() => {
+                const targetEl = document.querySelector(`.category-card-${cat.id}`) || document.querySelector(`.section-${cat.id}`) || document.querySelector('.section-top-categories');
+                if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+              }}
               initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
@@ -59,6 +65,15 @@ export const DealStrip: React.FC = () => {
               whileHover={shouldReduceMotion ? {} : { y: -6 }}
               className="group bg-white rounded-theme p-4 sm:p-5 border border-slate-200/80 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-300 flex flex-col justify-between cursor-pointer focus:outline-none"
               aria-label={`${cat.title} Deals: ${cat.discountLabel}`}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  const targetEl = document.querySelector(`.category-card-${cat.id}`) || document.querySelector(`.section-${cat.id}`) || document.querySelector('.section-top-categories');
+                  if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
             >
               <div className="flex items-center justify-between">
                 <div className="w-10 h-10 rounded-theme bg-[#A44101]/10 border border-[#A44101]/20 flex items-center justify-center group-hover:bg-[#A44101] group-hover:text-white transition-colors duration-200">
@@ -82,7 +97,7 @@ export const DealStrip: React.FC = () => {
                   {cat.itemCountText}
                 </p>
               </div>
-            </motion.a>
+            </motion.div>
           ))}
         </div>
       </div>

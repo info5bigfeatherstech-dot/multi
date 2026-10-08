@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, 
   Package, 
@@ -17,6 +16,7 @@ import {
   Phone,
   Award
 } from 'lucide-react';
+import { AddAddressModal, NewAddressData } from './AddAddressModal';
 
 interface ProfilePageProps {
   onBackToHome?: () => void;
@@ -34,46 +34,58 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [activeTab, setActiveTab] = useState<TabKey>('orders');
 
   // User Profile Form State
-  const [userName, setUserName] = useState('Rahul Sharma');
-  const [userEmail, setUserEmail] = useState('rahul.sharma@example.com');
-  const [userPhone, setUserPhone] = useState('+91 98765 43210');
+  const [userName, setUserName] = useState(() => {
+    try {
+      return localStorage.getItem('abb_user_profile_name') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [userEmail, setUserEmail] = useState(() => {
+    try {
+      return localStorage.getItem('abb_user_profile_email') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [userPhone, setUserPhone] = useState(() => {
+    try {
+      return localStorage.getItem('abb_user_profile_phone') || '';
+    } catch {
+      return '';
+    }
+  });
   const [userGender, setUserGender] = useState('Male');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
 
-  // Addresses State
-  const [addresses, setAddresses] = useState([
-    {
-      id: 'addr-1',
-      type: 'Home',
-      name: 'Rahul Sharma',
-      phone: '+91 98765 43210',
-      addressLine: 'Flat 402, Sai Residency, Near Shivaji Park, Dadar West',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400028',
-      isDefault: true,
-    },
-    {
-      id: 'addr-2',
-      type: 'Office',
-      name: 'Rahul Sharma (Office)',
-      phone: '+91 98765 43210',
-      addressLine: 'Unit 504, Prestige Technostar, Brookefield',
-      city: 'Bengaluru',
-      state: 'Karnataka',
-      pincode: '560066',
-      isDefault: false,
-    },
-  ]);
+  // Addresses State with localStorage persistence (no default dummy address)
+  const [addresses, setAddresses] = useState<Array<{
+    id: string;
+    type: string;
+    name: string;
+    phone: string;
+    addressLine: string;
+    city: string;
+    state?: string;
+    pincode: string;
+    isDefault?: boolean;
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('abb_saved_addresses_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const userSaved = parsed.filter((a: any) => a.id !== 'addr-1' && a.id !== 'addr-2' && a.name !== 'Rahul Sharma');
+          return userSaved;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return [];
+  });
 
-  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
-  const [newAddrType, setNewAddrType] = useState('Home');
-  const [newAddrName, setNewAddrName] = useState('');
-  const [newAddrPhone, setNewAddrPhone] = useState('');
-  const [newAddrLine, setNewAddrLine] = useState('');
-  const [newAddrCity, setNewAddrCity] = useState('');
-  const [newAddrState, setNewAddrState] = useState('');
-  const [newAddrPincode, setNewAddrPincode] = useState('');
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
   // Sample Orders
   const orders = [
@@ -129,44 +141,59 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      localStorage.setItem('abb_user_profile_name', userName);
+      localStorage.setItem('abb_user_profile_email', userEmail);
+      localStorage.setItem('abb_user_profile_phone', userPhone);
+    } catch {
+      // storage unavailable
+    }
     setIsSavedNotice(true);
     setTimeout(() => setIsSavedNotice(false), 2500);
   };
 
-  const handleAddAddress = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAddrName || !newAddrLine || !newAddrPincode) return;
-    const newAddress = {
-      id: `addr-${Date.now()}`,
-      type: newAddrType,
-      name: newAddrName,
-      phone: newAddrPhone || userPhone,
-      addressLine: newAddrLine,
-      city: newAddrCity || 'Mumbai',
-      state: newAddrState || 'Maharashtra',
-      pincode: newAddrPincode,
-      isDefault: false,
+  const handleSaveNewAddress = (newAddr: NewAddressData) => {
+    const formattedAddress = {
+      id: newAddr.id,
+      type: newAddr.type,
+      name: newAddr.name,
+      phone: newAddr.phone,
+      addressLine: newAddr.fullAddressString || `${newAddr.houseFlat}, ${newAddr.streetLine1}, ${newAddr.areaLocality}`,
+      city: newAddr.city,
+      state: newAddr.state || 'Delhi',
+      pincode: newAddr.pincode,
+      isDefault: addresses.length === 0,
     };
-    setAddresses((prev) => [...prev, newAddress]);
-    setShowNewAddressForm(false);
-    setNewAddrName('');
-    setNewAddrLine('');
-    setNewAddrCity('');
-    setNewAddrState('');
-    setNewAddrPincode('');
+    const updated = [formattedAddress, ...addresses];
+    setAddresses(updated);
+    try {
+      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   };
 
   const handleDeleteAddress = (id: string) => {
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
+    const updated = addresses.filter((a) => a.id !== id);
+    setAddresses(updated);
+    try {
+      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   };
 
   const handleSetDefaultAddress = (id: string) => {
-    setAddresses((prev) =>
-      prev.map((a) => ({
-        ...a,
-        isDefault: a.id === id,
-      }))
-    );
+    const updated = addresses.map((a) => ({
+      ...a,
+      isDefault: a.id === id,
+    }));
+    setAddresses(updated);
+    try {
+      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   };
 
   return (
@@ -201,19 +228,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-navy text-white flex items-center justify-center font-bold text-2xl sm:text-3xl border-4 border-white shadow-md">
-              {userName.charAt(0)}
+              {userName ? userName.charAt(0).toUpperCase() : <User className="w-8 h-8" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-navy">{userName}</h1>
+                <h1 className="text-xl sm:text-2xl font-black text-navy">{userName || 'My Account'}</h1>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#A44101]/10 text-[#A44101] border border-[#A44101]/25">
                   <Award className="w-3 h-3 text-[#A44101]" />
                   <span>Gold Member</span>
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">{userEmail} • {userPhone}</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {userEmail || userPhone ? `${userEmail || ''} ${userEmail && userPhone ? '•' : ''} ${userPhone || ''}` : 'Manage your orders, saved addresses and preferences'}
+              </p>
               <p className="text-[11px] text-slate-500 font-medium mt-1">
-                Member of Apna Bharat Bazaar since 2024
+                Member of Apna Bharat Bazaar
               </p>
             </div>
           </div>
@@ -525,166 +554,91 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowNewAddressForm((prev) => !prev)}
-                    className="px-3.5 py-2 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    onClick={() => setIsAddressModalOpen(true)}
+                    className="px-4 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-98"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>{showNewAddressForm ? 'Cancel' : 'Add New Address'}</span>
+                    <span>Add New Address</span>
                   </button>
                 </div>
 
-                {/* Add New Address Form */}
-                <AnimatePresence>
-                  {showNewAddressForm && (
-                    <motion.form
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      onSubmit={handleAddAddress}
-                      className="p-5 rounded-2xl border-2 border-dashed border-[#A44101]/30 bg-slate-50 space-y-4"
-                    >
-                      <h3 className="text-sm font-bold text-navy">Add New Shipping Address</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                        <div>
-                          <label className="block font-bold mb-1">Address Type</label>
-                          <select
-                            value={newAddrType}
-                            onChange={(e) => setNewAddrType(e.target.value)}
-                            className="w-full p-2.5 bg-white rounded-lg border border-slate-300 focus:outline-none"
-                          >
-                            <option value="Home">Home</option>
-                            <option value="Office">Office</option>
-                            <option value="Other">Other</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block font-bold mb-1">Full Name *</label>
-                          <input
-                            type="text"
-                            value={newAddrName}
-                            onChange={(e) => setNewAddrName(e.target.value)}
-                            placeholder="e.g. Rahul Sharma"
-                            className="w-full p-2.5 bg-white rounded-lg border border-slate-300 focus:outline-none"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold mb-1">Contact Phone</label>
-                          <input
-                            type="tel"
-                            value={newAddrPhone}
-                            onChange={(e) => setNewAddrPhone(e.target.value)}
-                            placeholder="+91 98765 43210"
-                            className="w-full p-2.5 bg-white rounded-lg border border-slate-300 focus:outline-none"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block font-bold mb-1">Flat / House / Street Address *</label>
-                          <input
-                            type="text"
-                            value={newAddrLine}
-                            onChange={(e) => setNewAddrLine(e.target.value)}
-                            placeholder="Door no, Apartment, Street name"
-                            className="w-full p-2.5 bg-white rounded-lg border border-slate-300 focus:outline-none"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold mb-1">City</label>
-                          <input
-                            type="text"
-                            value={newAddrCity}
-                            onChange={(e) => setNewAddrCity(e.target.value)}
-                            placeholder="e.g. Mumbai"
-                            className="w-full p-2.5 bg-white rounded-lg border border-slate-300 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold mb-1">Pincode *</label>
-                          <input
-                            type="text"
-                            value={newAddrPincode}
-                            onChange={(e) => setNewAddrPincode(e.target.value)}
-                            placeholder="6-digit Pincode"
-                            className="w-full p-2.5 bg-white rounded-lg border border-slate-300 focus:outline-none"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowNewAddressForm(false)}
-                          className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-stone-100"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2 rounded-lg bg-navy text-white text-xs font-bold hover:bg-navy-light"
-                        >
-                          Save Address
-                        </button>
-                      </div>
-                    </motion.form>
-                  )}
-                </AnimatePresence>
-
                 {/* Saved Address Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {addresses.map((addr) => (
-                    <div
-                      key={addr.id}
-                      className={`p-4 rounded-2xl border transition-all relative ${
-                        addr.isDefault 
-                          ? 'border-navy bg-stone-50/70 shadow-xs' 
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy">
-                            {addr.type}
-                          </span>
-                          {addr.isDefault && (
-                            <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded border border-[#A44101]/20">
-                              Default
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {!addr.isDefault && (
-                            <button
-                              type="button"
-                              onClick={() => handleSetDefaultAddress(addr.id)}
-                              className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer"
-                            >
-                              Set Default
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteAddress(addr.id)}
-                            className="text-slate-400 hover:text-[#A44101] p-1 cursor-pointer"
-                            title="Delete Address"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                        {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
-                      </p>
-                      <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>{addr.phone}</span>
+                {addresses.length === 0 ? (
+                  <div className="py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-stone-50/50 text-center flex flex-col items-center justify-center space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-[#A44101]/10 text-[#A44101] flex items-center justify-center">
+                      <MapPin className="w-6 h-6 stroke-[2.2]" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-navy">No Addresses Saved</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                        You have not added any delivery address yet. Add your delivery address for faster checkout.
                       </p>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressModalOpen(true)}
+                      className="px-5 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-98"
+                    >
+                      <Plus className="w-4 h-4 stroke-[2.5]" />
+                      <span>Add New Address</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {addresses.map((addr) => (
+                      <div
+                        key={addr.id}
+                        className={`p-4 rounded-2xl border transition-all relative ${
+                          addr.isDefault 
+                            ? 'border-navy bg-stone-50/70 shadow-xs' 
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy">
+                              {addr.type}
+                            </span>
+                            {addr.isDefault && (
+                              <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded border border-[#A44101]/20">
+                                Default
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {!addr.isDefault && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetDefaultAddress(addr.id)}
+                                className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer"
+                              >
+                                Set Default
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAddress(addr.id)}
+                              className="text-slate-400 hover:text-[#A44101] p-1 cursor-pointer"
+                              title="Delete Address"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
+                        <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                          {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>{addr.phone}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -813,6 +767,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </div>
 
       </div>
+
+      {/* 2-Step Add Address Modal Popup */}
+      <AddAddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onSaveAddress={handleSaveNewAddress}
+        initialValues={{
+          name: userName,
+          phone: userPhone.replace('+91 ', ''),
+        }}
+      />
     </div>
   );
 };

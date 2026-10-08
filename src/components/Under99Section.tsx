@@ -9,11 +9,14 @@ import {
   ShieldCheck, 
   Truck, 
   X, 
-  ArrowRight,
-  Sparkles,
-  Tag
+  ArrowRight, 
+  Sparkles, 
+  Tag,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import { UNDER_99_PRODUCTS, ProductItem } from '../data/storeData';
+import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 
 interface Under99SectionProps {
   onProductClick?: (product: ProductItem) => void;
@@ -26,6 +29,8 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
   const [quickBuyProduct, setQuickBuyProduct] = useState<ProductItem | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [formData, setFormData] = useState({ name: '', phone: '', pincode: '', paymentMethod: 'cod' });
+  const [pincodeLocation, setPincodeLocation] = useState<string>('');
+  const [isCheckingPin, setIsCheckingPin] = useState<boolean>(false);
   const shouldReduceMotion = useReducedMotion();
 
   // Price filter tabs
@@ -55,6 +60,24 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
   const handleQuickBuy = (product: ProductItem) => {
     setQuickBuyProduct(product);
     setOrderSuccess(false);
+    setPincodeLocation('');
+  };
+
+  const handlePincodeChange = async (pin: string) => {
+    const cleaned = pin.replace(/\D/g, '').slice(0, 6);
+    setFormData((prev) => ({ ...prev, pincode: cleaned }));
+    if (cleaned.length === 6) {
+      setIsCheckingPin(true);
+      const details = await fetchPincodeDetailsFromApi(cleaned);
+      setIsCheckingPin(false);
+      if (details) {
+        setPincodeLocation(`${details.locality || ''}, ${details.city} (${details.state})`);
+      } else {
+        setPincodeLocation('');
+      }
+    } else {
+      setPincodeLocation('');
+    }
   };
 
   const handleConfirmOrder = (e: React.FormEvent) => {
@@ -64,13 +87,13 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
       setQuickBuyProduct(null);
       setOrderSuccess(false);
       setFormData({ name: '', phone: '', pincode: '', paymentMethod: 'cod' });
+      setPincodeLocation('');
     }, 2500);
   };
 
   return (
     <section 
-      id="under-99-store" 
-      className="py-10 sm:py-16 bg-white border-b border-slate-200 relative overflow-hidden"
+      className="section-under-99-store py-10 sm:py-16 bg-white border-b border-slate-200 relative overflow-hidden"
       aria-label="Under 99 Rupees Products Section"
     >
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -395,7 +418,7 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Rahul Sharma"
+                        placeholder="Enter your full name"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-navy"
@@ -413,15 +436,35 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
                       />
                     </div>
                     <div>
-                      <label className="block mb-1">Pincode (Fast 48-Hour Delivery)</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. 110001"
-                        value={formData.pincode}
-                        onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-navy"
-                      />
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block">Pincode (Fast 48-Hour Delivery)</label>
+                        {isCheckingPin && (
+                          <span className="flex items-center gap-1 text-[10px] text-amber-600 font-semibold">
+                            <Loader2 className="w-3 h-3 animate-spin" /> Fetching locality...
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          placeholder="e.g. 110001"
+                          value={formData.pincode}
+                          onChange={(e) => handlePincodeChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-hidden focus:border-navy"
+                        />
+                        {pincodeLocation && (
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          </div>
+                        )}
+                      </div>
+                      {pincodeLocation && (
+                        <p className="mt-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1 flex items-center gap-1.5">
+                          <span>📍</span> {pincodeLocation}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block mb-1">Payment Method</label>

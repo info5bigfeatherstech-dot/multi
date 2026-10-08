@@ -25,12 +25,14 @@ import { useCart } from '../context/CartContext';
 
 interface CategoryShowcaseSectionsProps {
   onProductClick?: (product: ProductItem) => void;
+  onCategoryClick?: (categoryId: string) => void;
   insertElement?: React.ReactNode;
   insertAfterIndex?: number;
 }
 
 export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> = ({ 
   onProductClick,
+  onCategoryClick,
   insertElement,
   insertAfterIndex = 2
 }) => {
@@ -83,6 +85,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
           <CategoryShowcaseRow
             section={section}
             onProductClick={onProductClick}
+            onCategoryClick={onCategoryClick}
             addedItemIds={addedItemIds}
             onAddToCart={handleAddToCart}
             getCategoryIcon={getCategoryIcon}
@@ -102,6 +105,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
 interface CategoryShowcaseRowProps {
   section: CategorySectionInfo;
   onProductClick?: (product: ProductItem) => void;
+  onCategoryClick?: (categoryId: string) => void;
   addedItemIds: { [key: string]: boolean };
   onAddToCart: (product: ProductItem) => void;
   getCategoryIcon: (id: string) => React.ReactNode;
@@ -111,20 +115,22 @@ interface CategoryShowcaseRowProps {
 const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
   section,
   onProductClick,
+  onCategoryClick,
   addedItemIds,
   onAddToCart,
   getCategoryIcon,
   shouldReduceMotion,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [, setCanScrollLeft] = useState(false);
+  const [, setCanScrollRight] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
 
   const checkScroll = () => {
     if (!scrollRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    setCanScrollLeft(scrollLeft > 8);
-    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 8);
+    setCanScrollLeft(scrollLeft > 10);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
   };
 
   useEffect(() => {
@@ -134,25 +140,66 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [section.products]);
 
-  const handleScroll = (direction: 'left' | 'right') => {
+  // Compute exact width of a single product card + gap
+  const getSingleProductWidth = () => {
+    if (!scrollRef.current) return 260;
+    const firstCard = scrollRef.current.firstElementChild as HTMLElement | null;
+    if (firstCard) {
+      const cardRect = firstCard.getBoundingClientRect();
+      const gap = window.innerWidth >= 640 ? 16 : 12;
+      return Math.round(cardRect.width + gap);
+    }
+    return 260;
+  };
+
+  // Scroll exactly one product to left or right with wrap-around
+  const scrollOneProduct = (direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
-    const scrollAmount = Math.max(scrollRef.current.clientWidth * 0.75, 260);
-    scrollRef.current.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    });
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    const cardStep = getSingleProductWidth();
+    const maxScroll = scrollWidth - clientWidth;
+
+    if (maxScroll <= 0) return;
+
+    if (direction === 'right') {
+      if (scrollLeft >= maxScroll - 15) {
+        scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        scrollRef.current.scrollBy({ left: cardStep, behavior: 'smooth' });
+      }
+    } else {
+      if (scrollLeft <= 15) {
+        scrollRef.current.scrollTo({ left: maxScroll, behavior: 'smooth' });
+      } else {
+        scrollRef.current.scrollBy({ left: -cardStep, behavior: 'smooth' });
+      }
+    }
     setTimeout(checkScroll, 350);
   };
 
+  // Automatically scroll 1 product to the right every 3.2 seconds (pauses on hover or touch)
+  useEffect(() => {
+    if (shouldReduceMotion || isHovered) return;
+
+    const timer = setInterval(() => {
+      if (!scrollRef.current) return;
+      const { scrollWidth, clientWidth } = scrollRef.current;
+      if (scrollWidth <= clientWidth + 10) return;
+
+      scrollOneProduct('right');
+    }, 3200);
+
+    return () => clearInterval(timer);
+  }, [isHovered, shouldReduceMotion, section.products]);
+
   return (
     <section
-      id={`section-${section.id}`}
-      className="py-8 sm:py-10 border-b border-slate-200 bg-white transition-colors"
+      className={`section-${section.id} py-8 sm:py-10 border-b border-slate-200 bg-white transition-colors`}
       aria-labelledby={`heading-${section.id}`}
     >
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Category Header Row with Left & Right Arrows on Right */}
+        {/* Category Header Row with Controls */}
         <div className="flex flex-row items-end justify-between gap-4 mb-5 sm:mb-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-navy text-xs font-bold mb-2 border border-slate-200">
@@ -170,6 +217,31 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
             </p>
           </div>
 
+          {/* Header Controls (prev/next + auto-scroll indicator) */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Auto-scroll</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => scrollOneProduct('left')}
+              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#A44101] text-navy hover:text-white flex items-center justify-center transition-all cursor-pointer border border-slate-200 active:scale-95"
+              aria-label="Previous product"
+              title="Previous product"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollOneProduct('right')}
+              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-[#A44101] text-navy hover:text-white flex items-center justify-center transition-all cursor-pointer border border-slate-200 active:scale-95"
+              aria-label="Next product"
+              title="Next product"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
 
         </div>
 
@@ -219,31 +291,40 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                   {section.tagline}
                 </p>
 
-                <a
-                  href="#top-categories"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onCategoryClick) {
+                      onCategoryClick(section.id);
+                    } else {
+                      document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 mt-2 px-4 py-2.5 rounded-theme bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-extrabold transition-all shadow-md group/btn w-full justify-center active:scale-98 cursor-pointer"
                 >
                   <span>View All {section.name}</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                </a>
+                </button>
               </div>
             </motion.div>
           </div>
 
           {/* RIGHT: Products Carousel with Floating Left & Right Arrows */}
-          <div className="flex-1 relative flex items-center min-w-0">
+          <div 
+            className="flex-1 relative flex items-center min-w-0"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            onTouchStart={() => setIsHovered(true)}
+            onTouchEnd={() => setIsHovered(false)}
+          >
             
-            {/* Floating Left Arrow */}
+            {/* Floating Left Arrow (Always visible & interactive) */}
             <button
               type="button"
-              onClick={() => handleScroll('left')}
-              disabled={!canScrollLeft}
-              className={`absolute -left-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center text-navy transition-all duration-200 cursor-pointer ${
-                !canScrollLeft
-                  ? 'opacity-0 pointer-events-none'
-                  : 'opacity-100 hover:bg-[#0f2744] hover:text-white hover:scale-105 active:scale-95'
-              }`}
+              onClick={() => scrollOneProduct('left')}
+              className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
               aria-label={`Scroll ${section.name} products left`}
+              title="Previous product"
             >
               <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
             </button>
@@ -372,17 +453,13 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               })}
             </div>
 
-            {/* Floating Right Arrow */}
+            {/* Floating Right Arrow (Always visible & interactive) */}
             <button
               type="button"
-              onClick={() => handleScroll('right')}
-              disabled={!canScrollRight}
-              className={`absolute -right-3.5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center text-navy transition-all duration-200 cursor-pointer ${
-                !canScrollRight
-                  ? 'opacity-0 pointer-events-none'
-                  : 'opacity-100 hover:bg-[#0f2744] hover:text-white hover:scale-105 active:scale-95'
-              }`}
+              onClick={() => scrollOneProduct('right')}
+              className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
               aria-label={`Scroll ${section.name} products right`}
+              title="Next product"
             >
               <ChevronRight className="w-5 h-5 stroke-[2.5]" />
             </button>

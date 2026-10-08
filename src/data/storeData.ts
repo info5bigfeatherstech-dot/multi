@@ -22,6 +22,7 @@ export interface HeroBanner {
   image: string;
   alt: string;
   linkUrl: string;
+  targetClass?: string;
 }
 
 export interface HeroSlide {
@@ -179,19 +180,22 @@ export const HERO_TEMPLATED_BANNERS: HeroBanner[] = [
     id: "banner-kitchen",
     image: "/images/hero-custom-kitchen.jpg",
     alt: "Apna Bharat Bazaar Kitchen Dhamaka Sale - Up to 70% OFF",
-    linkUrl: "#section-home-kitchen",
+    linkUrl: "",
+    targetClass: "section-home-kitchen",
   },
   {
     id: "banner-gadgets",
     image: "/images/hero-custom-gadgets.jpg",
     alt: "Apna Bharat Bazaar Smart Gadgets Fest - Flat 65% OFF",
-    linkUrl: "#section-smart-life-gadget",
+    linkUrl: "",
+    targetClass: "section-smart-life-gadget",
   },
   {
     id: "banner-fashion",
     image: "/images/hero-custom-fashion.jpg",
     alt: "Apna Bharat Bazaar Fashion & Mega Store - Up to 75% OFF",
-    linkUrl: "#section-fashion-world",
+    linkUrl: "",
+    targetClass: "section-fashion-world",
   },
 ];
 
@@ -361,6 +365,45 @@ export const CATEGORY_SECTIONS_DATA: CategorySectionInfo[] = [
         tag: "COMBO PACK",
         inStock: true,
       },
+      {
+        id: "hk-5",
+        title: "360 Rotating Spice Carousel Organizer 16 Jars",
+        category: "Home & Kitchen",
+        currentPrice: 299,
+        originalPrice: 799,
+        discountPercentage: 63,
+        image: "https://images.unsplash.com/photo-1590794056226-79ef3a8147e1?auto=format&fit=crop&w=800&q=80",
+        rating: 4.7,
+        reviews: 880,
+        tag: "ORGANIZER",
+        inStock: true,
+      },
+      {
+        id: "hk-6",
+        title: "Silicone Heat-Resistant Kitchen Cooking Spatula Set",
+        category: "Home & Kitchen",
+        currentPrice: 179,
+        originalPrice: 499,
+        discountPercentage: 64,
+        image: "https://images.unsplash.com/photo-1590794056226-79ef3a8147e1?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 750,
+        tag: "BEST VALUE",
+        inStock: true,
+      },
+      {
+        id: "hk-7",
+        title: "Airlock Leakproof Glass Food Storage Containers (Set of 3)",
+        category: "Home & Kitchen",
+        currentPrice: 249,
+        originalPrice: 749,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=800&q=80",
+        rating: 4.7,
+        reviews: 1040,
+        tag: "HOT DEAL",
+        inStock: true,
+      },
     ],
   },
   {
@@ -425,6 +468,45 @@ export const CATEGORY_SECTIONS_DATA: CategorySectionInfo[] = [
         tag: "FUN GADGET",
         inStock: true,
       },
+      {
+        id: "sl-5",
+        title: "Wireless RGB Gaming Soundbar Bluetooth 5.3",
+        category: "Smart Life Gadget",
+        currentPrice: 499,
+        originalPrice: 1499,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 920,
+        tag: "GAMING",
+        inStock: true,
+      },
+      {
+        id: "sl-6",
+        title: "Fast Wireless Charging Stand 3-in-1 Foldable Dock",
+        category: "Smart Life Gadget",
+        currentPrice: 399,
+        originalPrice: 1199,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80",
+        rating: 4.7,
+        reviews: 630,
+        tag: "FAST CHARGE",
+        inStock: true,
+      },
+      {
+        id: "sl-7",
+        title: "Mini Pocket Thermal Label Printer Wireless Bluetooth",
+        category: "Smart Life Gadget",
+        currentPrice: 599,
+        originalPrice: 1899,
+        discountPercentage: 68,
+        image: "https://images.unsplash.com/photo-1589492477829-5e65395b66cc?auto=format&fit=crop&w=800&q=80",
+        rating: 4.6,
+        reviews: 490,
+        tag: "VIRAL GADGET",
+        inStock: true,
+      },
     ],
   },
   {
@@ -433,7 +515,7 @@ export const CATEGORY_SECTIONS_DATA: CategorySectionInfo[] = [
     headline: "Everyday Apparel, Footwear & Accessories",
     tagline: "Pure cotton shirts, comfortable tees & lifestyle staples at factory direct discounts",
     bannerDiscount: "UP TO 75% OFF",
-    badge: "WARDROBE DROP",
+    badge: "Fashion",
     bannerColor: "from-[#A44101] to-[#0F172A]",
     image: "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=800&q=80",
     products: [
@@ -487,6 +569,45 @@ export const CATEGORY_SECTIONS_DATA: CategorySectionInfo[] = [
         rating: 4.6,
         reviews: 780,
         tag: "FITNESS",
+        inStock: true,
+      },
+      {
+        id: "fw-5",
+        title: "Men's Slim Fit Stretchable Denim Jeans",
+        category: "Fashion World",
+        currentPrice: 399,
+        originalPrice: 1199,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1542272604-780c96856592?auto=format&fit=crop&w=800&q=80",
+        rating: 4.7,
+        reviews: 940,
+        tag: "TRENDING",
+        inStock: true,
+      },
+      {
+        id: "fw-6",
+        title: "Breathable Lightweight Mesh Running Sneakers",
+        category: "Fashion World",
+        currentPrice: 349,
+        originalPrice: 999,
+        discountPercentage: 65,
+        image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 1120,
+        tag: "TOP RATED",
+        inStock: true,
+      },
+      {
+        id: "fw-7",
+        title: "Vintage Matte Leather Belt & Cardholder Gift Combo",
+        category: "Fashion World",
+        currentPrice: 199,
+        originalPrice: 699,
+        discountPercentage: 71,
+        image: "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=800&q=80",
+        rating: 4.6,
+        reviews: 680,
+        tag: "GIFT PACK",
         inStock: true,
       },
     ],
@@ -1003,6 +1124,147 @@ export const CATEGORY_SECTIONS_DATA: CategorySectionInfo[] = [
       },
     ],
   },
+  {
+    id: "home-improvement",
+    name: "Home Improvement",
+    headline: "Smart Home Utilities, Lighting & Hardware Tools",
+    tagline: "Wireless motion sensor lights, drill bit sets, leakage tapes and home DIY essentials at factory prices",
+    bannerDiscount: "UP TO 75% OFF",
+    badge: "HOME UPGRADE",
+    bannerColor: "from-[#0F172A] to-slate-800",
+    image: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=800&q=80",
+    products: [
+      {
+        id: "hi-1",
+        title: "Wireless Motion Sensor LED Night Light Bar (Magnetic)",
+        category: "Home Improvement",
+        currentPrice: 149,
+        originalPrice: 499,
+        discountPercentage: 70,
+        image: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 980,
+        tag: "HOT SELLER",
+        inStock: true,
+      },
+      {
+        id: "hi-2",
+        title: "Multipurpose Electric Screwdriver & Drill Bits 47-Piece Kit",
+        category: "Home Improvement",
+        currentPrice: 399,
+        originalPrice: 1299,
+        discountPercentage: 69,
+        image: "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=800&q=80",
+        rating: 4.7,
+        reviews: 640,
+        tag: "TOP RATED",
+        inStock: true,
+      },
+      {
+        id: "hi-3",
+        title: "High-Pressure Garden Hose Spray Nozzle 8-Pattern",
+        category: "Home Improvement",
+        currentPrice: 189,
+        originalPrice: 599,
+        discountPercentage: 68,
+        image: "https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?auto=format&fit=crop&w=800&q=80",
+        rating: 4.6,
+        reviews: 510,
+        tag: "MUST HAVE",
+        inStock: true,
+      },
+      {
+        id: "hi-4",
+        title: "Waterproof Anti-Leak Butyl Tape for Roof & Pipe Repair",
+        category: "Home Improvement",
+        currentPrice: 99,
+        originalPrice: 349,
+        discountPercentage: 72,
+        image: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=800&q=80",
+        rating: 4.9,
+        reviews: 1420,
+        tag: "VIRAL DEAL",
+        inStock: true,
+      },
+      {
+        id: "hi-5",
+        title: "Strong Magnetic Curtain Tiebacks & Drapes Holder (Set of 2)",
+        category: "Home Improvement",
+        currentPrice: 79,
+        originalPrice: 249,
+        discountPercentage: 68,
+        image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 730,
+        tag: "DECOR HACK",
+        inStock: true,
+      },
+    ],
+  },
+  {
+    id: "gifts",
+    name: "Toys & Games",
+    headline: "Novelty Gifts, Kids Toys & Fun Gadgets",
+    tagline: "Interactive educational toys, ambient LED moon lamps, boomerang balls and memorable novelty gifts",
+    bannerDiscount: "UP TO 70% OFF",
+    badge: "GIFTS & NOVELTIES",
+    bannerColor: "from-[#A44101] to-[#0F172A]",
+    image: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80",
+    products: [
+      {
+        id: "gf-1",
+        title: "3D Moon Lamp 16 Colors with Remote & Wooden Stand",
+        category: "Toys & Games",
+        currentPrice: 249,
+        originalPrice: 799,
+        discountPercentage: 69,
+        image: "https://images.unsplash.com/photo-1532767153582-b1a0e5145009?auto=format&fit=crop&w=800&q=80",
+        rating: 4.9,
+        reviews: 1840,
+        tag: "BEST GIFT",
+        inStock: true,
+      },
+      {
+        id: "gf-2",
+        title: "Magic Flying Spinner Boomerang Orb Drone Ball with LED",
+        category: "Toys & Games",
+        currentPrice: 299,
+        originalPrice: 899,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 1120,
+        tag: "TRENDING",
+        inStock: true,
+      },
+      {
+        id: "gf-3",
+        title: "Dancing Cactus Talking Toy with Music & Voice Recording",
+        category: "Toys & Games",
+        currentPrice: 199,
+        originalPrice: 599,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1558877385-81a1c7e67d72?auto=format&fit=crop&w=800&q=80",
+        rating: 4.7,
+        reviews: 860,
+        tag: "KIDS FAVORITE",
+        inStock: true,
+      },
+      {
+        id: "gf-4",
+        title: "DIY Educational Crystal Science Growing Kit for Kids",
+        category: "Toys & Games",
+        currentPrice: 179,
+        originalPrice: 549,
+        discountPercentage: 67,
+        image: "https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=800&q=80",
+        rating: 4.8,
+        reviews: 590,
+        tag: "LEARN & PLAY",
+        inStock: true,
+      },
+    ],
+  },
 ];
 
 export const ALL_PRODUCTS_CATALOG: ProductItem[] = [
@@ -1198,15 +1460,181 @@ export const UNDER_99_PRODUCTS: ProductItem[] = [
   },
 ];
 
+export const NEW_ARRIVALS_PRODUCTS: ProductItem[] = [
+  {
+    id: "na-1",
+    title: "Pro 5.3 True Wireless Stereo Earbuds with Quad ENC Mics",
+    category: "Smart Life Gadget",
+    currentPrice: 349,
+    originalPrice: 999,
+    discountPercentage: 65,
+    image: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80",
+    rating: 4.9,
+    reviews: 148,
+    isTopDeal: true,
+    tag: "NEW ARRIVAL",
+    inStock: true,
+  },
+  {
+    id: "na-2",
+    title: "USB Rechargeable 6-Blade Portable Smoothie Blender 450ml",
+    category: "Home & Kitchen",
+    currentPrice: 299,
+    originalPrice: 799,
+    discountPercentage: 63,
+    image: "https://images.unsplash.com/photo-1570222094114-d054a817e56b?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviews: 96,
+    isTopDeal: true,
+    tag: "NEW ARRIVAL",
+    inStock: true,
+  },
+  {
+    id: "na-3",
+    title: "15W Magnetic Fast Wireless Car Mount Charger with Auto-Clamp",
+    category: "Car Accessories",
+    currentPrice: 249,
+    originalPrice: 699,
+    discountPercentage: 64,
+    image: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=800&q=80",
+    rating: 4.9,
+    reviews: 112,
+    isTopDeal: true,
+    tag: "NEW ARRIVAL",
+    inStock: true,
+  },
+  {
+    id: "na-4",
+    title: "Ultrasonic Flame Aroma Mist Diffuser & Ambient LED Lamp",
+    category: "Home Improvement",
+    currentPrice: 389,
+    originalPrice: 1199,
+    discountPercentage: 68,
+    image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80",
+    rating: 4.8,
+    reviews: 84,
+    isTopDeal: true,
+    tag: "NEW ARRIVAL",
+    inStock: true,
+  },
+  {
+    id: "na-5",
+    title: "Smart Bluetooth Body Composition Scale with 14 Bio-Metrics",
+    category: "Sports & Fitness",
+    currentPrice: 329,
+    originalPrice: 899,
+    discountPercentage: 63,
+    image: "https://images.unsplash.com/photo-1576243345690-4e4b79b63288?auto=format&fit=crop&w=800&q=80",
+    rating: 4.7,
+    reviews: 73,
+    isTopDeal: true,
+    tag: "NEW ARRIVAL",
+    inStock: true,
+  },
+];
+
 export const getAllProducts = (): ProductItem[] => {
   const map = new Map<string, ProductItem>();
   ALL_PRODUCTS_CATALOG.forEach((p) => map.set(p.id, p));
   CATEGORY_SECTIONS_DATA.forEach((s) => s.products.forEach((p) => map.set(p.id, p)));
   UNDER_99_PRODUCTS.forEach((p) => map.set(p.id, p));
+  NEW_ARRIVALS_PRODUCTS.forEach((p) => map.set(p.id, p));
   return Array.from(map.values());
 };
 
 export const getProductById = (id: string): ProductItem | undefined => {
   return getAllProducts().find((p) => p.id === id);
+};
+
+export const getCategorySectionById = (id: string): CategorySectionInfo | undefined => {
+  return CATEGORY_SECTIONS_DATA.find((s) => s.id === id);
+};
+
+export const getCategoryMetadata = (catId: string) => {
+  const section = getCategorySectionById(catId);
+  if (section) {
+    return {
+      id: section.id,
+      name: section.name,
+      headline: section.headline,
+      tagline: section.tagline,
+      badge: section.badge,
+      image: section.image,
+      bannerDiscount: section.bannerDiscount,
+    };
+  }
+
+  const storeCat = STORE_CATEGORIES.find((c) => c.id === catId);
+  if (storeCat) {
+    return {
+      id: storeCat.id,
+      name: storeCat.name,
+      headline: `${storeCat.name} Curated Deals`,
+      tagline: `Exclusive wholesale deals and direct discounted products for ${storeCat.name.toLowerCase()}`,
+      badge: "FEATURED DEPARTMENT",
+      image: storeCat.imageUrl,
+      bannerDiscount: "UP TO 70% OFF",
+    };
+  }
+
+  if (catId === 'explore-all' || catId === 'all') {
+    return {
+      id: 'explore-all',
+      name: 'All Categories & Deals',
+      headline: 'Complete Pan India Catalog',
+      tagline: 'Explore our full range of kitchenware, smart gadgets, baby essentials, fitness, and lifestyle goods',
+      badge: 'ALL PRODUCTS',
+      image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80',
+      bannerDiscount: 'UP TO 85% OFF',
+    };
+  }
+
+  return {
+    id: catId,
+    name: catId.replace(/-/g, ' ').toUpperCase(),
+    headline: 'Curated Deals & Discounts',
+    tagline: 'Top quality verified products with fastest Pan India delivery',
+    badge: 'SPECIAL COLLECTION',
+    image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
+    bannerDiscount: 'FACTORY PRICES',
+  };
+};
+
+export const getProductsByCategoryId = (catId: string): ProductItem[] => {
+  if (catId === 'explore-all' || catId === 'all') {
+    return getAllProducts();
+  }
+
+  const section = CATEGORY_SECTIONS_DATA.find((s) => s.id === catId);
+  const sectionProducts = section ? section.products : [];
+
+  const catKeywords: Record<string, string[]> = {
+    'home-kitchen': ['kitchen', 'cooker', 'tiffin', 'tawa', 'sprout', 'food', 'home'],
+    'beauty-personal-care': ['beauty', 'care', 'skin', 'facial', 'trimmer', 'roller', 'hair', 'grooming'],
+    'smart-life-gadget': ['gadget', 'bluetooth', 'fitness', 'watch', 'car', 'water bottle', 'neckband'],
+    'home-improvement': ['improvement', 'sensor', 'drill', 'hose', 'tape', 'curtain', 'light'],
+    'stationary': ['stationary', 'tablet', 'pen', 'organizer', 'notes', 'study'],
+    'sports-fitness': ['fitness', 'bands', 'shaker', 'yoga', 'grip', 'gym'],
+    'car-accessories': ['car', 'mount', 'vacuum', 'charger', 'towels'],
+    'fashion-world': ['fashion', 'shirt', 'cotton', 'apparel', 'wear'],
+    'cleaning-housekeeping': ['cleaning', 'mop', 'lint', 'feeder', 'housekeeping'],
+    'baby-items': ['baby', 'feeder', 'teether', 'bottle', 'bib', 'infant'],
+    'tours-travels': ['travel', 'duffel', 'bag', 'pillow', 'cubes', 'luggage'],
+    'gifts': ['toy', 'gift', 'moon lamp', 'drone', 'cactus', 'crystal', 'novelty'],
+    'mix-item': ['tape', 'keychain', 'roller', 'clips', 'mix', 'dhamaka'],
+  };
+
+  const keywords = catKeywords[catId] || [catId.replace(/-/g, ' ')];
+
+  const matchedFromAll = getAllProducts().filter((p) => {
+    const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
+    return keywords.some((kw) => text.includes(kw.toLowerCase()));
+  });
+
+  const combinedMap = new Map<string, ProductItem>();
+  sectionProducts.forEach((p) => combinedMap.set(p.id, p));
+  matchedFromAll.forEach((p) => combinedMap.set(p.id, p));
+
+  return Array.from(combinedMap.values());
 };
 

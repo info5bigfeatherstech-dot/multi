@@ -1,29 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Search, 
-  Heart, 
-  ShoppingBag, 
-  User, 
-  Menu, 
-  X, 
+import {
+  Search,
+  Heart,
+  ShoppingBag,
+  User,
+  Menu,
+  X,
   ChevronDown,
   ChevronRight,
   Flame,
   LayoutGrid,
   ShieldCheck,
-  ChefHat, 
-  Smartphone, 
-  Baby, 
-  BookOpen, 
-  Sparkle, 
-  Dumbbell, 
-  Plane, 
-  Shirt, 
-  Gift, 
-  Sparkles, 
-  Wrench, 
-  Car, 
-  PackageCheck
+  ChefHat,
+  Smartphone,
+  Baby,
+  BookOpen,
+  Sparkle,
+  Dumbbell,
+  Plane,
+  Shirt,
+  Gift,
+  Sparkles,
+  Wrench,
+  Car,
+  PackageCheck,
+  Headphones
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
@@ -164,12 +165,18 @@ export interface HeaderProps {
   onGoToProfile?: () => void;
   onGoToCheckout?: () => void;
   onGoToHome?: () => void;
+  onSelectCategory?: (categoryId: string) => void;
+  onGoToAdmin?: () => void;
+  onGoToContact?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onGoToWishlist,
   onGoToProfile,
   onGoToHome,
+  onSelectCategory,
+  onGoToAdmin,
+  onGoToContact,
 }) => {
   const { openCart, totalCount, subtotal } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -244,21 +251,26 @@ export const Header: React.FC<HeaderProps> = ({
     // Notify any listening components (e.g. CategoriesSection to expand)
     window.dispatchEvent(new CustomEvent('select-category', { detail: catId }));
 
+    if (onSelectCategory && catId !== 'all') {
+      onSelectCategory(catId);
+      return;
+    }
+
     if (catId === 'under-99') {
-      const el = document.getElementById('under-99-store');
+      const el = document.querySelector('.section-under-99-store');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else if (catId === 'todays-deals') {
-      const el = document.getElementById('section-home-kitchen') || document.getElementById('top-categories');
+      const el = document.querySelector('.section-home-kitchen') || document.querySelector('.section-top-categories');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else if (catId === 'all') {
-      const el = document.getElementById('top-categories') || document.getElementById('every-product-catalog');
+      const el = document.querySelector('.section-top-categories') || document.querySelector('.section-every-product-catalog');
       if (el) el.scrollIntoView({ behavior: 'smooth' });
     } else {
-      const dedicatedEl = document.getElementById(`section-${catId}`);
+      const dedicatedEl = document.querySelector(`.section-${catId}`);
       if (dedicatedEl) {
         dedicatedEl.scrollIntoView({ behavior: 'smooth' });
       } else {
-        const cardEl = document.getElementById(`category-card-${catId}`);
+        const cardEl = document.querySelector(`.category-card-${catId}`);
         if (cardEl) {
           cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           cardEl.classList.add('ring-4', 'ring-[#A44101]', 'ring-offset-2');
@@ -266,7 +278,7 @@ export const Header: React.FC<HeaderProps> = ({
             cardEl.classList.remove('ring-4', 'ring-[#A44101]', 'ring-offset-2');
           }, 1800);
         } else {
-          const fallbackEl = document.getElementById('top-categories') || document.getElementById('every-product-catalog');
+          const fallbackEl = document.querySelector('.section-top-categories') || document.querySelector('.section-every-product-catalog');
           if (fallbackEl) fallbackEl.scrollIntoView({ behavior: 'smooth' });
         }
       }
@@ -276,14 +288,13 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header
-        className={`sticky top-0 z-40 bg-white border-b-2 border-[#A44101] transition-shadow duration-200 ${
-          isScrolled ? 'shadow-md' : 'shadow-xs'
-        }`}
+        className={`sticky top-0 z-40 bg-white border-b-2 border-[#A44101] transition-shadow duration-200 ${isScrolled ? 'shadow-md' : 'shadow-xs'
+          }`}
       >
         <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Main Header Row */}
           <div className="flex items-center justify-between h-28 sm:h-32 md:h-36 gap-3 md:gap-8 py-2">
-            
+
             {/* Logo */}
             <div className="flex items-center gap-3 shrink-0">
               {/* Mobile Hamburger toggle */}
@@ -298,12 +309,12 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               <a
-                href="#home"
+                href="/"
                 onClick={(e) => {
                   e.preventDefault();
                   if (onGoToHome) onGoToHome();
                   else {
-                    window.location.hash = '';
+                    window.history.pushState(null, '', '/');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
@@ -357,7 +368,10 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={() => {
                   if (onGoToWishlist) onGoToWishlist();
-                  else window.location.hash = '#wishlist';
+                  else {
+                    window.history.pushState(null, '', '/wishlist');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
                 }}
                 className="relative p-2 text-navy hover:text-[#A44101] transition-colors group cursor-pointer"
                 aria-label="Wishlist (4 saved items)"
@@ -392,7 +406,10 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={() => {
                   if (onGoToProfile) onGoToProfile();
-                  else window.location.hash = '#profile';
+                  else {
+                    window.history.pushState(null, '', '/profile');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
                 }}
                 className="flex items-center gap-2 p-2 sm:px-3 text-navy hover:text-[#A44101] transition-colors cursor-pointer group"
                 aria-label="User Account"
@@ -404,6 +421,24 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="text-[10px] text-mutedGray font-medium">Namaste</span>
                   <span className="text-xs font-bold text-navy group-hover:text-[#A44101] transition-colors">My Account</span>
                 </div>
+              </button>
+
+              {/* Admin Portal Shortcut */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onGoToAdmin) onGoToAdmin();
+                  else {
+                    window.history.pushState(null, '', '/admin/dashboard');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-300 text-amber-900 transition-all text-xs font-bold cursor-pointer group shadow-xs active:scale-95"
+                title="Open Store Admin Panel"
+                aria-label="Admin Portal"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#A44101] group-hover:scale-110 transition-transform" />
+                <span className="hidden md:inline">Admin</span>
               </button>
             </div>
           </div>
@@ -439,7 +474,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Main Categories Navigation"
           >
             {/* 1. "All Categories" Dropdown Container (Opens on hover and click) */}
-            <div 
+            <div
               className="relative shrink-0"
               onMouseEnter={handleNavDropdownEnter}
               onMouseLeave={handleNavDropdownLeave}
@@ -450,20 +485,18 @@ export const Header: React.FC<HeaderProps> = ({
                   setIsNavDropdownOpen((prev) => !prev);
                   handleCategorySelect('all');
                 }}
-                className={`h-9 px-4 rounded-lg text-xs font-bold transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer shadow-xs ${
-                  isNavDropdownOpen
+                className={`h-9 px-4 rounded-lg text-xs font-bold transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer shadow-xs ${isNavDropdownOpen
                     ? 'bg-navy text-white ring-2 ring-[#A44101]/50 shadow-md'
                     : 'bg-navy hover:bg-[#1a2e45] text-white'
-                }`}
+                  }`}
                 aria-expanded={isNavDropdownOpen}
                 aria-haspopup="true"
               >
                 <LayoutGrid className="w-4 h-4 text-[#A44101] shrink-0" />
                 <span>All Categories</span>
-                <ChevronDown 
-                  className={`w-3.5 h-3.5 text-[#A44101] transition-transform duration-200 shrink-0 ${
-                    isNavDropdownOpen ? 'rotate-180' : ''
-                  }`} 
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-[#A44101] transition-transform duration-200 shrink-0 ${isNavDropdownOpen ? 'rotate-180' : ''
+                    }`}
                 />
               </button>
 
@@ -489,11 +522,10 @@ export const Header: React.FC<HeaderProps> = ({
                             key={cat.id}
                             type="button"
                             onClick={() => handleCategorySelect(cat.id)}
-                            className={`group flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
-                              isCatActive
+                            className={`group flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${isCatActive
                                 ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
                                 : 'text-slate-700 hover:text-navy hover:bg-stone-100 font-medium'
-                            }`}
+                              }`}
                           >
                             <span className="truncate group-hover:text-[#A44101] transition-colors">
                               {cat.name}
@@ -510,47 +542,39 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Store Navigation Links with clean modern pill styles */}
             <div className="flex items-center space-x-1 sm:space-x-1.5 flex-1 min-w-0 pl-1">
-              <a
-                href="#home"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+              <button
+                type="button"
+                onClick={() => {
+                  if (onGoToHome) onGoToHome();
+                  else {
+                    window.history.pushState(null, '', '/');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-navy hover:bg-stone-200/70 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-navy hover:bg-stone-200/70 transition-colors cursor-pointer"
               >
                 Home
-              </a>
-              <a
-                href="#top-categories"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('top-categories')?.scrollIntoView({ behavior: 'smooth' });
+              </button>
+              {/* <button
+                type="button"
+                onClick={() => {
+                  document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer"
               >
                 Featured Categories
-              </a>
-              <a
-                href="#section-home-kitchen"
-                onClick={(e) => {
-                  e.preventDefault();
-                  (document.getElementById('section-home-kitchen') || document.getElementById('top-categories'))?.scrollIntoView({ behavior: 'smooth' });
+              </button> */}
+              <button
+                type="button"
+                onClick={() => {
+                  (document.querySelector('.section-home-kitchen') || document.querySelector('.section-top-categories'))?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#A44101] hover:text-[#8C3701] hover:bg-[#A44101]/10 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#A44101] hover:text-[#8C3701] hover:bg-[#A44101]/10 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Flame className="w-3.5 h-3.5 text-[#A44101] animate-pulse" />
                 <span>Top Deals</span>
-              </a>
-              <a
-                href="#footer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('footer')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors"
-              >
-                Customer Support
-              </a>
+              </button>
+
               <a
                 href="https://wa.me/919320001717"
                 target="_blank"
@@ -560,7 +584,21 @@ export const Header: React.FC<HeaderProps> = ({
                 Bulk Orders
               </a>
             </div>
-
+            <button
+              type="button"
+              onClick={() => {
+                if (onGoToContact) onGoToContact();
+                else {
+                  window.history.pushState(null, '', '/contact');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5"
+              title="24/7 Customer Support & Help Desk"
+            >
+              <Headphones className="w-3.5 h-3.5 text-[#A44101]" />
+              <span>Customer Support</span>
+            </button>
             {/* Right Mini Guarantee & Delivery Badges */}
             <div className="hidden xl:flex items-center gap-2">
               <div className="flex items-center gap-1.5 text-xs text-navy bg-slate-100 border border-slate-200 px-3 py-1 rounded-full font-bold shadow-2xs">
@@ -644,11 +682,10 @@ export const Header: React.FC<HeaderProps> = ({
                           key={cat.id}
                           type="button"
                           onClick={() => handleCategorySelect(cat.id)}
-                          className={`w-full text-left px-3 py-2 rounded-theme text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors ${
-                            isCatActive
+                          className={`w-full text-left px-3 py-2 rounded-theme text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors ${isCatActive
                               ? 'bg-navy text-white'
                               : 'hover:bg-stone-200/60 text-navy'
-                          }`}
+                            }`}
                         >
                           <span className="flex items-center gap-2.5">
                             <IconComp className={`w-4 h-4 ${isCatActive ? 'text-[#A44101]' : 'text-slate-600'}`} />
@@ -666,12 +703,15 @@ export const Header: React.FC<HeaderProps> = ({
                   </h3>
                   <div className="space-y-1 text-sm font-medium text-navy">
                     <a
-                      href="#profile"
+                      href="/profile"
                       onClick={(e) => {
                         e.preventDefault();
                         setIsMobileMenuOpen(false);
                         if (onGoToProfile) onGoToProfile();
-                        else window.location.hash = '#profile';
+                        else {
+                          window.history.pushState(null, '', '/profile');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
                       }}
                       className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 cursor-pointer"
                     >
@@ -679,12 +719,15 @@ export const Header: React.FC<HeaderProps> = ({
                       <span>My Orders & Profile</span>
                     </a>
                     <a
-                      href="#wishlist"
+                      href="/wishlist"
                       onClick={(e) => {
                         e.preventDefault();
                         setIsMobileMenuOpen(false);
                         if (onGoToWishlist) onGoToWishlist();
-                        else window.location.hash = '#wishlist';
+                        else {
+                          window.history.pushState(null, '', '/wishlist');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
                       }}
                       className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 cursor-pointer"
                     >
@@ -707,6 +750,38 @@ export const Header: React.FC<HeaderProps> = ({
                         {totalCount} • ₹{subtotal}
                       </span>
                     </button>
+                    <a
+                      href="/contact"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onGoToContact) onGoToContact();
+                        else {
+                          window.history.pushState(null, '', '/contact');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 text-navy font-semibold cursor-pointer"
+                    >
+                      <Headphones className="w-4 h-4 text-[#A44101]" />
+                      <span>Customer Support &amp; Help Desk</span>
+                    </a>
+                    <a
+                      href="/admin/dashboard"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onGoToAdmin) onGoToAdmin();
+                        else {
+                          window.history.pushState(null, '', '/admin/dashboard');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-amber-100/60 text-amber-900 font-bold cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-[#A44101]" />
+                      <span>Admin Management Portal</span>
+                    </a>
                   </div>
                 </div>
               </div>
