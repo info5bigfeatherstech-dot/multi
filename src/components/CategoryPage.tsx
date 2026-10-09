@@ -27,8 +27,9 @@ import { useCart } from '../context/CartContext';
 
 interface CategoryPageProps {
   categoryId: string;
+  initialSubcategory?: string;
   onSelectProduct: (product: ProductItem) => void;
-  onSelectCategory?: (categoryId: string) => void;
+  onSelectCategory?: (categoryId: string, subcategory?: string) => void;
   onBackToHome?: () => void;
   onGoToCheckout?: () => void;
 }
@@ -39,6 +40,7 @@ export type DiscountOption = 'all' | '70-above' | '50-69' | '30-49' | 'under-30'
 
 export const CategoryPage: React.FC<CategoryPageProps> = ({
   categoryId,
+  initialSubcategory,
   onSelectProduct,
   onGoToCheckout,
 }) => {
@@ -46,6 +48,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Filter States
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>(initialSubcategory || 'all');
   const [sortBy, setSortBy] = useState<SortOption>('featured');
   const [priceRange, setPriceRange] = useState<PriceRangeOption>('all');
   const [customMinPrice, setCustomMinPrice] = useState<string>('');
@@ -55,7 +58,8 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const [codOnly, setCodOnly] = useState<boolean>(false);
   const [discountOffer, setDiscountOffer] = useState<DiscountOption>('all');
 
-  // 2. Accordion Open/Closed States for the 4 Left Cards
+  // 2. Accordion Open/Closed States for Left Filter Cards
+  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(true);
   const [isSortOpen, setIsSortOpen] = useState(true);
   const [isPriceOpen, setIsPriceOpen] = useState(true);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(true);
@@ -72,6 +76,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setSearchQuery('');
+    setSelectedSubcategory(initialSubcategory || 'all');
     setSortBy('featured');
     setPriceRange('all');
     setCustomMinPrice('');
@@ -81,7 +86,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setCodOnly(false);
     setDiscountOffer('all');
     setIsMobileFilterOpen(false);
-  }, [categoryId]);
+  }, [categoryId, initialSubcategory]);
 
   const metadata = useMemo(() => {
     return getCategoryMetadata(categoryId);
@@ -94,15 +99,17 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   // Count active filters (for badge)
   const activeFilterCount = useMemo(() => {
     let count = 0;
+    if (selectedSubcategory !== 'all') count++;
     if (sortBy !== 'featured') count++;
     if (priceRange !== 'all' || customMinPrice || customMaxPrice) count++;
     if (inStockOnly || fastDispatchOnly || codOnly) count++;
     if (discountOffer !== 'all') count++;
     return count;
-  }, [sortBy, priceRange, customMinPrice, customMaxPrice, inStockOnly, fastDispatchOnly, codOnly, discountOffer]);
+  }, [selectedSubcategory, sortBy, priceRange, customMinPrice, customMaxPrice, inStockOnly, fastDispatchOnly, codOnly, discountOffer]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
+    setSelectedSubcategory('all');
     setSortBy('featured');
     setPriceRange('all');
     setCustomMinPrice('');
@@ -116,6 +123,15 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   // Filter and sort products
   const filteredProducts = useMemo(() => {
     let list = [...rawProducts];
+
+    // Subcategory Filter
+    if (selectedSubcategory && selectedSubcategory !== 'all') {
+      const subTerms = selectedSubcategory.toLowerCase().split(/[ &,/]+/).filter(Boolean);
+      list = list.filter((p) => {
+        const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
+        return subTerms.some((term) => text.includes(term));
+      });
+    }
 
     // Search query filter
     if (searchQuery.trim()) {
@@ -206,9 +222,79 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     }));
   };
 
-  // Reusable Component for the 4 Filter Cards matching user screenshot
+  // Reusable Component for Filter Cards matching user requirements
   const renderFilterCards = () => (
     <div className="space-y-3">
+      {/* 0. SUBCATEGORIES CARD */}
+      {metadata.subcategories && metadata.subcategories.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+          <button
+            type="button"
+            onClick={() => setIsSubcategoryOpen(!isSubcategoryOpen)}
+            className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+            aria-expanded={isSubcategoryOpen}
+          >
+            <div className="flex items-center gap-2.5">
+              <Tag className="w-4 h-4 text-[#A44101] shrink-0" />
+              <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+                SUBCATEGORIES
+              </span>
+              {selectedSubcategory !== 'all' && (
+                <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+              )}
+            </div>
+            <ChevronDown 
+              className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+                isSubcategoryOpen ? 'rotate-180' : ''
+              }`} 
+            />
+          </button>
+
+          {isSubcategoryOpen && (
+            <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
+              <label
+                className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                  selectedSubcategory === 'all'
+                    ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
+                }`}
+              >
+                <span>All Subcategories</span>
+                <input
+                  type="radio"
+                  name="subcategory-filter"
+                  checked={selectedSubcategory === 'all'}
+                  onChange={() => setSelectedSubcategory('all')}
+                  className="accent-[#A44101] w-3.5 h-3.5 cursor-pointer"
+                />
+              </label>
+              {metadata.subcategories.map((sub, sIdx) => {
+                const isSelected = selectedSubcategory.toLowerCase() === sub.toLowerCase();
+                return (
+                  <label
+                    key={sIdx}
+                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                      isSelected
+                        ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
+                    }`}
+                  >
+                    <span>{sub}</span>
+                    <input
+                      type="radio"
+                      name="subcategory-filter"
+                      checked={isSelected}
+                      onChange={() => setSelectedSubcategory(sub)}
+                      className="accent-[#A44101] w-3.5 h-3.5 cursor-pointer"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 1. SORT BY CARD */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
         <button
@@ -604,6 +690,43 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
              ============================================================ */}
           <div className="flex-1 min-w-0 w-full space-y-4">
             
+            {/* Horizontal Quick Subcategory Pill Bar */}
+            {metadata.subcategories && metadata.subcategories.length > 0 && (
+              <div className="bg-white rounded-xl p-3 border border-slate-200/90 shadow-2xs flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1 hidden sm:inline">
+                  Subcategories:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSubcategory('all')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                    selectedSubcategory === 'all'
+                      ? 'bg-navy text-white shadow-2xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  All
+                </button>
+                {metadata.subcategories.map((sub, sIdx) => {
+                  const isSelected = selectedSubcategory.toLowerCase() === sub.toLowerCase();
+                  return (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      onClick={() => setSelectedSubcategory(sub)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#A44101] text-white shadow-2xs font-bold'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-navy'
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Search Input Bar */}
             <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/90 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -637,6 +760,15 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                 <div className="flex flex-wrap items-center gap-2 pt-2.5 mt-2.5 border-t border-slate-100">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Applied:</span>
                   
+                  {selectedSubcategory !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#A44101]/10 text-[#A44101] text-xs font-bold">
+                      <span>Subcategory: {selectedSubcategory}</span>
+                      <button type="button" onClick={() => setSelectedSubcategory('all')} className="hover:text-red-700">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+
                   {sortBy !== 'featured' && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
                       <span>Sort: {sortBy}</span>

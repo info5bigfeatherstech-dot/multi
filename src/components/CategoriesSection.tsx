@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp 
 } from 'lucide-react';
+import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 
 export interface CategoryCardData {
   id: string;
@@ -14,6 +15,7 @@ export interface CategoryCardData {
   bgColor?: string;
   overlayColor?: string;
   isExploreAll?: boolean;
+  subcategories?: string[];
 }
 
 export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
@@ -24,38 +26,43 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
     imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["home-kitchen"],
   },
-  // 2. Health & Personal Care
-  {
-    id: "beauty-personal-care",
-    name: "HEALTH & PERSONAL CARE",
-    imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-  },
-  // 3. Smart Gadgets
+  // 2. Smart Life Gadgets
   {
     id: "smart-life-gadget",
-    name: "SMART GADGETS",
+    name: "SMART LIFE GADGETS",
     imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["smart-life-gadget"],
   },
-  // 4. Home Improvement
+  // 3. Baby Items
   {
-    id: "home-improvement",
-    name: "HOME IMPROVEMENT",
-    imageUrl: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=800&q=80",
+    id: "baby-items",
+    name: "BABY ITEMS",
+    imageUrl: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["baby-items"],
   },
-  // 5. Office Products
+  // 4. Stationery
   {
     id: "stationary",
-    name: "OFFICE PRODUCTS",
+    name: "STATIONERY",
     imageUrl: "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["stationary"],
+  },
+  // 5. Cleaning & Housekeeping
+  {
+    id: "cleaning-housekeeping",
+    name: "CLEANING & HOUSEKEEPING",
+    imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=800&q=80",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["cleaning-housekeeping"],
   },
   // 6. Sports & Fitness
   {
@@ -64,6 +71,7 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
     imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["sports-fitness"],
   },
   // 7. Car Accessories
   {
@@ -72,6 +80,7 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
     imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["car-accessories"],
   },
   // 8. Explore All Categories
   {
@@ -82,53 +91,73 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
     overlayColor: "bg-[#A44101]/15",
     isExploreAll: true,
   },
-  // Additional categories revealed on expand
+  // 9. Tours & Travels
+  {
+    id: "tours-travels",
+    name: "TOURS & TRAVELS",
+    imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["tours-travels"],
+  },
+  // 10. Fashion World
   {
     id: "fashion-world",
     name: "FASHION WORLD",
     imageUrl: "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["fashion-world"],
   },
-  {
-    id: "cleaning-housekeeping",
-    name: "CLEANING & HOUSEKEEPING",
-    imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-  },
+  // 11. Gifts
   {
     id: "gifts",
-    name: "TOYS & GAMES",
-    imageUrl: "https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=800&q=80",
+    name: "GIFTS",
+    imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["gifts"],
   },
+  // 12. Beauty & Personal Care
   {
-    id: "tours-travels",
-    name: "BAGS & LUGGAGE",
-    imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80",
+    id: "beauty-personal-care",
+    name: "BEAUTY & PERSONAL CARE",
+    imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["beauty-personal-care"],
   },
+  // 13. Home Improvement
   {
-    id: "baby-items",
-    name: "BABY CARE",
-    imageUrl: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80",
+    id: "home-improvement",
+    name: "HOME IMPROVEMENT",
+    imageUrl: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["home-improvement"],
   },
+  // 14. Corporate Gifting
+  {
+    id: "corporate-gifting",
+    name: "CORPORATE GIFTING",
+    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=800&q=80",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["corporate-gifting"],
+  },
+  // 15. Mix Item Deals
   {
     id: "mix-item",
     name: "MIX ITEM DEALS",
     imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=800&q=80",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["mix-item"],
   },
 ];
 
 interface CategoriesSectionProps {
-  onSelectCategory?: (categoryId: string) => void;
+  onSelectCategory?: (categoryId: string, subcategory?: string) => void;
 }
 
 export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
@@ -155,7 +184,7 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
     ? CATEGORIES_DETAILED_DATA 
     : CATEGORIES_DETAILED_DATA.slice(0, 8);
 
-  const handleCardClick = (category: CategoryCardData) => {
+  const handleCardClick = (category: CategoryCardData, subcategory?: string) => {
     if (category.isExploreAll) {
       if (onSelectCategory) {
         onSelectCategory('explore-all');
@@ -166,7 +195,7 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
     }
 
     if (onSelectCategory) {
-      onSelectCategory(category.id);
+      onSelectCategory(category.id, subcategory);
     } else {
       const targetSection = document.querySelector(`.section-${category.id}`);
       if (targetSection) {
@@ -226,6 +255,7 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
               index={idx}
               shouldReduceMotion={shouldReduceMotion}
               onClick={() => handleCardClick(cat)}
+              onSelectSubcategory={(sub) => handleCardClick(cat, sub)}
             />
           ))}
         </div>
@@ -256,19 +286,21 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   );
 };
 
-// Distinctive Flatlay Category Card Component Matching Reference Screenshot
+// Distinctive Flatlay Category Card Component Matching Reference Screenshot with Subcategories
 interface CategoryCardProps {
   category: CategoryCardData;
   index: number;
   shouldReduceMotion: boolean | null;
   onClick: () => void;
+  onSelectSubcategory?: (subcategory: string) => void;
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({ 
   category, 
   index, 
   shouldReduceMotion, 
-  onClick 
+  onClick,
+  onSelectSubcategory,
 }) => {
   return (
     <motion.div
@@ -277,7 +309,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       transition={{ delay: shouldReduceMotion ? 0 : index * 0.04, duration: 0.3 }}
       whileHover={shouldReduceMotion ? {} : { y: -3, scale: 1.015 }}
       onClick={onClick}
-      className={`category-card-${category.id} group rounded-xl sm:rounded-2xl lg:rounded-3xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/10] sm:aspect-[7/4] ${category.bgColor || 'bg-slate-100'}`}
+      className={`category-card-${category.id} group rounded-xl sm:rounded-2xl lg:rounded-3xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/11] sm:aspect-[7/4.5] ${category.bgColor || 'bg-slate-100'}`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -298,19 +330,43 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
 
       {/* 2. Soft Tint Overlay for consistent contrast */}
       <div 
-        className={`absolute inset-0 ${category.overlayColor || 'bg-slate-900/10'} group-hover:bg-black/5 transition-colors`} 
+        className={`absolute inset-0 ${category.overlayColor || 'bg-slate-900/15'} group-hover:bg-slate-950/25 transition-colors`} 
       />
 
-      {/* 3. Center Category Title */}
-      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4 text-center z-10 pointer-events-none">
-        <h3 className="text-xs sm:text-sm md:text-base lg:text-lg font-medium text-slate-800 uppercase tracking-wider drop-shadow-[0_1px_2px_rgba(255,255,255,0.85)] leading-tight max-w-[90%] font-roboto">
+      {/* 3. Center Category Title & Subcategories Chips */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center p-2.5 sm:p-3.5 text-center z-10">
+        <h3 className="text-xs sm:text-sm md:text-[15px] lg:text-base font-bold text-slate-900 uppercase tracking-wider drop-shadow-[0_1px_3px_rgba(255,255,255,0.95)] leading-tight max-w-[92%] font-roboto">
           {category.name}
         </h3>
+
+        {/* Subcategories tags */}
+        {category.subcategories && category.subcategories.length > 0 && (
+          <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-w-[96%]">
+            {category.subcategories.slice(0, 3).map((sub, i) => (
+              <span
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectSubcategory?.(sub);
+                }}
+                className="px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-semibold bg-white/90 hover:bg-white text-slate-800 hover:text-[#A44101] shadow-2xs backdrop-blur-xs transition-all hover:scale-105 cursor-pointer"
+                title={`Shop ${sub}`}
+              >
+                {sub}
+              </span>
+            ))}
+            {category.subcategories.length > 3 && (
+              <span className="px-1 sm:px-1.5 py-0.5 rounded-md text-[8.5px] sm:text-[9.5px] font-bold bg-white/80 text-slate-700 shadow-2xs">
+                +{category.subcategories.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 4. Bottom-Left Circular Arrow Button matching reference screenshot */}
-      <div className="absolute bottom-2.5 left-2.5 sm:bottom-3.5 sm:left-3.5 z-10">
-        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white text-navy shadow-sm flex items-center justify-center group-hover:bg-[#A44101] group-hover:text-white transition-all duration-300">
+      <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-10">
+        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-navy shadow-sm flex items-center justify-center group-hover:bg-[#A44101] group-hover:text-white transition-all duration-300">
           <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </div>
       </div>

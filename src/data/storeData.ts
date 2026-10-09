@@ -15,7 +15,25 @@ export interface StoreCategory {
   id: string;
   name: string;
   imageUrl: string;
+  subcategories?: string[];
 }
+
+export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = {
+  'home-kitchen': ['Kitchen', 'Cookware', 'Storage', 'Dining', 'Home Utility'],
+  'smart-life-gadget': ['Mobile Accessories', 'Smart Gadgets', 'USB Gadgets', 'LED & Lighting', 'Mini Electronics', 'Gaming'],
+  'baby-items': ['Baby Care', 'Feeding', 'Baby Toys', 'Baby Accessories', 'Kids Essentials'],
+  'stationary': ['Writing', 'Notebooks', 'Art & Craft', 'School Supplies', 'Office Supplies'],
+  'cleaning-housekeeping': ['Cleaning Tools', 'Kitchen Cleaning', 'Bathroom Cleaning', 'Laundry', 'Household Utility'],
+  'sports-fitness': ['Fitness', 'Yoga', 'Exercise', 'Sports Accessories', 'Outdoor Sports'],
+  'tours-travels': ['Travel Bags', 'Organizers', 'Luggage Accessories', 'Travel Essentials', 'Travel Gadgets'],
+  'fashion-world': ['Women’s Fashion', 'Men’s Fashion', 'Kids Fashion', 'Jewellery', 'Bags, Footwear & Accessories'],
+  'gifts': ['Birthday & Anniversary', 'Wedding & Festival', 'Personalized Gifts', 'Gift Sets'],
+  'beauty-personal-care': ['Skincare', 'Hair Care', 'Makeup', 'Grooming', 'Beauty & Bath'],
+  'home-improvement': ['Tools & Hardware', 'Electrical', 'Lighting', 'Home Repair', 'Safety & DIY'],
+  'car-accessories': ['Interior', 'Exterior', 'Car Cleaning', 'Car Organizers', 'Car Utility'],
+  'corporate-gifting': ['Employee Gifts', 'Client Gifts', 'Promotional Gifts', 'Custom Gifts', 'Corporate Sets'],
+  'mix-item': ['Combo Packs', 'Clearance Deals', 'Value Bundles', 'Daily Deals'],
+};
 
 export interface HeroBanner {
   id: string;
@@ -81,6 +99,7 @@ export interface CategorySectionInfo {
   bannerColor: string;
   image: string;
   products: ProductItem[];
+  subcategories?: string[];
 }
 
 export const ANNOUNCEMENT_DATA: AnnouncementInfo = {
@@ -100,66 +119,85 @@ export const STORE_CATEGORIES: StoreCategory[] = [
     id: "home-kitchen",
     name: "HOME & KITCHEN",
     imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["home-kitchen"],
   },
   {
     id: "smart-life-gadget",
     name: "SMART LIFE GADGETS",
     imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["smart-life-gadget"],
   },
   {
     id: "baby-items",
     name: "BABY ITEMS",
     imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["baby-items"],
   },
   {
     id: "stationary",
-    name: "STATIONARY",
+    name: "STATIONERY",
     imageUrl: "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["stationary"],
   },
   {
     id: "cleaning-housekeeping",
-    name: "CLEANING & HOUSEKEEPING SUPPLIES",
+    name: "CLEANING & HOUSEKEEPING",
     imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["cleaning-housekeeping"],
   },
   {
     id: "sports-fitness",
     name: "SPORTS & FITNESS",
     imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["sports-fitness"],
   },
   {
     id: "tours-travels",
     name: "TOURS & TRAVELS",
     imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["tours-travels"],
   },
   {
     id: "fashion-world",
     name: "FASHION WORLD",
     imageUrl: "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["fashion-world"],
   },
   {
     id: "gifts",
     name: "GIFTS",
     imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["gifts"],
   },
   {
     id: "beauty-personal-care",
     name: "BEAUTY & PERSONAL CARE",
     imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["beauty-personal-care"],
   },
   {
     id: "home-improvement",
     name: "HOME IMPROVEMENT",
     imageUrl: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["home-improvement"],
   },
   {
     id: "car-accessories",
     name: "CAR ACCESSORIES",
     imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["car-accessories"],
+  },
+  {
+    id: "corporate-gifting",
+    name: "CORPORATE GIFTING",
+    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["corporate-gifting"],
   },
   {
     id: "mix-item",
     name: "MIX ITEM",
     imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["mix-item"],
   },
 ];
 
@@ -1928,6 +1966,8 @@ export const getCategorySectionById = (id: string): CategorySectionInfo | undefi
 };
 
 export const getCategoryMetadata = (catId: string) => {
+  const subcategories = CATEGORY_SUBCATEGORIES[catId] || [];
+
   const section = getCategorySectionById(catId);
   if (section) {
     return {
@@ -1938,6 +1978,7 @@ export const getCategoryMetadata = (catId: string) => {
       badge: section.badge,
       image: section.image,
       bannerDiscount: section.bannerDiscount,
+      subcategories,
     };
   }
 
@@ -1951,6 +1992,7 @@ export const getCategoryMetadata = (catId: string) => {
       badge: "FEATURED DEPARTMENT",
       image: storeCat.imageUrl,
       bannerDiscount: "UP TO 70% OFF",
+      subcategories: storeCat.subcategories || subcategories,
     };
   }
 
@@ -1963,6 +2005,7 @@ export const getCategoryMetadata = (catId: string) => {
       badge: 'ALL PRODUCTS',
       image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80',
       bannerDiscount: 'UP TO 85% OFF',
+      subcategories: [],
     };
   }
 
@@ -1974,44 +2017,62 @@ export const getCategoryMetadata = (catId: string) => {
     badge: 'SPECIAL COLLECTION',
     image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
     bannerDiscount: 'FACTORY PRICES',
+    subcategories,
   };
 };
 
-export const getProductsByCategoryId = (catId: string): ProductItem[] => {
+export const getProductsByCategoryId = (catId: string, subcategory?: string): ProductItem[] => {
+  let products: ProductItem[] = [];
+
   if (catId === 'explore-all' || catId === 'all') {
-    return getAllProducts();
+    products = getAllProducts();
+  } else {
+    const section = CATEGORY_SECTIONS_DATA.find((s) => s.id === catId);
+    const sectionProducts = section ? section.products : [];
+
+    const catKeywords: Record<string, string[]> = {
+      'home-kitchen': ['kitchen', 'cooker', 'tiffin', 'tawa', 'sprout', 'food', 'home', 'cookware', 'storage', 'dining', 'utility'],
+      'beauty-personal-care': ['beauty', 'care', 'skin', 'facial', 'trimmer', 'roller', 'hair', 'grooming', 'makeup', 'bath'],
+      'smart-life-gadget': ['gadget', 'bluetooth', 'fitness', 'watch', 'car', 'water bottle', 'neckband', 'usb', 'led', 'gaming', 'electronics'],
+      'home-improvement': ['improvement', 'sensor', 'drill', 'hose', 'tape', 'curtain', 'light', 'hardware', 'tool', 'repair', 'diy'],
+      'stationary': ['stationary', 'tablet', 'pen', 'organizer', 'notes', 'study', 'writing', 'notebook', 'craft', 'office', 'school'],
+      'sports-fitness': ['fitness', 'bands', 'shaker', 'yoga', 'grip', 'gym', 'exercise', 'outdoor', 'sports'],
+      'car-accessories': ['car', 'mount', 'vacuum', 'charger', 'towels', 'interior', 'exterior', 'cleaner'],
+      'fashion-world': ['fashion', 'shirt', 'cotton', 'apparel', 'wear', 'women', 'men', 'jewellery', 'footwear'],
+      'cleaning-housekeeping': ['cleaning', 'mop', 'lint', 'feeder', 'housekeeping', 'laundry', 'bathroom', 'kitchen cleaning'],
+      'baby-items': ['baby', 'feeder', 'teether', 'bottle', 'bib', 'infant', 'toys', 'kids'],
+      'tours-travels': ['travel', 'duffel', 'bag', 'pillow', 'cubes', 'luggage', 'organizer', 'gadgets'],
+      'gifts': ['toy', 'gift', 'moon lamp', 'drone', 'cactus', 'crystal', 'novelty', 'birthday', 'anniversary', 'wedding'],
+      'corporate-gifting': ['corporate', 'gift', 'set', 'employee', 'custom', 'hamper', 'executive', 'pen', 'bottle', 'notebook'],
+      'mix-item': ['tape', 'keychain', 'roller', 'clips', 'mix', 'dhamaka', 'deal', 'combo'],
+    };
+
+    const keywords = catKeywords[catId] || [catId.replace(/-/g, ' ')];
+
+    const matchedFromAll = getAllProducts().filter((p) => {
+      const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
+      return keywords.some((kw) => text.includes(kw.toLowerCase()));
+    });
+
+    const combinedMap = new Map<string, ProductItem>();
+    sectionProducts.forEach((p) => combinedMap.set(p.id, p));
+    matchedFromAll.forEach((p) => combinedMap.set(p.id, p));
+
+    products = Array.from(combinedMap.values());
   }
 
-  const section = CATEGORY_SECTIONS_DATA.find((s) => s.id === catId);
-  const sectionProducts = section ? section.products : [];
+  if (subcategory && subcategory.toLowerCase() !== 'all') {
+    const subTerms = subcategory.toLowerCase().split(/[ &,/]+/).filter(Boolean);
+    const subFiltered = products.filter((p) => {
+      const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
+      return subTerms.some((term) => text.includes(term));
+    });
+    // Return filtered list if any matches, or fallback to full list
+    if (subFiltered.length > 0) {
+      return subFiltered;
+    }
+  }
 
-  const catKeywords: Record<string, string[]> = {
-    'home-kitchen': ['kitchen', 'cooker', 'tiffin', 'tawa', 'sprout', 'food', 'home'],
-    'beauty-personal-care': ['beauty', 'care', 'skin', 'facial', 'trimmer', 'roller', 'hair', 'grooming'],
-    'smart-life-gadget': ['gadget', 'bluetooth', 'fitness', 'watch', 'car', 'water bottle', 'neckband'],
-    'home-improvement': ['improvement', 'sensor', 'drill', 'hose', 'tape', 'curtain', 'light'],
-    'stationary': ['stationary', 'tablet', 'pen', 'organizer', 'notes', 'study'],
-    'sports-fitness': ['fitness', 'bands', 'shaker', 'yoga', 'grip', 'gym'],
-    'car-accessories': ['car', 'mount', 'vacuum', 'charger', 'towels'],
-    'fashion-world': ['fashion', 'shirt', 'cotton', 'apparel', 'wear'],
-    'cleaning-housekeeping': ['cleaning', 'mop', 'lint', 'feeder', 'housekeeping'],
-    'baby-items': ['baby', 'feeder', 'teether', 'bottle', 'bib', 'infant'],
-    'tours-travels': ['travel', 'duffel', 'bag', 'pillow', 'cubes', 'luggage'],
-    'gifts': ['toy', 'gift', 'moon lamp', 'drone', 'cactus', 'crystal', 'novelty'],
-    'mix-item': ['tape', 'keychain', 'roller', 'clips', 'mix', 'dhamaka'],
-  };
-
-  const keywords = catKeywords[catId] || [catId.replace(/-/g, ' ')];
-
-  const matchedFromAll = getAllProducts().filter((p) => {
-    const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
-    return keywords.some((kw) => text.includes(kw.toLowerCase()));
-  });
-
-  const combinedMap = new Map<string, ProductItem>();
-  sectionProducts.forEach((p) => combinedMap.set(p.id, p));
-  matchedFromAll.forEach((p) => combinedMap.set(p.id, p));
-
-  return Array.from(combinedMap.values());
+  return products;
 };
 

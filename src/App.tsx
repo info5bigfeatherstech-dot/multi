@@ -63,6 +63,12 @@ export const App: React.FC = () => {
     return 'home-kitchen';
   });
 
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | undefined>(() => {
+    if (typeof window === 'undefined') return undefined;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('sub') || undefined;
+  });
+
   // Sync with URL pathname for browser history, direct links & clean class/path SPA routing
   useEffect(() => {
     const handleRouting = () => {
@@ -113,7 +119,9 @@ export const App: React.FC = () => {
         }
       } else if (path.startsWith('/category/')) {
         const catId = window.location.pathname.replace('/category/', '');
+        const urlParams = new URLSearchParams(window.location.search);
         setSelectedCategory(catId);
+        setSelectedSubcategory(urlParams.get('sub') || undefined);
         setCurrentView('category');
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -153,11 +161,13 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSelectCategory = (categoryId: string) => {
+  const handleSelectCategory = (categoryId: string, subcategory?: string) => {
     setSelectedCategory(categoryId);
+    setSelectedSubcategory(subcategory);
     setCurrentView('category');
     setSelectedProduct(null);
-    window.history.pushState(null, '', `/category/${categoryId}`);
+    const subQuery = subcategory ? `?sub=${encodeURIComponent(subcategory)}` : '';
+    window.history.pushState(null, '', `/category/${categoryId}${subQuery}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -261,6 +271,7 @@ export const App: React.FC = () => {
             /* Dedicated Category Page */
             <CategoryPage
               categoryId={selectedCategory}
+              initialSubcategory={selectedSubcategory}
               onSelectProduct={handleSelectProduct}
               onSelectCategory={handleSelectCategory}
               onBackToHome={handleBackToStore}

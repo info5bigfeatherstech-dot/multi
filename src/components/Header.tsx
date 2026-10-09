@@ -24,10 +24,12 @@ import {
   Wrench,
   Car,
   PackageCheck,
-  Headphones
+  Headphones,
+  Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
+import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 
 export interface NavCategoryMenuItem {
   id: string;
@@ -37,9 +39,10 @@ export interface NavCategoryMenuItem {
   icon: React.ComponentType<{ className?: string }>;
   imageUrl: string;
   description: string;
+  subcategories?: string[];
 }
 
-// Complete rich categories matching STORE_CATEGORIES
+// Complete rich categories matching exact user table and subcategories
 export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
   {
     id: "home-kitchen",
@@ -48,7 +51,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: ChefHat,
     imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=200&q=80",
-    description: "Cookware, containers & tools"
+    description: "Cookware, containers & tools",
+    subcategories: CATEGORY_SUBCATEGORIES["home-kitchen"],
   },
   {
     id: "smart-life-gadget",
@@ -57,7 +61,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-slate-100 text-navy",
     icon: Smartphone,
     imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=200&q=80",
-    description: "Electronic utilities & novelties"
+    description: "Electronic utilities & novelties",
+    subcategories: CATEGORY_SUBCATEGORIES["smart-life-gadget"],
   },
   {
     id: "baby-items",
@@ -66,16 +71,18 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: Baby,
     imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&w=200&q=80",
-    description: "Care, feeding & accessories"
+    description: "Care, feeding & accessories",
+    subcategories: CATEGORY_SUBCATEGORIES["baby-items"],
   },
   {
     id: "stationary",
-    name: "Stationary",
+    name: "Stationery",
     badge: "Lowest ₹",
     badgeColor: "bg-slate-100 text-navy",
     icon: BookOpen,
     imageUrl: "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=200&q=80",
-    description: "School & office supplies"
+    description: "School & office supplies",
+    subcategories: CATEGORY_SUBCATEGORIES["stationary"],
   },
   {
     id: "cleaning-housekeeping",
@@ -84,7 +91,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-slate-100 text-navy",
     icon: Sparkle,
     imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=200&q=80",
-    description: "Mops, wipers & brushes"
+    description: "Mops, wipers & brushes",
+    subcategories: CATEGORY_SUBCATEGORIES["cleaning-housekeeping"],
   },
   {
     id: "sports-fitness",
@@ -93,7 +101,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: Dumbbell,
     imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=200&q=80",
-    description: "Gym gear, shakers & bands"
+    description: "Gym gear, shakers & bands",
+    subcategories: CATEGORY_SUBCATEGORIES["sports-fitness"],
   },
   {
     id: "tours-travels",
@@ -102,7 +111,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: Plane,
     imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=200&q=80",
-    description: "Organizers & luggage tags"
+    description: "Organizers & luggage tags",
+    subcategories: CATEGORY_SUBCATEGORIES["tours-travels"],
   },
   {
     id: "fashion-world",
@@ -111,16 +121,18 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: Shirt,
     imageUrl: "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=200&q=80",
-    description: "Apparel & daily fashion"
+    description: "Apparel & daily fashion",
+    subcategories: CATEGORY_SUBCATEGORIES["fashion-world"],
   },
   {
     id: "gifts",
-    name: "Gifts & Novelties",
+    name: "Gifts",
     badge: "Festive",
     badgeColor: "bg-slate-100 text-navy",
     icon: Gift,
     imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=200&q=80",
-    description: "Hampers, decor & toys"
+    description: "Hampers, decor & gifts",
+    subcategories: CATEGORY_SUBCATEGORIES["gifts"],
   },
   {
     id: "beauty-personal-care",
@@ -129,7 +141,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: Sparkles,
     imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=200&q=80",
-    description: "Grooming & skincare kits"
+    description: "Grooming & skincare kits",
+    subcategories: CATEGORY_SUBCATEGORIES["beauty-personal-care"],
   },
   {
     id: "home-improvement",
@@ -138,7 +151,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-slate-100 text-slate-800",
     icon: Wrench,
     imageUrl: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=200&q=80",
-    description: "Fixtures, tools & hooks"
+    description: "Fixtures, tools & hooks",
+    subcategories: CATEGORY_SUBCATEGORIES["home-improvement"],
   },
   {
     id: "car-accessories",
@@ -147,7 +161,18 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-slate-100 text-slate-800",
     icon: Car,
     imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=200&q=80",
-    description: "Holders, cleaners & mats"
+    description: "Holders, cleaners & mats",
+    subcategories: CATEGORY_SUBCATEGORIES["car-accessories"],
+  },
+  {
+    id: "corporate-gifting",
+    name: "Corporate Gifting",
+    badge: "B2B",
+    badgeColor: "bg-[#A44101]/10 text-[#A44101]",
+    icon: Briefcase,
+    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=200&q=80",
+    description: "Employee gifts & sets",
+    subcategories: CATEGORY_SUBCATEGORIES["corporate-gifting"],
   },
   {
     id: "mix-item",
@@ -156,7 +181,8 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     badgeColor: "bg-[#A44101]/10 text-[#A44101]",
     icon: PackageCheck,
     imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=200&q=80",
-    description: "Combo packs & overstock"
+    description: "Combo packs & overstock",
+    subcategories: CATEGORY_SUBCATEGORIES["mix-item"],
   },
 ];
 
@@ -165,7 +191,7 @@ export interface HeaderProps {
   onGoToProfile?: () => void;
   onGoToCheckout?: () => void;
   onGoToHome?: () => void;
-  onSelectCategory?: (categoryId: string) => void;
+  onSelectCategory?: (categoryId: string, subcategory?: string) => void;
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
 }
@@ -183,6 +209,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCategoryTab, setActiveCategoryTab] = useState("all");
+  const [hoveredNavCat, setHoveredNavCat] = useState<NavCategoryMenuItem>(ALL_CATEGORIES_MENU[0]);
+  const [expandedMobileCats, setExpandedMobileCats] = useState<{ [catId: string]: boolean }>({});
 
   // Hover dropdown state for Nav Bar "All Categories"
   const [isNavDropdownOpen, setIsNavDropdownOpen] = useState(false);
@@ -243,16 +271,16 @@ export const Header: React.FC<HeaderProps> = ({
     console.log(`Searching for "${searchQuery}"`);
   };
 
-  const handleCategorySelect = (catId: string) => {
+  const handleCategorySelect = (catId: string, subcategory?: string) => {
     setActiveCategoryTab(catId);
     setIsMobileMenuOpen(false);
     setIsNavDropdownOpen(false);
 
-    // Notify any listening components (e.g. CategoriesSection to expand)
-    window.dispatchEvent(new CustomEvent('select-category', { detail: catId }));
+    // Notify any listening components
+    window.dispatchEvent(new CustomEvent('select-category', { detail: { catId, subcategory } }));
 
     if (onSelectCategory && catId !== 'all') {
-      onSelectCategory(catId);
+      onSelectCategory(catId, subcategory);
       return;
     }
 
@@ -500,7 +528,7 @@ export const Header: React.FC<HeaderProps> = ({
                 />
               </button>
 
-              {/* Clean, Premium Dropdown on Hover */}
+              {/* Clean, Premium Dropdown on Hover with Subcategories Flyout */}
               <AnimatePresence>
                 {isNavDropdownOpen && (
                   <motion.div
@@ -508,32 +536,84 @@ export const Header: React.FC<HeaderProps> = ({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.99 }}
                     transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute top-full left-0 mt-2 z-50 w-64 bg-white rounded-xl shadow-xl border border-stone-200 overflow-hidden"
+                    className="absolute top-full left-0 mt-2 z-50 flex w-[520px] bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden"
                     onMouseEnter={handleNavDropdownEnter}
                     onMouseLeave={handleNavDropdownLeave}
                   >
-                    {/* Single Column Category List without icons or scrolling */}
-                    <div className="py-2 px-1.5 space-y-0.5">
+                    {/* Left Column: Categories List */}
+                    <div className="w-[230px] py-2 px-1.5 border-r border-slate-100 max-h-[460px] overflow-y-auto space-y-0.5 shrink-0 bg-white">
                       {ALL_CATEGORIES_MENU.map((cat) => {
-                        const isCatActive = activeCategoryTab === cat.id;
+                        const isCatSelected = (hoveredNavCat?.id || ALL_CATEGORIES_MENU[0].id) === cat.id;
 
                         return (
                           <button
                             key={cat.id}
                             type="button"
+                            onMouseEnter={() => setHoveredNavCat(cat)}
                             onClick={() => handleCategorySelect(cat.id)}
-                            className={`group flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${isCatActive
+                            className={`group flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left cursor-pointer ${
+                              isCatSelected
                                 ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
                                 : 'text-slate-700 hover:text-navy hover:bg-stone-100 font-medium'
-                              }`}
+                            }`}
                           >
                             <span className="truncate group-hover:text-[#A44101] transition-colors">
                               {cat.name}
                             </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-stone-300 group-hover:text-navy group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                            <ChevronRight className={`w-3.5 h-3.5 transition-all shrink-0 ml-1.5 ${
+                              isCatSelected ? 'text-[#A44101] translate-x-0.5' : 'text-stone-300'
+                            }`} />
                           </button>
                         );
                       })}
+                    </div>
+
+                    {/* Right Column: Subcategories Flyout Pane */}
+                    <div className="flex-1 p-3.5 bg-slate-50/70 flex flex-col justify-between min-w-0">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <h4 className="text-xs font-bold text-navy uppercase tracking-wider truncate">
+                            {hoveredNavCat?.name || 'Department'}
+                          </h4>
+                          {hoveredNavCat?.badge && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${hoveredNavCat.badgeColor || 'bg-slate-200 text-slate-800'}`}>
+                              {hoveredNavCat.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mb-3 line-clamp-1">
+                          {hoveredNavCat?.description}
+                        </p>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                            Subcategories
+                          </span>
+                          <div className="grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto pr-1">
+                            {hoveredNavCat?.subcategories?.map((sub, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => handleCategorySelect(hoveredNavCat.id, sub)}
+                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#A44101] bg-white hover:bg-white border border-slate-200/80 hover:border-[#A44101]/30 transition-all flex items-center justify-between group cursor-pointer shadow-2xs hover:shadow-xs"
+                              >
+                                <span className="truncate">{sub}</span>
+                                <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2.5 border-t border-slate-200/80 mt-2.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCategorySelect(hoveredNavCat?.id || 'all')}
+                          className="w-full text-center text-xs font-bold text-navy hover:text-[#A44101] transition-colors cursor-pointer py-1 block"
+                        >
+                          Explore All in {hoveredNavCat?.name} →
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -672,26 +752,54 @@ export const Header: React.FC<HeaderProps> = ({
                     </h3>
                   </div>
 
-                  {/* Complete Category List */}
-                  <div className="space-y-1">
+                  {/* Complete Category List with Expandable Subcategories */}
+                  <div className="space-y-1.5">
                     {ALL_CATEGORIES_MENU.map((cat) => {
                       const IconComp = cat.icon;
                       const isCatActive = activeCategoryTab === cat.id;
+                      const isExpanded = !!expandedMobileCats[cat.id];
                       return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => handleCategorySelect(cat.id)}
-                          className={`w-full text-left px-3 py-2 rounded-theme text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors ${isCatActive
-                              ? 'bg-navy text-white'
-                              : 'hover:bg-stone-200/60 text-navy'
-                            }`}
-                        >
-                          <span className="flex items-center gap-2.5">
-                            <IconComp className={`w-4 h-4 ${isCatActive ? 'text-[#A44101]' : 'text-slate-600'}`} />
-                            <span>{cat.name}</span>
-                          </span>
-                        </button>
+                        <div key={cat.id} className="rounded-xl overflow-hidden border border-slate-200/80 bg-white">
+                          <div className={`w-full px-3 py-2 text-xs font-semibold flex items-center justify-between transition-colors ${
+                            isCatActive ? 'bg-[#A44101]/10 text-[#A44101]' : 'hover:bg-slate-50 text-navy'
+                          }`}>
+                            <button
+                              type="button"
+                              onClick={() => handleCategorySelect(cat.id)}
+                              className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
+                            >
+                              <IconComp className={`w-4 h-4 shrink-0 ${isCatActive ? 'text-[#A44101]' : 'text-slate-600'}`} />
+                              <span className="truncate">{cat.name}</span>
+                            </button>
+                            {cat.subcategories && cat.subcategories.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedMobileCats((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
+                                className="p-1 hover:bg-slate-200/50 rounded text-slate-400 hover:text-navy cursor-pointer ml-1"
+                                aria-label={`Toggle ${cat.name} subcategories`}
+                              >
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-[#A44101]' : ''}`} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Expanded subcategories list */}
+                          {isExpanded && cat.subcategories && (
+                            <div className="px-3 pb-2 pt-1 bg-slate-50/70 border-t border-slate-100 space-y-1">
+                              {cat.subcategories.map((sub, sIdx) => (
+                                <button
+                                  key={sIdx}
+                                  type="button"
+                                  onClick={() => handleCategorySelect(cat.id, sub)}
+                                  className="w-full text-left px-2 py-1 rounded text-[11px] font-medium text-slate-600 hover:text-[#A44101] hover:bg-white flex items-center justify-between cursor-pointer"
+                                >
+                                  <span>{sub}</span>
+                                  <ChevronRight className="w-3 h-3 text-slate-300" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

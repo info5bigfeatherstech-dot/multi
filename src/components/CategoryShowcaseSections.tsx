@@ -20,12 +20,12 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { CATEGORY_SECTIONS_DATA, CategorySectionInfo, ProductItem } from '../data/storeData';
+import { CATEGORY_SECTIONS_DATA, CategorySectionInfo, ProductItem, CATEGORY_SUBCATEGORIES } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 
 interface CategoryShowcaseSectionsProps {
   onProductClick?: (product: ProductItem) => void;
-  onCategoryClick?: (categoryId: string) => void;
+  onCategoryClick?: (categoryId: string, subcategory?: string) => void;
   insertElement?: React.ReactNode;
   insertAfterIndex?: number;
 }
@@ -105,7 +105,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
 interface CategoryShowcaseRowProps {
   section: CategorySectionInfo;
   onProductClick?: (product: ProductItem) => void;
-  onCategoryClick?: (categoryId: string) => void;
+  onCategoryClick?: (categoryId: string, subcategory?: string) => void;
   addedItemIds: { [key: string]: boolean };
   onAddToCart: (product: ProductItem) => void;
   getCategoryIcon: (id: string) => React.ReactNode;
@@ -215,6 +215,22 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
             <p className="text-xs sm:text-sm text-mutedGray mt-1 max-w-2xl font-normal">
               {section.tagline}
             </p>
+
+            {/* Department Subcategories Quick Chips */}
+            {CATEGORY_SUBCATEGORIES[section.id] && CATEGORY_SUBCATEGORIES[section.id].length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                {CATEGORY_SUBCATEGORIES[section.id].map((sub, sIdx) => (
+                  <button
+                    key={sIdx}
+                    type="button"
+                    onClick={() => onCategoryClick?.(section.id, sub)}
+                    className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 hover:bg-[#A44101]/10 text-slate-700 hover:text-[#A44101] border border-slate-200/80 transition-all cursor-pointer"
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
