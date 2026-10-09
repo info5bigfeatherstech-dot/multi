@@ -167,12 +167,10 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
       dispatch(updateProduct({ id, updates: { status } }));
     });
     toast.success(`Set Ecom status to ${status} for ${selectedProductIds.length} products`);
-    setIsEcomDropdownOpen(false);
   };
 
   const handleSetWholesaleStatus = (status: 'Active' | 'Draft' | 'Archived') => {
     toast.success(`Set Wholesale channel to ${status} for ${selectedProductIds.length} products`);
-    setIsWholesaleDropdownOpen(false);
   };
 
   const handleApplyLabel = () => {

@@ -67,6 +67,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   // Address Book State
   // --------------------------------------------------------------------------
+  const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+
   const [addresses, setAddresses] = useState<Array<{ id: string; name: string; type: string; phone: string; address: string; city: string; pincode: string }>>(() => {
     try {
       const saved = localStorage.getItem('abb_saved_addresses_v1');
@@ -74,7 +76,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const userSaved = parsed
-            .filter((a: any) => a.id !== 'addr-1' && a.id !== 'addr-2' && a.name !== 'Rahul Sharma')
+            // Only keep entries with real MongoDB ObjectIds (24 hex chars)
+            .filter((a: any) => isValidObjectId(String(a.id || '')))
             .map((a: any) => ({
               id: a.id,
               name: a.name,
@@ -99,8 +102,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const userSaved = parsed.filter((a: any) => a.id !== 'addr-1' && a.id !== 'addr-2' && a.name !== 'Rahul Sharma');
-          if (userSaved.length > 0) return userSaved[0].id;
+          // Only select addresses with valid 24-char hex MongoDB ObjectIds
+          const valid = parsed.filter((a: any) => isValidObjectId(String(a.id || '')));
+          if (valid.length > 0) return valid[0].id;
         }
       }
     } catch {
@@ -208,29 +212,42 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       })
       .catch(() => { });
 
-    // 3. Address Book Sync
+    // 3. Address Book Sync — use the real MongoDB _id as the canonical id
     storefrontAddressApi.list()
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) {
-          const apiAddrs = res.map((a: any) => ({
-            id: a.id || a._id || `addr-${Date.now()}`,
-            name: a.fullName || a.name || 'Valued Customer',
-            type: a.type || 'Home',
-            phone: a.phone || '',
-            address: a.street || a.addressLine || a.address || '',
-            city: a.city || 'Delhi',
-            pincode: a.pincode || a.postalCode || '110001',
-          }));
+          const apiAddrs = res
+            .map((a: any) => {
+              const mongoId = String(a._id || a.id || '');
+              return {
+                id: mongoId,
+                name: a.fullName || a.name || 'Valued Customer',
+                type: a.addressType || a.type || 'Home',
+                phone: a.phone || '',
+                address: a.addressLine1 || a.street || a.addressLine || a.address || '',
+                city: a.city || 'Delhi',
+                pincode: a.postalCode || a.pincode || '110001',
+              };
+            })
+            // Only keep addresses with valid MongoDB ObjectIds
+            .filter((a) => isValidObjectId(a.id));
+
           setAddresses((prev) => {
             const combined = [...apiAddrs, ...prev.filter(p => !apiAddrs.some(a => a.id === p.id))];
+            // Persist updated valid list to localStorage
+            try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(combined.filter(a => isValidObjectId(a.id)))); } catch { /* ignore */ }
             return combined;
           });
-          if (!selectedAddressId && apiAddrs.length > 0) {
-            setSelectedAddressId(apiAddrs[0].id);
-          }
+
+          // Auto-select first valid address if current selection is stale/invalid
+          setSelectedAddressId((prev) => {
+            if (isValidObjectId(prev)) return prev;
+            return apiAddrs.length > 0 ? apiAddrs[0].id : prev;
+          });
         }
       })
       .catch(() => { });
+
   }, []);
 
   // --------------------------------------------------------------------------
@@ -276,7 +293,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Phase 1: Two-Phase Commit - Fetch Server Authoritative Quote
   // --------------------------------------------------------------------------
   const fetchAuthoritativeQuote = async () => {
-    if (!selectedAddressId || cartItems.length === 0) return;
+    // Guard: only call the quote endpoint with a real MongoDB ObjectId
+    if (!selectedAddressId || !isValidObjectId(selectedAddressId) || cartItems.length === 0) {
+      setIsQuoteLoading(false);
+      return;
+    }
     setIsQuoteLoading(true);
 
     const hint = paymentMode === 'cod' ? 'full_cod' : (paymentMode === 'advance' ? 'advance' : 'online');
@@ -312,8 +333,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Address Handler
   // --------------------------------------------------------------------------
   const handleSaveNewAddress = async (newAddr: NewAddressData) => {
+    // Temporarily show the address with a client-side id until we get the real MongoDB _id
+    const tempId = `temp-${Date.now()}`;
     const formatted = {
-      id: newAddr.id,
+      id: tempId,
       name: newAddr.name,
       type: newAddr.type,
       phone: newAddr.phone,
@@ -321,19 +344,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       city: newAddr.city,
       pincode: newAddr.pincode,
     };
-    const updated = [formatted, ...addresses];
-    setAddresses(updated);
-    setSelectedAddressId(formatted.id);
+    setAddresses((prev) => [formatted, ...prev]);
     setIsAddressModalOpen(false);
 
     try {
-      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
-    } catch (e) {
-      console.warn(e);
-    }
-
-    try {
-      await storefrontAddressApi.create({
+      // Save to backend and capture the real MongoDB _id
+      const serverRes = await storefrontAddressApi.create({
         fullName: newAddr.name,
         name: newAddr.name,
         phone: newAddr.phone,
@@ -348,8 +364,24 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         type: newAddr.type === 'Work' ? 'Work' : 'Home',
         isDefault: addresses.length === 0,
       });
+
+      // Extract real MongoDB _id from the server response
+      const realId = String(serverRes?._id || serverRes?.id || serverRes?.address?._id || tempId);
+      const realAddr = { ...formatted, id: realId };
+
+      setAddresses((prev) => {
+        const updated = prev.map(a => a.id === tempId ? realAddr : a);
+        // Persist only valid ObjectId entries
+        const validOnly = updated.filter(a => isValidObjectId(a.id));
+        try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(validOnly)); } catch { /* ignore */ }
+        return updated;
+      });
+
+      // Set selection to the real MongoDB ObjectId so quotes work immediately
+      setSelectedAddressId(realId);
     } catch {
-      // Local fallback
+      // Server save failed — remove the temp entry, address won't be usable for checkout
+      setAddresses((prev) => prev.filter(a => a.id !== tempId));
     }
   };
 
