@@ -588,23 +588,3 @@ export const storefrontCheckoutApi = {
     }
   },
 };
-  },
-trackOrder: async (orderId: string) => {
-  try {
-    const res = await apiClient.get(`/orders/items/${encodeURIComponent(orderId)}/track`);
-    return res.data?.data || res.data;
-  } catch (err) {
-    throw new Error(normalizeApiError(err));
-  }
-},
-  downloadInvoice: async (orderId: string) => {
-    try {
-      const res = await apiClient.get(`/orders/items/${encodeURIComponent(orderId)}/invoice`, {
-        responseType: "blob",
-      });
-      return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
-    }
-  },
-};
