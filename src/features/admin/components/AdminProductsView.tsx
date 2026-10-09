@@ -5,10 +5,7 @@ import {
   Layers, 
   Warehouse, 
   Tag, 
-  UploadCloud,
-  ArrowLeft,
-  SlidersHorizontal,
-  Plus
+  UploadCloud
 } from 'lucide-react';
 import { useAppSelector } from '../../../store/hooks';
 import { AdminProduct, AdminCategory } from '../../../store/adminProductsSlice';
@@ -159,7 +156,7 @@ export const AdminProductsView: React.FC = () => {
           <CategoriesTab
             onOpenAddCategory={handleOpenAddCategory}
             onEditCategory={handleOpenEditCategory}
-            onSelectCategoryFilter={(categoryName) => {
+            onSelectCategoryFilter={(_categoryName) => {
               setActiveTab('all');
             }}
           />

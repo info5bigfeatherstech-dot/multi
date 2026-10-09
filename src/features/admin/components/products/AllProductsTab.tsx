@@ -1,13 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Search, 
-  Filter, 
   Plus, 
   Edit, 
-  Trash2, 
   Archive, 
   ArrowUpDown, 
-  SlidersHorizontal, 
   CheckSquare, 
   Square, 
   RotateCcw, 
@@ -16,10 +13,7 @@ import {
   Tag, 
   ChevronLeft, 
   ChevronRight, 
-  Check, 
   AlertCircle,
-  Eye,
-  RefreshCw,
   TrendingUp,
   Package
 } from 'lucide-react';

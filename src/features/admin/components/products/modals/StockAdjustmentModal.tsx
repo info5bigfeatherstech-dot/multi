@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Warehouse, X, Plus, Minus, Check, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useAppDispatch } from '../../../../store/hooks';
-import { adjustStock, AdminProduct, InventoryLog } from '../../../../store/adminProductsSlice';
+import { useAppDispatch } from '../../../../../store/hooks';
+import { adjustStock, AdminProduct, InventoryLog } from '../../../../../store/adminProductsSlice';
 
 interface StockAdjustmentModalProps {
   product: AdminProduct;
@@ -61,9 +62,9 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ prod
     onClose();
   };
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -237,6 +238,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ prod
         </form>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

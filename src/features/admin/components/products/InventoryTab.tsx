@@ -7,15 +7,13 @@ import {
   XCircle, 
   History, 
   Search, 
-  SlidersHorizontal, 
   ArrowUpRight, 
   ArrowDownRight, 
   Package, 
   Calendar,
-  Layers,
   MapPin
 } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { useAppSelector } from '../../../../store/hooks';
 import { AdminProduct } from '../../../../store/adminProductsSlice';
 
 interface InventoryTabProps {

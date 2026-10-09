@@ -1,15 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Tag, 
-  Check, 
-  Plus, 
-  Trash2, 
   Sparkles, 
   Search, 
   CheckSquare, 
   Square, 
-  Filter, 
-  Layers, 
   X,
   Package
 } from 'lucide-react';
@@ -152,9 +147,17 @@ export const LabelsBadgesTab: React.FC = () => {
                 type="button"
                 onClick={() => handleAssignBadgeToSelected(selectedBadgeToAssign)}
                 disabled={selectedProductIds.length === 0}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-sm transition-colors whitespace-nowrap"
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-xl shadow-sm transition-colors whitespace-nowrap"
               >
-                Apply to ({selectedProductIds.length})
+                Apply ({selectedProductIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemoveBadgeFromSelected(selectedBadgeToAssign)}
+                disabled={selectedProductIds.length === 0}
+                className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap"
+              >
+                Remove ({selectedProductIds.length})
               </button>
             </div>
           </div>

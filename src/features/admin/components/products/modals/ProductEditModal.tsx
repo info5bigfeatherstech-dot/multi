@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   Save, 
@@ -12,8 +13,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { updateProduct, AdminProduct, ProductVariant } from '../../../../store/adminProductsSlice';
+import { useAppDispatch, useAppSelector } from '../../../../../store/hooks';
+import { updateProduct, AdminProduct, ProductVariant } from '../../../../../store/adminProductsSlice';
 
 interface ProductEditModalProps {
   product: AdminProduct;
@@ -148,9 +149,9 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onC
     onClose();
   };
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -643,6 +644,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onC
         </form>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

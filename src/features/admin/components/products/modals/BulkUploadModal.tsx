@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   UploadCloud, 
@@ -9,8 +10,8 @@ import {
   Download,
   Info
 } from 'lucide-react';
-import { useAppDispatch } from '../../../../store/hooks';
-import { bulkAddProducts, AdminProduct } from '../../../../store/adminProductsSlice';
+import { useAppDispatch } from '../../../../../store/hooks';
+import { bulkAddProducts, AdminProduct } from '../../../../../store/adminProductsSlice';
 import toast from 'react-hot-toast';
 
 interface BulkUploadModalProps {
@@ -280,9 +281,9 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
   const validCount = parsedItems.filter(i => i.isValid).length;
   const invalidCount = parsedItems.length - validCount;
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
       onClick={handleBackdropClick}
     >
       <div 
@@ -489,6 +490,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

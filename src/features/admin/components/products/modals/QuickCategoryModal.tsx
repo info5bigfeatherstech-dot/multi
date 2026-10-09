@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Layers, X, Plus, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useAppDispatch } from '../../../../store/hooks';
-import { addCategory, updateCategory, AdminCategory } from '../../../../store/adminProductsSlice';
+import { useAppDispatch } from '../../../../../store/hooks';
+import { addCategory, updateCategory, AdminCategory } from '../../../../../store/adminProductsSlice';
 
 interface QuickCategoryModalProps {
   categoryToEdit?: AdminCategory | null;
@@ -82,9 +83,9 @@ export const QuickCategoryModal: React.FC<QuickCategoryModalProps> = ({ category
     onClose();
   };
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -229,6 +230,7 @@ export const QuickCategoryModal: React.FC<QuickCategoryModalProps> = ({ category
         </form>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

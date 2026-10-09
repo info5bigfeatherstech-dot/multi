@@ -7,9 +7,6 @@ import {
   Edit, 
   Trash2, 
   Search, 
-  Tag, 
-  Boxes, 
-  Check, 
   Package,
   Layers,
   ArrowRight
