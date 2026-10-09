@@ -164,25 +164,28 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   onSelectCategory,
 }) => {
   const [showAll, setShowAll] = useState(false);
+  const categoriesList = CATEGORIES_DETAILED_DATA;
   const shouldReduceMotion = useReducedMotion();
+
+  // Shop By Category cards remain static as requested
 
   // Listen for category selection events from Header or other links
   useEffect(() => {
     const handleCategoryEvent = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       const catId = customEvent.detail;
-      const found = CATEGORIES_DETAILED_DATA.find((c) => c.id === catId);
+      const found = categoriesList.find((c) => c.id === catId);
       if (found) {
         setShowAll(true);
       }
     };
     window.addEventListener('select-category', handleCategoryEvent);
     return () => window.removeEventListener('select-category', handleCategoryEvent);
-  }, []);
+  }, [categoriesList]);
 
   const displayedCategories = showAll 
-    ? CATEGORIES_DETAILED_DATA 
-    : CATEGORIES_DETAILED_DATA.slice(0, 8);
+    ? categoriesList 
+    : categoriesList.slice(0, 8);
 
   const handleCardClick = (category: CategoryCardData, subcategory?: string) => {
     if (category.isExploreAll) {
@@ -255,7 +258,6 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
               index={idx}
               shouldReduceMotion={shouldReduceMotion}
               onClick={() => handleCardClick(cat)}
-              onSelectSubcategory={(sub) => handleCardClick(cat, sub)}
             />
           ))}
         </div>
@@ -286,13 +288,12 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   );
 };
 
-// Distinctive Flatlay Category Card Component Matching Reference Screenshot with Subcategories
+// Distinctive Flatlay Category Card Component Matching Reference Screenshot
 interface CategoryCardProps {
   category: CategoryCardData;
   index: number;
   shouldReduceMotion: boolean | null;
   onClick: () => void;
-  onSelectSubcategory?: (subcategory: string) => void;
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({ 
@@ -300,7 +301,6 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   index, 
   shouldReduceMotion, 
   onClick,
-  onSelectSubcategory,
 }) => {
   return (
     <motion.div
@@ -333,35 +333,11 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         className={`absolute inset-0 ${category.overlayColor || 'bg-slate-900/15'} group-hover:bg-slate-950/25 transition-colors`} 
       />
 
-      {/* 3. Center Category Title & Subcategories Chips */}
+      {/* 3. Center Category Title */}
       <div className="absolute inset-0 flex flex-col items-center justify-center p-2.5 sm:p-3.5 text-center z-10">
         <h3 className="text-xs sm:text-sm md:text-[15px] lg:text-base font-bold text-slate-900 uppercase tracking-wider drop-shadow-[0_1px_3px_rgba(255,255,255,0.95)] leading-tight max-w-[92%] font-roboto">
           {category.name}
         </h3>
-
-        {/* Subcategories tags */}
-        {category.subcategories && category.subcategories.length > 0 && (
-          <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-w-[96%]">
-            {category.subcategories.slice(0, 3).map((sub, i) => (
-              <span
-                key={i}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectSubcategory?.(sub);
-                }}
-                className="px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-semibold bg-white/90 hover:bg-white text-slate-800 hover:text-[#A44101] shadow-2xs backdrop-blur-xs transition-all hover:scale-105 cursor-pointer"
-                title={`Shop ${sub}`}
-              >
-                {sub}
-              </span>
-            ))}
-            {category.subcategories.length > 3 && (
-              <span className="px-1 sm:px-1.5 py-0.5 rounded-md text-[8.5px] sm:text-[9.5px] font-bold bg-white/80 text-slate-700 shadow-2xs">
-                +{category.subcategories.length - 3}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 4. Bottom-Left Circular Arrow Button matching reference screenshot */}

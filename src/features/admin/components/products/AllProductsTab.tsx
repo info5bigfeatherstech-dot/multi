@@ -1,31 +1,45 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Archive, 
-  ArrowUpDown, 
-  CheckSquare, 
-  Square, 
-  RotateCcw, 
-  UploadCloud, 
+import {
+  Search,
+  Plus,
+  Edit,
+  Archive,
+  ArrowUpDown,
+  CheckSquare,
+  Square,
+  RotateCcw,
+  UploadCloud,
   FolderPlus,
-  Tag, 
-  ChevronLeft, 
-  ChevronRight, 
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
   AlertCircle,
   TrendingUp,
   Package
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { 
-  AdminProduct, 
-  toggleProductStatus, 
-  toggleSelectProduct, 
-  selectAllProducts, 
-  clearSelection, 
-  bulkArchiveProducts,
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../../../../components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../../components/ui/dropdown-menu';
+import {
+  AdminProduct,
+  toggleProductStatus,
+  toggleSelectProduct,
+  selectAllProducts,
+  clearSelection,
   assignBadges,
+  removeBadge,
+  updateProduct,
   resetToDefaultStore
 } from '../../../../store/adminProductsSlice';
 import toast from 'react-hot-toast';
@@ -63,6 +77,9 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
+  // Bulk action toolbar state
+  const [selectedLabel, setSelectedLabel] = useState<string>('');
+
   // Filtered & Sorted Products
   const filteredProducts = useMemo(() => {
     let list = [...products];
@@ -70,7 +87,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      list = list.filter((p) => 
+      list = list.filter((p) =>
         p.title.toLowerCase().includes(q) ||
         p.sku.toLowerCase().includes(q) ||
         (p.brand && p.brand.toLowerCase().includes(q)) ||
@@ -115,7 +132,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
   // Pagination calculations
   const totalItems = filteredProducts.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  
+
   // Guard current page out of bounds
   const validCurrentPage = Math.min(currentPage, totalPages);
 
@@ -143,17 +160,40 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
     toast.success(`Product status switched to ${nextStatus}`);
   };
 
-  const handleBulkArchive = () => {
-    if (selectedProductIds.length === 0) return;
-    const count = selectedProductIds.length;
-    dispatch(bulkArchiveProducts(selectedProductIds));
-    toast.success(`${count} products archived`);
+
+
+  const handleSetEcomStatus = (status: 'Active' | 'Draft' | 'Archived') => {
+    selectedProductIds.forEach((id) => {
+      dispatch(updateProduct({ id, updates: { status } }));
+    });
+    toast.success(`Set Ecom status to ${status} for ${selectedProductIds.length} products`);
+    setIsEcomDropdownOpen(false);
   };
 
-  const handleBulkAssignBadge = (badge: string) => {
-    if (selectedProductIds.length === 0 || !badge) return;
-    dispatch(assignBadges({ productIds: selectedProductIds, badge }));
-    toast.success(`Badge "${badge}" assigned to ${selectedProductIds.length} products`);
+  const handleSetWholesaleStatus = (status: 'Active' | 'Draft' | 'Archived') => {
+    toast.success(`Set Wholesale channel to ${status} for ${selectedProductIds.length} products`);
+    setIsWholesaleDropdownOpen(false);
+  };
+
+  const handleApplyLabel = () => {
+    if (!selectedLabel) {
+      toast.error('Please choose a label first');
+      return;
+    }
+    dispatch(assignBadges({ productIds: selectedProductIds, badge: selectedLabel }));
+    toast.success(`Label "${selectedLabel}" applied to ${selectedProductIds.length} products`);
+  };
+
+  const handleRemoveLabel = () => {
+    if (selectedLabel) {
+      dispatch(removeBadge({ productIds: selectedProductIds, badge: selectedLabel }));
+      toast.success(`Label "${selectedLabel}" removed from ${selectedProductIds.length} products`);
+    } else {
+      selectedProductIds.forEach((id) => {
+        dispatch(updateProduct({ id, updates: { badges: [], tag: undefined } }));
+      });
+      toast.success(`Labels removed from ${selectedProductIds.length} products`);
+    }
   };
 
   const handleResetDefaults = () => {
@@ -244,55 +284,67 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
 
           {/* Category Dropdown */}
           <div>
-            <select
+            <Select
               value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
+              onValueChange={(val) => {
+                setSelectedCategory(val);
                 setCurrentPage(1);
               }}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             >
-              <option value="All">All Categories ({categories.length})</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full h-10 px-3.5 bg-slate-50 border-slate-200 rounded-xl text-xs font-medium">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Categories ({categories.length})</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Stock Filter */}
           <div>
-            <select
+            <Select
               value={stockFilter}
-              onChange={(e) => {
-                setStockFilter(e.target.value as any);
+              onValueChange={(val) => {
+                setStockFilter(val as any);
                 setCurrentPage(1);
               }}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             >
-              <option value="All">All Stock Levels</option>
-              <option value="in_stock">In Stock (&gt;10)</option>
-              <option value="low_stock">Low Stock (1-10 warning)</option>
-              <option value="out_of_stock">Out of Stock (0)</option>
-            </select>
+              <SelectTrigger className="w-full h-10 px-3.5 bg-slate-50 border-slate-200 rounded-xl text-xs font-medium">
+                <SelectValue placeholder="All Stock Levels" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Stock Levels</SelectItem>
+                <SelectItem value="in_stock">In Stock (&gt;10)</SelectItem>
+                <SelectItem value="low_stock">Low Stock (1-10 warning)</SelectItem>
+                <SelectItem value="out_of_stock">Out of Stock (0)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Status Filter */}
           <div>
-            <select
+            <Select
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as any);
+              onValueChange={(val) => {
+                setStatusFilter(val as any);
                 setCurrentPage(1);
               }}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             >
-              <option value="All">All Statuses</option>
-              <option value="Active">Active only</option>
-              <option value="Draft">Draft only</option>
-              <option value="Archived">Archived only</option>
-            </select>
+              <SelectTrigger className="w-full h-10 px-3.5 bg-slate-50 border-slate-200 rounded-xl text-xs font-medium">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Statuses</SelectItem>
+                <SelectItem value="Active">Active only</SelectItem>
+                <SelectItem value="Draft">Draft only</SelectItem>
+                <SelectItem value="Archived">Archived only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -305,7 +357,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
             {hasActiveFilters && (
               <button
                 onClick={clearAllFilters}
-                className="text-indigo-600 hover:text-indigo-700 font-semibold underline underline-offset-2 flex items-center gap-1"
+                className="text-[#A44101] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
               >
                 Clear all filters
               </button>
@@ -317,32 +369,44 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
               <ArrowUpDown className="w-3.5 h-3.5" />
               <span>Sort by:</span>
             </div>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none"
-            >
-              <option value="date">Recently Added</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="stock">Stock Level</option>
-              <option value="name">Product Title</option>
-            </select>
-
-            <div className="flex items-center gap-1 text-slate-500 ml-2">
-              <span>Rows:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700"
+            <div className="w-[170px]">
+              <Select
+                value={sortBy}
+                onValueChange={(val) => setSortBy(val as any)}
               >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
+                <SelectTrigger className="h-8 px-2.5 bg-slate-50 border-slate-200 rounded-lg text-xs font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="date">Recently Added</SelectItem>
+                  <SelectItem value="price_asc">Price: Low to High</SelectItem>
+                  <SelectItem value="price_desc">Price: High to Low</SelectItem>
+                  <SelectItem value="stock">Stock Level</SelectItem>
+                  <SelectItem value="name">Product Title</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-slate-500 ml-1">
+              <span>Rows:</span>
+              <div className="w-[72px]">
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(val) => {
+                    setPageSize(Number(val));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-8 px-2 bg-slate-50 border-slate-200 rounded-lg text-xs font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -350,50 +414,110 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
 
       {/* Floating Bulk Action Bar when items selected */}
       {selectedProductIds.length > 0 && (
-        <div className="bg-indigo-900 text-white p-3.5 px-6 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-4 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <span className="bg-indigo-700 px-2.5 py-1 rounded-full text-xs font-bold">
-              {selectedProductIds.length} Selected
+        <div className="bg-white border border-orange-200/90 p-2.5 px-4 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+          {/* Left Side: Badge & Label */}
+          <div className="flex items-center gap-2.5">
+            <span className="bg-[#FFEADB] text-[#F97316] px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap">
+              {selectedProductIds.length} selected
             </span>
-            <span className="text-xs text-indigo-200">
-              Bulk actions for selected catalog items:
+            <span className="text-xs text-slate-400 font-medium">
+              Bulk Actions:
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Badge assign dropdown */}
-            <div className="flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-indigo-300" />
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleBulkAssignBadge(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                defaultValue=""
-                className="bg-indigo-800 text-xs text-white border border-indigo-700 rounded-lg px-2.5 py-1.5 focus:outline-none"
+          {/* Right Side: Action Pills, Dropdown & Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Set as Ecom Pill with Shadcn DropdownMenu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="border border-[#10B981] text-[#059669] hover:bg-emerald-50 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors bg-white shadow-2xs cursor-pointer"
+                >
+                  <span>Set as Ecom</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#059669]" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem onClick={() => handleSetEcomStatus('Active')} className="text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer">
+                  Active
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetEcomStatus('Draft')} className="text-slate-700 hover:text-amber-700 hover:bg-amber-50 cursor-pointer">
+                  Draft
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetEcomStatus('Archived')} className="text-slate-700 hover:text-rose-700 hover:bg-rose-50 cursor-pointer">
+                  Archived
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Set as Wholesale Pill with Shadcn DropdownMenu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="border border-[#8B5CF6] text-[#7C3AED] hover:bg-purple-50 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors bg-white shadow-2xs cursor-pointer"
+                >
+                  <span>Set as Wholesale</span>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#7C3AED]" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Active')} className="text-slate-700 hover:text-purple-700 hover:bg-purple-50 cursor-pointer">
+                  Active
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Draft')} className="text-slate-700 hover:text-amber-700 hover:bg-amber-50 cursor-pointer">
+                  Draft
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Archived')} className="text-slate-700 hover:text-rose-700 hover:bg-rose-50 cursor-pointer">
+                  Archived
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Vertical Divider */}
+            <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+
+            {/* Choose label Dropdown with Shadcn Select */}
+            <div className="w-[155px]">
+              <Select
+                value={selectedLabel || '__none__'}
+                onValueChange={(val) => setSelectedLabel(val === '__none__' ? '' : val)}
               >
-                <option value="" disabled>Assign Badge...</option>
-                {availableBadges.map((badge) => (
-                  <option key={badge} value={badge} className="bg-white text-slate-800">
-                    {badge}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 px-3 bg-white border-slate-200 rounded-xl text-xs">
+                  <SelectValue placeholder="Choose label..." />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="__none__">Choose label...</SelectItem>
+                  {availableBadges.map((badge) => (
+                    <SelectItem key={badge} value={badge}>
+                      {badge}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
+            {/* Apply label Button */}
             <button
-              onClick={handleBulkArchive}
-              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-sm"
+              onClick={handleApplyLabel}
+              className="bg-[#FBA588] hover:bg-[#fa9472] text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-colors shadow-2xs whitespace-nowrap"
             >
-              <Archive className="w-3.5 h-3.5" />
-              Archive Selected
+              Apply label
             </button>
 
+            {/* Remove label Button */}
+            <button
+              onClick={handleRemoveLabel}
+              className="border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-medium px-3.5 py-1.5 rounded-xl transition-colors whitespace-nowrap"
+            >
+              Remove label
+            </button>
+
+            {/* Clear Button */}
             <button
               onClick={() => dispatch(clearSelection())}
-              className="px-3 py-1.5 bg-indigo-800 hover:bg-indigo-700 text-indigo-200 hover:text-white rounded-lg text-xs transition-colors"
+              className="text-slate-500 hover:text-slate-800 text-xs font-medium px-2 py-1.5 transition-colors"
             >
               Clear
             </button>
@@ -408,8 +532,8 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
             <thead className="bg-slate-50/80 text-slate-600 font-semibold uppercase tracking-wider border-b border-slate-200">
               <tr>
                 <th className="py-3.5 px-4 w-10 text-center">
-                  <button 
-                    onClick={handleToggleSelectAll} 
+                  <button
+                    onClick={handleToggleSelectAll}
                     className="text-slate-400 hover:text-indigo-600 transition-colors"
                     title={isAllPageSelected ? "Deselect all on this page" : "Select all on this page"}
                   >
@@ -455,9 +579,25 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                   const isLowStock = product.stock > 0 && product.stock <= (product.lowStockThreshold || 10);
                   const isOutOfStock = product.stock === 0;
 
+                  const displayImage = typeof product.image === 'string' && product.image
+                    ? product.image
+                    : ((product.image as any)?.url || (product.image as any)?.secure_url || '/images/products/placeholder.png');
+
+                  const numCurrentPrice = Number(
+                    typeof product.currentPrice === 'object'
+                      ? ((product.currentPrice as any)?.sale ?? (product.currentPrice as any)?.base ?? 0)
+                      : product.currentPrice || 0
+                  );
+
+                  const numOriginalPrice = Number(
+                    typeof product.originalPrice === 'object'
+                      ? ((product.originalPrice as any)?.base ?? (product.originalPrice as any)?.sale ?? numCurrentPrice)
+                      : product.originalPrice || numCurrentPrice
+                  );
+
                   return (
-                    <tr 
-                      key={product.id} 
+                    <tr
+                      key={product.id}
                       className={`transition-colors ${isSelected ? 'bg-indigo-50/40' : 'hover:bg-slate-50/70'}`}
                     >
                       {/* Checkbox */}
@@ -478,7 +618,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={product.image}
+                            src={displayImage}
                             alt={product.title}
                             className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100 shrink-0 shadow-sm"
                             onError={(e) => {
@@ -526,13 +666,12 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                       {/* Stock Level */}
                       <td className="py-3 px-4 text-center">
                         <div className="inline-flex flex-col items-center">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isOutOfStock 
-                              ? 'bg-rose-100 text-rose-800' 
-                              : isLowStock 
-                              ? 'bg-amber-100 text-amber-800 animate-pulse' 
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${isOutOfStock
+                              ? 'bg-rose-100 text-rose-800'
+                              : isLowStock
+                                ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}>
                             {isOutOfStock ? 'Out of Stock' : `${product.stock} in stock`}
                           </span>
                           {isLowStock && (
@@ -546,11 +685,11 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                       {/* Price */}
                       <td className="py-3 px-4 text-right">
                         <div className="font-bold text-slate-900 text-xs sm:text-sm">
-                          ₹{product.currentPrice.toLocaleString()}
+                          ₹{numCurrentPrice.toLocaleString()}
                         </div>
-                        {product.originalPrice > product.currentPrice && (
+                        {numOriginalPrice > numCurrentPrice && (
                           <div className="text-[11px] text-slate-400 line-through">
-                            ₹{product.originalPrice.toLocaleString()}
+                            ₹{numOriginalPrice.toLocaleString()}
                           </div>
                         )}
                         {product.discountPercentage > 0 && (
@@ -564,18 +703,16 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={() => handleToggleStatus(product.id, product.status)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-all hover:scale-105 ${
-                            product.status === 'Active'
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-all hover:scale-105 ${product.status === 'Active'
                               ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                               : product.status === 'Draft'
-                              ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                              : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                          }`}
+                                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                            }`}
                           title="Click to toggle status (Active / Draft)"
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            product.status === 'Active' ? 'bg-emerald-500' : product.status === 'Draft' ? 'bg-amber-500' : 'bg-slate-500'
-                          }`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'Active' ? 'bg-emerald-500' : product.status === 'Draft' ? 'bg-amber-500' : 'bg-slate-500'
+                            }`} />
                           {product.status}
                         </button>
                       </td>
@@ -660,11 +797,10 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                         {showEllipsis && <span className="px-1 text-slate-400">...</span>}
                         <button
                           onClick={() => setCurrentPage(page)}
-                          className={`w-7 h-7 rounded-lg font-semibold transition-all ${
-                            validCurrentPage === page
+                          className={`w-7 h-7 rounded-lg font-semibold transition-all ${validCurrentPage === page
                               ? 'bg-indigo-600 text-white shadow-sm'
                               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                          }`}
+                            }`}
                         >
                           {page}
                         </button>

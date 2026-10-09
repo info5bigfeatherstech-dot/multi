@@ -15,6 +15,13 @@ import {
 } from 'lucide-react';
 import { useAppSelector } from '../../../../store/hooks';
 import { AdminProduct } from '../../../../store/adminProductsSlice';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../../../../components/ui/select';
 
 interface InventoryTabProps {
   onQuickAdjust: (product: AdminProduct) => void;
@@ -179,17 +186,21 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ onQuickAdjust }) => 
         </div>
 
         {activeSubTab === 'overview' && (
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <select
+          <div className="w-full sm:w-[185px]">
+            <Select
               value={stockStatusFilter}
-              onChange={(e) => setStockStatusFilter(e.target.value as any)}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none w-full sm:w-auto"
+              onValueChange={(val) => setStockStatusFilter(val as any)}
             >
-              <option value="All">All Inventory</option>
-              <option value="low">Low Stock Only (&le;10)</option>
-              <option value="out">Out of Stock (0)</option>
-              <option value="healthy">Healthy Stock (&gt;10)</option>
-            </select>
+              <SelectTrigger className="h-9 px-3 bg-slate-50 border-slate-200 rounded-xl text-xs font-medium">
+                <SelectValue placeholder="All Inventory" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="All">All Inventory</SelectItem>
+                <SelectItem value="low">Low Stock Only (≤10)</SelectItem>
+                <SelectItem value="out">Out of Stock (0)</SelectItem>
+                <SelectItem value="healthy">Healthy Stock (&gt;10)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -223,13 +234,17 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ onQuickAdjust }) => 
                     const isOutOfStock = p.stock === 0;
                     const isLowStock = p.stock > 0 && p.stock <= threshold;
 
+                    const displayImage = typeof p.image === 'string' && p.image
+                      ? p.image
+                      : ((p.image as any)?.url || (p.image as any)?.secure_url || '/images/products/placeholder.png');
+
                     return (
                       <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
                         {/* Title and SKU */}
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <img
-                              src={p.image}
+                              src={displayImage}
                               alt={p.title}
                               className="w-10 h-10 rounded-xl object-cover border border-slate-200 bg-slate-100 shrink-0"
                               onError={(e) => {

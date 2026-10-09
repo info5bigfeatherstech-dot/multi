@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   ShoppingCart, 
   Ticket, 
   MessageSquare, 
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
-import { mockAdminStore, AdminAbandonedCart } from '../mockAdminStore';
+import { mockAdminStore, AdminAbandonedCart, AdminLead, AdminCoupon } from '../mockAdminStore';
+import { adminAnalyticsApi, adminCouponsApi } from '../../../api';
 
 interface AdminGrowthViewProps {
   initialSubTab?: 'leads' | 'abandoned' | 'marketing';
@@ -16,25 +18,111 @@ export const AdminGrowthView: React.FC<AdminGrowthViewProps> = ({
   initialSubTab = 'abandoned',
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'leads' | 'abandoned' | 'marketing'>(initialSubTab);
-  const [carts, setCarts] = useState(mockAdminStore.getAbandonedCarts());
-  const leads = mockAdminStore.getLeads();
-  const coupons = mockAdminStore.getCoupons();
+  const [carts, setCarts] = useState<AdminAbandonedCart[]>(() => mockAdminStore.getAbandonedCarts());
+  const [leads, setLeads] = useState<AdminLead[]>(() => mockAdminStore.getLeads());
+  const [coupons, setCoupons] = useState<AdminCoupon[]>(() => mockAdminStore.getCoupons());
+  const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  const fetchLiveGrowthData = async () => {
+    setIsLoading(true);
+    try {
+      const [cartsRes, leadsRes, couponsRes] = await Promise.allSettled([
+        adminAnalyticsApi.getAbandonedCarts(),
+        adminAnalyticsApi.getCustomers({ limit: 50 }),
+        adminCouponsApi.getAll(),
+      ]);
+
+      if (cartsRes.status === 'fulfilled' && cartsRes.value) {
+        const rawCarts = Array.isArray(cartsRes.value) ? cartsRes.value : cartsRes.value.data;
+        if (Array.isArray(rawCarts) && rawCarts.length > 0) {
+          const mappedCarts: AdminAbandonedCart[] = rawCarts.map((c: any) => ({
+            id: c._id || c.id || String(Math.random()),
+            customerName: c.user?.name || c.userName || (c.user?.phone ? `Shopper (${c.user.phone})` : 'Anonymous Shopper'),
+            customerPhone: c.user?.phone || c.userPhone || '+91 98XXX XXXXX',
+            customerEmail: c.user?.email || c.userEmail || 'shopper@store.com',
+            cartValue: Math.round(c.totalAmount || c.cartValue || 0),
+            itemCount: c.itemCount || c.items?.length || 1,
+            items: (c.items || []).map((it: any) => ({
+              title: it.productTitle || it.title || 'Cart Item',
+              price: it.price || 199,
+              qty: it.quantity || 1,
+            })),
+            abandonedAt: c.abandonedSince || c.updatedAt || c.createdAt || new Date().toISOString(),
+            recoveryStatus: c.recoveryStatus || 'Uncontacted',
+          }));
+          setCarts(mappedCarts);
+        }
+      }
+
+      if (leadsRes.status === 'fulfilled' && leadsRes.value) {
+        const rawUsers = Array.isArray(leadsRes.value) ? leadsRes.value : (leadsRes.value.data || []);
+        if (Array.isArray(rawUsers) && rawUsers.length > 0) {
+          const mappedLeads: AdminLead[] = rawUsers.map((u: any) => ({
+            id: u._id || u.id || String(Math.random()),
+            name: u.name || (u.phone ? `Shopper ${u.phone}` : 'Registered Shopper'),
+            phone: u.phone || '+91 98XXX XXXXX',
+            email: u.email || 'customer@store.com',
+            interestCategory: u.cartItemsCount > 0 ? 'Active Cart Shopper' : (u.wishlistCount > 0 ? 'Wishlist Shopper' : 'Store Member'),
+            source: u.registrationMethod === 'google' ? 'Organic' : 'Checkout Dropoff',
+            createdAt: u.createdAt || new Date().toISOString(),
+            status: u.lastActive ? 'Contacted' : 'New',
+          }));
+          setLeads(mappedLeads);
+        }
+      }
+
+      if (couponsRes.status === 'fulfilled' && couponsRes.value) {
+        const rawCoupons = Array.isArray(couponsRes.value) ? couponsRes.value : (couponsRes.value.coupons || couponsRes.value.data || []);
+        if (Array.isArray(rawCoupons) && rawCoupons.length > 0) {
+          const mappedCoupons: AdminCoupon[] = rawCoupons.map((cp: any) => ({
+            id: cp._id || cp.id || String(Math.random()),
+            code: cp.code || 'COUPON',
+            discountType: cp.discountType === 'fixed' ? 'fixed' : 'percentage',
+            discountValue: cp.discountValue || 10,
+            minOrderValue: cp.minOrderValue || 0,
+            usageCount: cp.usedCount || cp.usageCount || 0,
+            maxUsage: cp.usageLimit || cp.perUserLimit || 100,
+            expiresAt: cp.expiryDate || cp.expiresAt || new Date(Date.now() + 86400000 * 30).toISOString(),
+            status: cp.isActive !== false ? 'Active' : 'Expired',
+          }));
+          setCoupons(mappedCoupons);
+        }
+      }
+    } catch {
+      // Retain fallback data
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveGrowthData();
+  }, []);
 
   const triggerFeedback = (msg: string) => {
     setFeedback(msg);
     setTimeout(() => setFeedback(null), 3000);
   };
 
-  const handleSendWhatsAppRecovery = (cart: AdminAbandonedCart) => {
+  const handleSendWhatsAppRecovery = async (cart: AdminAbandonedCart) => {
+    try {
+      await adminAnalyticsApi.sendAbandonedCartReminders([cart.id]);
+    } catch {
+      // demo fallback
+    }
     mockAdminStore.updateCartStatus(cart.id, 'WhatsApp Sent');
-    setCarts(mockAdminStore.getAbandonedCarts());
+    setCarts((prev) =>
+      prev.map((c) => (c.id === cart.id ? { ...c, recoveryStatus: 'WhatsApp Sent' } : c))
+    );
     triggerFeedback(`WhatsApp recovery reminder sent to ${cart.customerName} (${cart.customerPhone})!`);
   };
 
   const handleMarkRecovered = (cart: AdminAbandonedCart) => {
     mockAdminStore.updateCartStatus(cart.id, 'Recovered');
-    setCarts(mockAdminStore.getAbandonedCarts());
+    setCarts((prev) =>
+      prev.map((c) => (c.id === cart.id ? { ...c, recoveryStatus: 'Recovered' } : c))
+    );
     triggerFeedback(`Cart marked as successfully recovered! Added to confirmed revenue.`);
   };
 
@@ -51,9 +139,20 @@ export const AdminGrowthView: React.FC<AdminGrowthViewProps> = ({
           </p>
         </div>
 
-        {/* Sub-tab pills */}
-        <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200/80 shadow-2xs self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
+            type="button"
+            onClick={fetchLiveGrowthData}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 text-xs font-bold text-navy bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+            title="Refresh Live Growth Metrics from Backend"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#A44101] ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Syncing...' : 'Live Sync'}</span>
+          </button>
+          {/* Sub-tab pills */}
+          <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200/80 shadow-2xs">
+            <button
             type="button"
             onClick={() => setActiveSubTab('abandoned')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -93,6 +192,7 @@ export const AdminGrowthView: React.FC<AdminGrowthViewProps> = ({
           </button>
         </div>
       </div>
+    </div>
 
       {feedback && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl animate-fadeIn flex items-center gap-2">

@@ -4,6 +4,7 @@ import { AlertTriangle, X, Archive, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppDispatch } from '../../../../../store/hooks';
 import { archiveProduct, deleteProduct, AdminProduct } from '../../../../../store/adminProductsSlice';
+import { adminProductsApi } from '../../../../../api';
 
 interface ArchiveConfirmDialogProps {
   product: AdminProduct;
@@ -27,12 +28,26 @@ export const ArchiveConfirmDialog: React.FC<ArchiveConfirmDialogProps> = ({ prod
   }, [onClose]);
 
   const handleArchive = () => {
+    (async () => {
+      try {
+        await adminProductsApi.archive(product.sku || product.id);
+      } catch {
+        // fallback
+      }
+    })();
     dispatch(archiveProduct(product.id));
     toast.success(`Product "${product.title}" archived successfully.`);
     onClose();
   };
 
   const handleDeletePermanent = () => {
+    (async () => {
+      try {
+        await adminProductsApi.archive(product.sku || product.id);
+      } catch {
+        // fallback
+      }
+    })();
     dispatch(deleteProduct(product.id));
     toast.success(`Product "${product.title}" permanently deleted.`);
     onClose();

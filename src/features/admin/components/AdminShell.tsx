@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   ShoppingBag, 
-  RotateCcw, 
-  Truck, 
   Package, 
   BarChart3, 
-  AlertTriangle, 
   Users, 
   ShoppingCart, 
   Ticket, 
@@ -19,9 +16,17 @@ import {
   ArrowLeft,
   ExternalLink,
   Sliders,
-  Database
+  Database,
+  ChevronDown,
+  Box,
+  PlusCircle,
+  FolderTree,
+  Tag,
+  Boxes,
+  Truck
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
+import { adminOrdersApi, adminProductsApi, adminAnalyticsApi } from '../../../api';
 
 export type AdminTab = 
   | 'dashboard' 
@@ -29,6 +34,12 @@ export type AdminTab =
   | 'returns' 
   | 'rto' 
   | 'products' 
+  | 'products-all'
+  | 'products-add'
+  | 'products-categories'
+  | 'products-labels'
+  | 'products-inventory'
+  | 'products-bulkupload'
   | 'analytics' 
   | 'outofstock' 
   | 'leads' 
@@ -57,9 +68,57 @@ export const AdminShell: React.FC<AdminShellProps> = ({
   children,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProductsExpanded, setIsProductsExpanded] = useState(true);
   const [isSettingsMode, setIsSettingsMode] = useState(
     currentTab.startsWith('settings')
   );
+
+  const [counts, setCounts] = useState({
+    orders: mockAdminStore.getOrders().length,
+    products: mockAdminStore.getProducts().length,
+    abandoned: mockAdminStore.getAbandonedCarts().length,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const [ordRes, prodRes, anaRes] = await Promise.allSettled([
+          adminOrdersApi.getSummary(),
+          adminProductsApi.getAll({ limit: 1 }),
+          adminAnalyticsApi.getSummary('30d'),
+        ]);
+
+        let ordersCount = counts.orders;
+        if (ordRes.status === 'fulfilled' && ordRes.value?.totals?.totalOrders !== undefined) {
+          ordersCount = ordRes.value.totals.totalOrders;
+        }
+
+        let productsCount = counts.products;
+        if (prodRes.status === 'fulfilled' && prodRes.value) {
+          const pVal = prodRes.value;
+          if (pVal.totalProducts !== undefined) productsCount = pVal.totalProducts;
+          else if (pVal.counts?.total !== undefined) productsCount = pVal.counts.total;
+        }
+
+        let abandonedCount = counts.abandoned;
+        if (anaRes.status === 'fulfilled') {
+          const c = anaRes.value?.carts;
+          if (c?.abandoned24h !== undefined) abandonedCount = c.abandoned24h;
+          else if (c?.total !== undefined) abandonedCount = c.total;
+        }
+
+        setCounts({
+          orders: ordersCount,
+          products: productsCount,
+          abandoned: abandonedCount,
+        });
+      } catch {
+        // defaults
+      }
+    };
+
+    fetchCounts();
+  }, [currentTab]);
 
   const handleTabClick = (tab: AdminTab) => {
     onSelectTab(tab);
@@ -261,61 +320,122 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
                         currentTab === 'orders' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
                       }`}>
-                        {mockAdminStore.getOrders().length}
+                        {counts.orders}
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTabClick('returns')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'returns'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      <span>Returns</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTabClick('rto')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'rto'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Truck className="w-4 h-4" />
-                      <span>RTO (Courier Return)</span>
                     </button>
                   </div>
                 </div>
 
-                {/* CATEGORY 3: Catalog */}
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
-                    Catalog
-                  </span>
-                  <div className="space-y-1 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleTabClick('products')}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'products'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Package className="w-4 h-4" />
-                        <span>Products</span>
+                {/* CATEGORY 3: Products (Collapsible Hierarchy) */}
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsProductsExpanded(!isProductsExpanded)}
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-slate-200/70 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-center text-[#A44101] shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
+                        <Package className="w-4 h-4 stroke-[2.2]" />
                       </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                        currentTab === 'products' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
-                      }`}>
-                        {mockAdminStore.getProducts().length}
-                      </span>
-                    </button>
+                      <span className="font-bold text-slate-800 text-sm">Products</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isProductsExpanded ? '' : '-rotate-90'}`} />
+                  </button>
+
+                  {isProductsExpanded && (
+                    <div className="border-l-2 border-slate-200/90 ml-5 pl-3.5 space-y-1 pt-1 text-xs">
+                      {/* All Products */}
+                      <button
+                        type="button"
+                        onClick={() => handleTabClick('products-all')}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                          currentTab === 'products' || currentTab === 'products-all'
+                            ? 'bg-[#A44101] text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Box className="w-4 h-4" />
+                          <span>All Products</span>
+                        </div>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                          currentTab === 'products' || currentTab === 'products-all'
+                            ? 'bg-white/25 text-white'
+                            : 'bg-slate-200/90 text-slate-700'
+                        }`}>
+                          {counts.products}
+                        </span>
+                      </button>
+
+                      {/* Add Product */}
+                      <button
+                        type="button"
+                        onClick={() => handleTabClick('products-add')}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                          currentTab === 'products-add'
+                            ? 'bg-[#A44101] text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
+                        }`}
+                      >
+                        <PlusCircle className="w-4 h-4" />
+                        <span>Add Product</span>
+                      </button>
+
+                      {/* Categories */}
+                      <button
+                        type="button"
+                        onClick={() => handleTabClick('products-categories')}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                          currentTab === 'products-categories'
+                            ? 'bg-[#A44101] text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
+                        }`}
+                      >
+                        <FolderTree className="w-4 h-4" />
+                        <span>Categories</span>
+                      </button>
+
+                      {/* Labels */}
+                      <button
+                        type="button"
+                        onClick={() => handleTabClick('products-labels')}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                          currentTab === 'products-labels'
+                            ? 'bg-[#A44101] text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
+                        }`}
+                      >
+                        <Tag className="w-4 h-4" />
+                        <span>Labels</span>
+                      </button>
+
+                      {/* Inventory */}
+                      <button
+                        type="button"
+                        onClick={() => handleTabClick('products-inventory')}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                          currentTab === 'products-inventory' || currentTab === 'outofstock'
+                            ? 'bg-[#A44101] text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Boxes className="w-4 h-4" />
+                          <span>Inventory</span>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          currentTab === 'products-inventory' || currentTab === 'outofstock'
+                            ? 'bg-white/25 text-white'
+                            : 'bg-amber-100 text-amber-900 border border-amber-200/60'
+                        }`}>
+                          2 Low
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Store Analytics right below Products menu */}
+                  <div className="pt-1 text-xs">
                     <button
                       type="button"
                       onClick={() => handleTabClick('analytics')}
@@ -327,18 +447,6 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                     >
                       <BarChart3 className="w-4 h-4" />
                       <span>Store Analytics</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleTabClick('outofstock')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'outofstock'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <AlertTriangle className="w-4 h-4 text-amber-600" />
-                      <span>Out of Stock</span>
                     </button>
                   </div>
                 </div>
@@ -375,7 +483,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                         <span>Abandoned Carts</span>
                       </div>
                       <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full font-bold shadow-2xs">
-                        {mockAdminStore.getAbandonedCarts().length}
+                        {counts.abandoned}
                       </span>
                     </button>
                     <button

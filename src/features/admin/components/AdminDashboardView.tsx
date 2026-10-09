@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Package, 
@@ -11,9 +11,11 @@ import {
   Gift, 
   Eye, 
   Calendar,
-  TrendingUp
+  TrendingUp,
+  RefreshCw
 } from 'lucide-react';
-import { mockAdminStore } from '../mockAdminStore';
+import { mockAdminStore, AdminOrder } from '../mockAdminStore';
+import { adminOrdersApi, adminAnalyticsApi, adminProductsApi } from '../../../api';
 
 interface AdminDashboardViewProps {
   onNavigateToOrders: (statusFilter?: string) => void;
@@ -26,9 +28,137 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onNavigateToProducts,
   onNavigateToAbandoned,
 }) => {
-  const kpis = mockAdminStore.getDashboardKPIs();
-  const allOrders = mockAdminStore.getOrders();
-  const recentOrders = allOrders.slice(0, 5);
+  const defaultKpis = mockAdminStore.getDashboardKPIs();
+  const [kpis, setKpis] = useState(defaultKpis);
+  const [recentOrders, setRecentOrders] = useState<AdminOrder[]>(mockAdminStore.getOrders().slice(0, 5));
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchLiveDashboard = async () => {
+    setIsLoading(true);
+    try {
+      const [orderSummaryRes, ordersListRes, analyticsRes, productsRes] = await Promise.allSettled([
+        adminOrdersApi.getSummary(),
+        adminOrdersApi.getAll({ limit: 5 }),
+        adminAnalyticsApi.getSummary('30d'),
+        adminProductsApi.getAll({ limit: 1 }),
+      ]);
+
+      let totalRevenue = defaultKpis.totalRevenue;
+      let totalOrders = defaultKpis.totalOrders;
+      let buckets = { ...defaultKpis.buckets };
+
+      if (orderSummaryRes.status === 'fulfilled' && orderSummaryRes.value) {
+        const sum = orderSummaryRes.value;
+        if (sum.totals) {
+          totalRevenue = Math.round(sum.totals.totalRevenueInr || totalRevenue);
+          totalOrders = sum.totals.totalOrders ?? totalOrders;
+        }
+        if (sum.countsByBucket) {
+          buckets = {
+            ...buckets,
+            pending: sum.countsByBucket.new ?? buckets.pending,
+            confirmed: sum.countsByBucket.bill_sent ?? buckets.confirmed,
+            processing: sum.countsByBucket.ready_to_ship ?? buckets.processing,
+            shipped: sum.countsByBucket.in_transit ?? buckets.shipped,
+            delivered: sum.countsByBucket.completed ?? buckets.delivered,
+            cancelled: sum.countsByBucket.others ?? buckets.cancelled,
+          };
+        }
+      }
+
+      let totalCustomers = defaultKpis.totalCustomers;
+      let abandonedCartsCount = defaultKpis.abandonedCartsCount;
+
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value) {
+        const ana = analyticsRes.value;
+        if (ana.users?.total) totalCustomers = ana.users.total;
+        if (ana.carts?.abandoned24h !== undefined) abandonedCartsCount = ana.carts.abandoned24h;
+        else if (ana.carts?.total !== undefined) abandonedCartsCount = ana.carts.total;
+      }
+
+      let activeProducts = defaultKpis.activeProducts;
+      let outOfStockCount = defaultKpis.outOfStockCount;
+
+      if (productsRes.status === 'fulfilled' && productsRes.value) {
+        const pData = productsRes.value;
+        if (pData.counts) {
+          activeProducts = pData.counts.active || pData.counts.total || activeProducts;
+          outOfStockCount = pData.counts.lowStock || pData.counts.inactive || outOfStockCount;
+        }
+      }
+
+      setKpis({
+        totalRevenue,
+        totalOrders,
+        totalCustomers,
+        activeProducts,
+        outOfStockCount,
+        abandonedCartsCount,
+        giftOrders: defaultKpis.giftOrders,
+        buckets,
+      });
+
+      if (ordersListRes.status === 'fulfilled' && ordersListRes.value) {
+        const rawOrders = ordersListRes.value.orders || ordersListRes.value;
+        if (Array.isArray(rawOrders) && rawOrders.length > 0) {
+          const mapped: AdminOrder[] = rawOrders.map((ord: any) => ({
+            id: ord.orderId || ord._id || String(Math.random()),
+            orderNumber: ord.orderIdDisplay || ord.orderId || '#ORD-LIVE',
+            customerName: ord.shippingAddress?.fullName || ord.customerName || (ord.contactPhone ? `Customer (${ord.contactPhone})` : 'Indian Shopper'),
+            customerPhone: ord.contactPhone || ord.shippingAddress?.phone || '+91 98XXX XXXXX',
+            customerEmail: ord.customerEmail || 'customer@store.com',
+            shippingAddress: ord.shippingAddress?.addressLine1 || ord.shippingAddress?.city || 'India',
+            items: (ord.items || []).map((it: any, idx: number) => ({
+              id: it.productId || `item-${idx}`,
+              productId: it.productId || 'p1',
+              productTitle: it.productTitle || it.title || ord.orderIdDisplay || 'Ordered Product',
+              sku: it.sku || 'SKU-LIVE',
+              price: it.price || it.unitPrice || 299,
+              quantity: it.quantity || 1,
+              image: it.image || '/images/products/placeholder.png',
+            })),
+            totalAmount: Math.round(ord.amountInr || ord.totalAmount || 0),
+            subtotal: Math.round(ord.subtotalInr || ord.amountInr || ord.totalAmount || 0),
+            discount: Math.round(ord.discountInr || 0),
+            paymentMethod: (ord.paymentMethod === 'online' ? 'UPI' : (ord.paymentMethod === 'cod' ? 'COD' : 'UPI')) as any,
+            paymentStatus: (ord.paymentStatus === 'paid' ? 'Paid' : 'Pending') as any,
+            status: (
+              ord.orderStatus === 'confirmed' ? 'Confirmed' :
+              ord.orderStatus === 'processing' ? 'Processing' :
+              ord.orderStatus === 'shipped' ? 'Shipped' :
+              ord.orderStatus === 'delivered' ? 'Delivered' :
+              ord.orderStatus === 'cancelled' ? 'Cancelled' :
+              ord.orderStatus === 'rto' ? 'RTO' :
+              ord.orderStatus === 'returned' ? 'Returned' : 'Pending'
+            ),
+            isGiftOrder: Boolean(ord.isGiftOrder || (ord.orderIntentType && ord.orderIntentType.includes('gift'))),
+            giftIntent: ord.isGiftOrder ? {
+              isGift: true,
+              recipientName: 'Gift Recipient',
+              senderName: ord.shippingAddress?.fullName || ord.customerName || 'Customer',
+              recipientPhone: ord.contactPhone || '',
+              deliveryAddress: 'Pan India',
+              giftMessage: 'Best wishes!',
+              occasion: (ord.orderIntentType || 'Festival').replace('gift_', '').toUpperCase(),
+              includeCard: true,
+              packagingTheme: 'Classic Saffron Gold'
+            } : undefined,
+            createdAt: ord.createdAt || new Date().toISOString(),
+            updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
+          }));
+          setRecentOrders(mapped);
+        }
+      }
+    } catch {
+      // Keep fallbacks
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveDashboard();
+  }, []);
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
@@ -43,9 +173,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs self-start sm:self-auto">
-          <Calendar className="w-3.5 h-3.5 text-[#A44101]" />
-          <span>Today: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={fetchLiveDashboard}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 text-xs font-bold text-navy bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+            title="Refresh Live Metrics from Backend"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#A44101] ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Syncing...' : 'Live Sync'}</span>
+          </button>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-[#A44101]" />
+            <span>Today: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          </div>
         </div>
       </div>
 

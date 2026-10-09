@@ -35,6 +35,10 @@ export interface AdminCategory {
   name: string;
   subcategories: string[];
   imageUrl?: string;
+  bannerImageUrl?: string;
+  description?: string;
+  status?: string;
+  order?: number;
   badge?: string;
 }
 
@@ -760,7 +764,25 @@ export const adminProductsSlice = createSlice({
       saveStateToStorage(state);
     },
 
-    // 15. Reset Store to Default Seed
+    // 16. Load Live Products from Backend
+    setProductsFromApi: (state, action: PayloadAction<AdminProduct[]>) => {
+      if (Array.isArray(action.payload) && action.payload.length > 0) {
+        state.products = action.payload;
+        state.lastUpdated = new Date().toISOString();
+        saveStateToStorage(state);
+      }
+    },
+
+    // 17. Load Live Categories from Backend
+    setCategoriesFromApi: (state, action: PayloadAction<AdminCategory[]>) => {
+      if (Array.isArray(action.payload) && action.payload.length > 0) {
+        state.categories = action.payload;
+        state.lastUpdated = new Date().toISOString();
+        saveStateToStorage(state);
+      }
+    },
+
+    // 18. Reset to default store state
     resetToDefaultStore: (state) => {
       state.products = DEFAULT_PRODUCTS;
       state.categories = DEFAULT_CATEGORIES;
@@ -790,7 +812,9 @@ export const {
   assignBadges,
   removeBadge,
   bulkArchiveProducts,
-  resetToDefaultStore
+  resetToDefaultStore,
+  setProductsFromApi,
+  setCategoriesFromApi
 } = adminProductsSlice.actions;
 
 export default adminProductsSlice.reducer;

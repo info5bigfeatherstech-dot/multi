@@ -1,23 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, 
-  ChefHat, 
+  Sparkle, 
+  Sparkles, 
   Smartphone, 
+  ChefHat, 
   Baby, 
   BookOpen, 
-  Sparkle, 
   Dumbbell, 
   Plane, 
   Shirt, 
   Gift, 
-  Sparkles, 
-  Wrench, 
   Car, 
-  PackageCheck, 
+  Wrench, 
   Briefcase,
   ChevronRight 
 } from 'lucide-react';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
+import { storefrontProductsApi } from '../api';
 
 export interface CategorySidebarItem {
   id: string;
@@ -28,107 +28,49 @@ export interface CategorySidebarItem {
   subcategories?: string[];
 }
 
-// Complete categories matching exact sequence of ALL_CATEGORIES_MENU
-export const HERO_CATEGORIES: CategorySidebarItem[] = [
-  {
-    id: 'home-kitchen',
-    name: 'Home & Kitchen',
-    targetSectionId: 'section-home-kitchen',
-    icon: ChefHat,
-    subcategories: CATEGORY_SUBCATEGORIES['home-kitchen'],
-  },
-  {
-    id: 'smart-life-gadget',
-    name: 'Smart Life Gadgets',
-    targetSectionId: 'section-smart-life-gadget',
-    icon: Smartphone,
-    subcategories: CATEGORY_SUBCATEGORIES['smart-life-gadget'],
-  },
-  {
-    id: 'baby-items',
-    name: 'Baby Items',
-    targetSectionId: 'section-baby-items',
-    icon: Baby,
-    subcategories: CATEGORY_SUBCATEGORIES['baby-items'],
-  },
-  {
-    id: 'stationary',
-    name: 'Stationery',
-    targetSectionId: 'section-stationary',
-    icon: BookOpen,
-    subcategories: CATEGORY_SUBCATEGORIES['stationary'],
-  },
-  {
-    id: 'cleaning-housekeeping',
-    name: 'Cleaning & Housekeeping',
-    targetSectionId: 'section-cleaning-housekeeping',
-    icon: Sparkle,
-    subcategories: CATEGORY_SUBCATEGORIES['cleaning-housekeeping'],
-  },
-  {
-    id: 'sports-fitness',
-    name: 'Sports & Fitness',
-    targetSectionId: 'section-sports-fitness',
-    icon: Dumbbell,
-    subcategories: CATEGORY_SUBCATEGORIES['sports-fitness'],
-  },
-  {
-    id: 'tours-travels',
-    name: 'Tours & Travels',
-    targetSectionId: 'section-tours-travels',
-    icon: Plane,
-    subcategories: CATEGORY_SUBCATEGORIES['tours-travels'],
-  },
-  {
-    id: 'fashion-world',
-    name: 'Fashion World',
-    targetSectionId: 'section-fashion-world',
-    icon: Shirt,
-    subcategories: CATEGORY_SUBCATEGORIES['fashion-world'],
-  },
-  {
-    id: 'gifts',
-    name: 'Gifts',
-    targetSectionId: 'category-card-gifts',
-    icon: Gift,
-    subcategories: CATEGORY_SUBCATEGORIES['gifts'],
-  },
-  {
-    id: 'beauty-personal-care',
-    name: 'Beauty & Personal Care',
-    targetSectionId: 'section-beauty-personal-care',
-    icon: Sparkles,
-    subcategories: CATEGORY_SUBCATEGORIES['beauty-personal-care'],
-  },
-  {
-    id: 'home-improvement',
-    name: 'Home Improvement',
-    targetSectionId: 'category-card-home-improvement',
-    icon: Wrench,
-    subcategories: CATEGORY_SUBCATEGORIES['home-improvement'],
-  },
-  {
-    id: 'car-accessories',
-    name: 'Car Accessories',
-    targetSectionId: 'section-car-accessories',
-    icon: Car,
-    subcategories: CATEGORY_SUBCATEGORIES['car-accessories'],
-  },
-  {
-    id: 'corporate-gifting',
-    name: 'Corporate Gifting',
-    targetSectionId: 'category-card-corporate-gifting',
-    icon: Briefcase,
-    subcategories: CATEGORY_SUBCATEGORIES['corporate-gifting'],
-  },
-  {
-    id: 'mix-item',
-    name: 'Mix Item Deals',
-    targetSectionId: 'section-mix-item',
-    icon: PackageCheck,
-    subcategories: CATEGORY_SUBCATEGORIES['mix-item'],
-  },
-];
+export const getCategoryIcon = (name = '', slug = ''): React.ComponentType<{ className?: string }> => {
+  const s = `${name} ${slug}`.toLowerCase();
+  if (s.includes('earring') || s.includes('stud')) return Sparkle;
+  if (s.includes('necklace') || s.includes('pendant')) return Sparkles;
+  if (s.includes('chain')) return Sparkles;
+  if (s.includes('hair') || s.includes('forehead')) return Sparkle;
+  if (s.includes('nose') || s.includes('nath')) return Sparkle;
+  if (s.includes('earphone') || s.includes('gadget') || s.includes('smart') || s.includes('phone')) return Smartphone;
+  if (s.includes('mangalsutra')) return Sparkles;
+  if (s.includes('ring')) return Sparkle;
+  if (s.includes('anklet') || s.includes('toe')) return Sparkles;
+  if (s.includes('bracelet') || s.includes('bangle')) return Sparkle;
+  if (s.includes('kitchen') || s.includes('cook')) return ChefHat;
+  if (s.includes('baby')) return Baby;
+  if (s.includes('book') || s.includes('station')) return BookOpen;
+  if (s.includes('fit') || s.includes('sport') || s.includes('gym')) return Dumbbell;
+  if (s.includes('travel') || s.includes('tour')) return Plane;
+  if (s.includes('fashion') || s.includes('cloth') || s.includes('wear')) return Shirt;
+  if (s.includes('gift')) return Gift;
+  if (s.includes('car')) return Car;
+  if (s.includes('tool') || s.includes('wrench')) return Wrench;
+  if (s.includes('bag') || s.includes('corporate')) return Briefcase;
+  return LayoutGrid;
+};
+
+const CATEGORIES_CACHE_KEY = 'abb_dynamic_categories_cache';
+
+const getCachedCategories = (): CategorySidebarItem[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CATEGORIES_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((cat: any) => ({
+          ...cat,
+          icon: getCategoryIcon(cat.name, cat.id || cat.slug),
+        }));
+      }
+    }
+  } catch {}
+  return [];
+};
 
 interface HeroCategorySidebarProps {
   onCategoryClick?: (item: CategorySidebarItem, subcategory?: string) => void;
@@ -139,7 +81,55 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
   onCategoryClick,
   onViewAllClick,
 }) => {
+  // Strictly start from cached dynamic categories or empty state — NEVER show static mock categories
+  const [categories, setCategories] = useState<CategorySidebarItem[]>(() => getCachedCategories());
   const [hoveredCat, setHoveredCat] = useState<CategorySidebarItem | null>(null);
+
+  // Load dynamic categories from backend API
+  useEffect(() => {
+    storefrontProductsApi.getCategories()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          const dynamicItems: CategorySidebarItem[] = res.map((cat: any) => {
+            const catId = cat.slug || cat._id || cat.id;
+            const subcats: string[] = Array.isArray(cat.children) && cat.children.length > 0
+              ? cat.children.map((c: any) => (typeof c === 'string' ? c : c.name || c.title))
+              : (CATEGORY_SUBCATEGORIES[cat.slug] || [
+                  `All ${cat.name}`,
+                  'Bestsellers',
+                  'New Arrivals',
+                  'Trending Deals'
+                ]);
+
+            return {
+              id: catId,
+              name: cat.name,
+              targetSectionId: `section-${catId}`,
+              icon: getCategoryIcon(cat.name, catId),
+              subcategories: subcats,
+            };
+          });
+
+          setCategories(dynamicItems);
+
+          try {
+            // Cache in localStorage to prevent any 1-sec flash on future visits
+            localStorage.setItem(
+              CATEGORIES_CACHE_KEY,
+              JSON.stringify(dynamicItems.map(({ id, name, targetSectionId, subcategories }) => ({
+                id,
+                name,
+                targetSectionId,
+                subcategories
+              })))
+            );
+          } catch {}
+        }
+      })
+      .catch((err) => {
+        console.warn('Hero categories fetch error:', err?.message);
+      });
+  }, []);
 
   const handleItemClick = (item: CategorySidebarItem, subcategory?: string) => {
     if (onCategoryClick) {
@@ -188,44 +178,58 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
         </h2>
       </div>
 
-      {/* 2. List of Categories */}
-      <ul className="flex-1 min-h-0 divide-y divide-slate-100 flex flex-col">
-        {HERO_CATEGORIES.map((cat) => {
-          const IconComponent = cat.icon;
-          const isHovered = hoveredCat?.id === cat.id;
+      {/* 2. List of Categories or Shimmer Skeleton (Never shows static categories) */}
+      {categories.length === 0 ? (
+        <div className="flex-1 min-h-0 divide-y divide-slate-100 flex flex-col p-2 space-y-1">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="flex-1 min-h-0 flex items-center justify-between px-2 py-1 animate-pulse">
+              <div className="flex items-center gap-2.5 w-full">
+                <div className="w-3.5 h-3.5 rounded bg-slate-200 shrink-0" />
+                <div className="h-3 rounded bg-slate-200" style={{ width: `${55 + (i % 5) * 8}%` }} />
+              </div>
+              <div className="w-2.5 h-2.5 rounded bg-slate-100 shrink-0" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <ul className="flex-1 min-h-0 divide-y divide-slate-100 flex flex-col">
+          {categories.map((cat) => {
+            const IconComponent = cat.icon;
+            const isHovered = hoveredCat?.id === cat.id;
 
-          return (
-            <li 
-              key={cat.id} 
-              className="flex-1 min-h-0 flex"
-              onMouseEnter={() => setHoveredCat(cat)}
-            >
-              <button
-                type="button"
-                onClick={() => handleItemClick(cat)}
-                className={`w-full h-full px-3 py-0.5 flex items-center justify-between text-left transition-colors group cursor-pointer ${
-                  isHovered ? 'bg-[#A44101]/10 text-[#A44101]' : 'text-slate-700 hover:text-navy hover:bg-slate-50'
-                }`}
-                aria-label={`Browse ${cat.name}`}
+            return (
+              <li 
+                key={cat.id} 
+                className="flex-1 min-h-0 flex"
+                onMouseEnter={() => setHoveredCat(cat)}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <IconComponent className={`w-3.5 h-3.5 shrink-0 transition-colors stroke-[2] ${
-                    isHovered ? 'text-[#A44101]' : 'text-slate-500 group-hover:text-[#A44101]'
+                <button
+                  type="button"
+                  onClick={() => handleItemClick(cat)}
+                  className={`w-full h-full px-3 py-0.5 flex items-center justify-between text-left transition-colors group cursor-pointer ${
+                    isHovered ? 'bg-[#A44101]/10 text-[#A44101]' : 'text-slate-700 hover:text-navy hover:bg-slate-50'
+                  }`}
+                  aria-label={`Browse ${cat.name}`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <IconComponent className={`w-3.5 h-3.5 shrink-0 transition-colors stroke-[2] ${
+                      isHovered ? 'text-[#A44101]' : 'text-slate-500 group-hover:text-[#A44101]'
+                    }`} />
+                    <span className={`text-[11px] xl:text-[11.5px] font-medium truncate ${
+                      isHovered ? 'text-[#A44101] font-bold' : 'text-slate-800 group-hover:text-navy'
+                    }`}>
+                      {cat.name}
+                    </span>
+                  </div>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-all shrink-0 ml-1 ${
+                    isHovered ? 'text-[#A44101] translate-x-0.5' : 'text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5'
                   }`} />
-                  <span className={`text-[11px] xl:text-[11.5px] font-medium truncate ${
-                    isHovered ? 'text-[#A44101] font-bold' : 'text-slate-800 group-hover:text-navy'
-                  }`}>
-                    {cat.name}
-                  </span>
-                </div>
-                <ChevronRight className={`w-3.5 h-3.5 transition-all shrink-0 ml-1 ${
-                  isHovered ? 'text-[#A44101] translate-x-0.5' : 'text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5'
-                }`} />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/* 3. Flyout panel for subcategories on hover (Desktop) */}
       {hoveredCat && hoveredCat.subcategories && hoveredCat.subcategories.length > 0 && (

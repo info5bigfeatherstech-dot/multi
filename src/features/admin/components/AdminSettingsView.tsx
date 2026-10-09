@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sliders, 
   RotateCcw, 
   Save, 
   CheckCircle2, 
-  Database
+  Database,
+  Users,
+  UserPlus,
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 import { mockAdminStore } from '../mockAdminStore';
+import { adminAuthApi } from '../../../api';
 
 export const AdminSettingsView: React.FC = () => {
   const [storeName, setStoreName] = useState('Apna Bharat Bazaar');
@@ -15,9 +20,52 @@ export const AdminSettingsView: React.FC = () => {
   const [deliveryTime, setDeliveryTime] = useState('2-5 Business Days Pan India');
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // Live Staff State
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [isStaffLoading, setIsStaffLoading] = useState(false);
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'order_manager',
+    password: '',
+  });
+  const [isAddingStaff, setIsAddingStaff] = useState(false);
+
+  const fetchStaff = async () => {
+    setIsStaffLoading(true);
+    try {
+      const data = await adminAuthApi.getStaffMembers();
+      setStaffList(Array.isArray(data) ? data : []);
+    } catch {
+      // ignore
+    } finally {
+      setIsStaffLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStaff();
+  }, []);
+
+  const handleAddStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaff.email || !newStaff.name) return;
+    try {
+      await adminAuthApi.createStaff(newStaff);
+      setFeedback(`Staff member ${newStaff.name} created successfully! ✓`);
+      setNewStaff({ name: '', email: '', phone: '', role: 'order_manager', password: '' });
+      setIsAddingStaff(false);
+      fetchStaff();
+    } catch (err: any) {
+      setFeedback(`Failed to create staff: ${err?.message || 'Error'}`);
+    }
+    setTimeout(() => setFeedback(null), 3500);
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    setFeedback('Settings updated and stored in localStorage! ✓');
+    setFeedback('Settings updated and stored! ✓');
     setTimeout(() => setFeedback(null), 3000);
   };
 
@@ -116,6 +164,127 @@ export const AdminSettingsView: React.FC = () => {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Live Staff Management Card */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-[#A44101]" />
+            <h2 className="text-sm font-bold text-navy">Operations Staff &amp; Team Members</h2>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              {staffList.length} Staff
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchStaff}
+              disabled={isStaffLoading}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 transition-colors"
+              title="Refresh Staff"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isStaffLoading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAddingStaff(!isAddingStaff)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#A44101] text-white text-xs font-bold shadow-xs cursor-pointer hover:bg-[#8C3701] transition-all"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>{isAddingStaff ? 'Cancel' : 'Add Staff'}</span>
+            </button>
+          </div>
+        </div>
+
+        {isAddingStaff && (
+          <form onSubmit={handleAddStaff} className="mb-4 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 animate-fadeIn">
+            <h3 className="text-xs font-black text-navy uppercase tracking-wider">New Staff Member</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newStaff.name}
+                  onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+                  placeholder="e.g. Ramesh Kumar"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:border-[#A44101]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={newStaff.email}
+                  onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                  placeholder="ramesh@store.com"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:border-[#A44101]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={newStaff.phone}
+                  onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
+                  placeholder="9876543210"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:border-[#A44101]"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Role Permission</label>
+                <select
+                  value={newStaff.role}
+                  onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:border-[#A44101]"
+                >
+                  <option value="order_manager">Order Manager</option>
+                  <option value="product_manager">Product Manager</option>
+                  <option value="inventory_manager">Inventory Manager</option>
+                  <option value="packing_viewer">Packing Viewer</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="submit"
+                className="px-4 py-1.5 rounded-lg bg-[#A44101] text-white text-xs font-bold shadow-xs cursor-pointer hover:bg-[#8C3701]"
+              >
+                Create Staff Member
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="divide-y divide-slate-100">
+          {staffList.length === 0 ? (
+            <p className="text-xs text-slate-400 py-3 text-center">No staff members listed.</p>
+          ) : (
+            staffList.map((member: any) => (
+              <div key={member._id || member.id} className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 text-[#A44101] font-black flex items-center justify-center text-xs">
+                    {(member.name || 'S').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-navy text-xs sm:text-sm">{member.name}</h4>
+                    <p className="text-[11px] text-slate-400 font-mono">{member.email} {member.phone ? `• ${member.phone}` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black border border-blue-200 uppercase">
+                    <Shield className="w-2.5 h-2.5" />
+                    <span>{(member.role || 'staff').replace('_', ' ')}</span>
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Mock Storage Engine Management Card */}

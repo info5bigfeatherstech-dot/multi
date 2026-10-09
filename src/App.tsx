@@ -17,10 +17,16 @@ import { CartProvider } from './context/CartContext';
 import { ProductItem, getProductById } from './data/storeData';
 import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
+import { ApiStatusInspector } from './components/ApiStatusInspector';
+import { AuthModal } from './components/AuthModal';
 
 type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact';
 
 export const App: React.FC = () => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [postAuthRedirect, setPostAuthRedirect] = useState<ViewType | null>(null);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     if (typeof window === 'undefined') return 'home';
     const path = window.location.pathname.toLowerCase();
@@ -30,7 +36,11 @@ export const App: React.FC = () => {
     }
     if (path.startsWith('/contact') || path.startsWith('/support') || hash === '#contact') return 'contact';
     if (path.startsWith('/wishlist') || hash === '#wishlist') return 'wishlist';
-    if (path.startsWith('/profile') || path.startsWith('/orders') || hash === '#profile' || hash === '#orders') return 'profile';
+    if (path.startsWith('/profile') || path.startsWith('/orders') || hash === '#profile' || hash === '#orders') {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('user_access_token') : null;
+      if (!token) return 'home';
+      return 'profile';
+    }
     if (path.startsWith('/checkout') || hash === '#checkout') return 'checkout';
     if (path.startsWith('/product') || hash.startsWith('#product-')) return 'product';
     if (path.startsWith('/category') || hash.startsWith('#category-')) return 'category';
@@ -130,9 +140,19 @@ export const App: React.FC = () => {
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path === '/profile' || path === '/orders' || path === '/account') {
-        setCurrentView('profile');
-        setSelectedProduct(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const token = localStorage.getItem('user_access_token');
+        if (!token) {
+          setCurrentView('home');
+          setSelectedProduct(null);
+          window.history.replaceState(null, '', '/');
+          setPostAuthRedirect('profile');
+          setAuthModalMessage('Please log in or register to access your profile and order history');
+          setIsAuthModalOpen(true);
+        } else {
+          setCurrentView('profile');
+          setSelectedProduct(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       } else if (path === '/checkout' || path === '/cart') {
         setCurrentView('checkout');
         setSelectedProduct(null);
@@ -186,10 +206,26 @@ export const App: React.FC = () => {
   };
 
   const handleGoToProfile = () => {
+    const token = localStorage.getItem('user_access_token');
+    if (!token) {
+      setPostAuthRedirect('profile');
+      setAuthModalMessage('Please log in or register to access your profile and orders');
+      setIsAuthModalOpen(true);
+      return;
+    }
     setCurrentView('profile');
     setSelectedProduct(null);
     window.history.pushState(null, '', '/profile');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAuthSuccess = () => {
+    if (postAuthRedirect === 'profile') {
+      setPostAuthRedirect(null);
+      setCurrentView('profile');
+      window.history.pushState(null, '', '/profile');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleGoToCheckout = () => {
@@ -225,7 +261,7 @@ export const App: React.FC = () => {
         <AnnouncementBar />
 
         {/* 2. Sticky Header & Navigation */}
-        <Header 
+        <Header
           onGoToWishlist={handleGoToWishlist}
           onGoToProfile={handleGoToProfile}
           onGoToCheckout={handleGoToCheckout}
@@ -233,6 +269,11 @@ export const App: React.FC = () => {
           onSelectCategory={handleSelectCategory}
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
+          onOpenAuthModal={() => {
+            setPostAuthRedirect(null);
+            setAuthModalMessage(undefined);
+            setIsAuthModalOpen(true);
+          }}
         />
 
         {/* Main Content Area (White background under the header) */}
@@ -253,6 +294,12 @@ export const App: React.FC = () => {
               onBackToHome={handleBackToStore}
               onGoToWishlist={handleGoToWishlist}
               onGoToCheckout={handleGoToCheckout}
+              onRequireAuth={() => {
+                setCurrentView('home');
+                setPostAuthRedirect('profile');
+                setAuthModalMessage('Please log in or register to access your account');
+                setIsAuthModalOpen(true);
+              }}
             />
           ) : currentView === 'checkout' ? (
             /* Dedicated Checkout Page */
@@ -287,14 +334,14 @@ export const App: React.FC = () => {
               <CategoriesSection onSelectCategory={handleSelectCategory} />
 
               {/* 4.1. New Arrivals Section (5 Fresh Products) */}
-              <NewArrivalsSection 
+              <NewArrivalsSection
                 onProductClick={handleSelectProduct}
                 onExploreAll={() => handleSelectCategory('explore-all')}
               />
 
               {/* 5. Dedicated Section per Category with Everyday Essentials */}
-              <CategoryShowcaseSections 
-                onProductClick={handleSelectProduct} 
+              <CategoryShowcaseSections
+                onProductClick={handleSelectProduct}
                 onCategoryClick={handleSelectCategory}
                 insertElement={<EverydayEssentialsSection />}
                 insertAfterIndex={2}
@@ -304,14 +351,26 @@ export const App: React.FC = () => {
         </main>
 
         {/* Store Footer */}
-        <Footer 
-          onSelectCategory={handleSelectCategory} 
+        <Footer
+          onSelectCategory={handleSelectCategory}
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
         />
 
         {/* Slide-in Cart Drawer */}
         <CartDrawer onGoToCheckout={handleGoToCheckout} />
+
+        {/* Floating API & Razorpay Inspector */}
+        <ApiStatusInspector />
+
+        {/* Customer Login & Registration Modal */}
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleAuthSuccess}
+          onAuthSuccess={handleAuthSuccess}
+          message={authModalMessage}
+        />
       </div>
     </CartProvider>
   );

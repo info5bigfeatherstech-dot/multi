@@ -1,21 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, 
-  Save, 
+  Layers, 
+  Sparkles, 
   Plus, 
   Trash2, 
-  FolderPlus,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp
+  ChevronDown, 
+  ChevronUp, 
+  X,
+  Loader2
 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { addProduct, ProductVariant, TierPrice } from '../../../../store/adminProductsSlice';
+import { addProduct, AdminProduct } from '../../../../store/adminProductsSlice';
+import { adminProductsApi } from '../../../../api';
 import toast from 'react-hot-toast';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../../../../components/ui/select';
 
 interface AddProductTabProps {
   onSuccess: () => void;
   onOpenQuickCategory: () => void;
+}
+
+interface VariantOption {
+  id: string;
+  name: string;
+  values: string[];
+}
+
+interface GeneratedVariant {
+  id: string;
+  sku: string;
+  title: string;
+  description: string;
+  options: Record<string, string>;
+  basePrice: number;
+  salePrice: number;
+  stock: number;
+  image?: string;
+  isExpanded?: boolean;
+}
+
+interface SpecField {
+  id: string;
+  key: string;
+  value: string;
 }
 
 export const AddProductTab: React.FC<AddProductTabProps> = ({ 
@@ -25,789 +59,968 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
   const dispatch = useAppDispatch();
   const { categories } = useAppSelector((state) => state.adminProducts);
 
-  // Accordion active sections
-  const [openSections, setOpenSections] = useState({
-    general: true,
-    pricing: true,
-    inventory: true,
-    variants: false,
-    attributes: false,
-    media: true
-  });
-
-  const toggleSection = (section: keyof typeof openSections) => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  // 1. General Info
-  const [title, setTitle] = useState('');
-  const [sku, setSku] = useState(`ABB-${Math.floor(100000 + Math.random() * 900000)}`);
-  const [brand, setBrand] = useState('Generic');
-  const [category, setCategory] = useState(categories[0]?.name || 'Home & Kitchen');
-  const [subcategory, setSubcategory] = useState('');
+  // 1. Basic Product Info
+  const [productName, setProductName] = useState('');
+  const [productTitle, setProductTitle] = useState('');
+  const [skuBase, setSkuBase] = useState(`ABB-${Math.floor(1000 + Math.random() * 9000)}`);
+  const [brand, setBrand] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id || '');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<'Active' | 'Draft'>('Active');
-  const [tag, setTag] = useState('NEW DROP');
 
-  // 2. Pricing
-  const [currentPrice, setCurrentPrice] = useState(299);
-  const [originalPrice, setOriginalPrice] = useState(599);
-  const [costPrice, setCostPrice] = useState(150);
-  const [tierPricing, setTierPricing] = useState<TierPrice[]>([
-    { minQty: 5, price: 279 },
-    { minQty: 10, price: 249 }
-  ]);
+  // 2. Default Price & Stock
+  const [basePrice, setBasePrice] = useState<number | ''>(599);
+  const [salePrice, setSalePrice] = useState<number | ''>(299);
+  const [stock, setStock] = useState<number | ''>(50);
+  const [moq, setMoq] = useState<number | ''>(1);
 
-  // 3. Inventory
-  const [stock, setStock] = useState(50);
-  const [lowStockThreshold, setLowStockThreshold] = useState(10);
-  const [binLocation, setBinLocation] = useState('Warehouse Bay A-12');
+  // 3. Variant Options
+  const [variantOptions, setVariantOptions] = useState<VariantOption[]>([]);
+  const [newOptionName, setNewOptionName] = useState('');
+  const [showAddOptionInput, setShowAddOptionInput] = useState(false);
+  const [newTagInput, setNewTagInput] = useState<Record<string, string>>({});
 
-  // 4. Variants
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  // 4. Generated Variants
+  const [generatedVariants, setGeneratedVariants] = useState<GeneratedVariant[]>([]);
 
-  // 5. Attributes
-  const [attributes, setAttributes] = useState<Array<{ key: string; value: string }>>([
-    { key: 'Material', value: 'BPA-free Plastic' },
-    { key: 'Warranty', value: '1 Year Brand' }
-  ]);
+  // 5. Specs (shared, non-variant)
+  const [specs, setSpecs] = useState<SpecField[]>([]);
 
-  // 6. Media
-  const [mainImage, setMainImage] = useState(
-    'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80'
-  );
-  const [galleryUrls, setGalleryUrls] = useState<string[]>([
-    'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'
-  ]);
-  const [newGalleryInput, setNewGalleryInput] = useState('');
+  // 6. Shipping & Fallbacks (Right sidebar)
+  const [weight, setWeight] = useState<number | ''>(0.5);
+  const [dimensions, setDimensions] = useState('30 × 20 × 10');
+  const [lowStockAlert, setLowStockAlert] = useState<number | ''>(15);
 
-  // Selected Category's subcategories
-  const currentCategoryObj = categories.find(c => c.name === category);
-  const subcategoryList = currentCategoryObj ? currentCategoryObj.subcategories : [];
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Variant Helpers
-  const handleAddVariant = () => {
-    const newVar: ProductVariant = {
-      id: `var-${Date.now()}`,
-      name: `Variant ${variants.length + 1}`,
-      sku: `${sku}-V${variants.length + 1}`,
-      price: currentPrice,
-      stock: 25,
-      color: 'Default',
-      size: 'Standard'
+  // Computed Effective Title
+  const effectiveTitle = useMemo(() => {
+    return productTitle.trim() || productName.trim() || '—';
+  }, [productTitle, productName]);
+
+  // Selected Category Object
+  const selectedCategory = useMemo(() => {
+    return categories.find(c => c.id === selectedCategoryId) || categories[0];
+  }, [categories, selectedCategoryId]);
+
+  // Add Custom Option
+  const handleAddCustomOption = () => {
+    if (variantOptions.length >= 3) {
+      toast.error('Maximum 3 variant options allowed (e.g., Color, Size, Material)');
+      return;
+    }
+    setShowAddOptionInput(true);
+  };
+
+  const handleConfirmAddOption = () => {
+    const trimmed = newOptionName.trim();
+    if (!trimmed) return;
+    if (variantOptions.some(o => o.name.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error(`Option "${trimmed}" already exists`);
+      return;
+    }
+    const newOpt: VariantOption = {
+      id: `opt-${Date.now()}`,
+      name: trimmed,
+      values: []
     };
-    setVariants([...variants, newVar]);
+    setVariantOptions([...variantOptions, newOpt]);
+    setNewOptionName('');
+    setShowAddOptionInput(false);
   };
 
-  const handleUpdateVariant = (index: number, field: keyof ProductVariant, val: any) => {
-    const updated = [...variants];
-    updated[index] = { ...updated[index], [field]: val };
-    setVariants(updated);
+  const handleAddOptionValue = (optionId: string) => {
+    const val = (newTagInput[optionId] || '').trim();
+    if (!val) return;
+    setVariantOptions(variantOptions.map(opt => {
+      if (opt.id === optionId) {
+        if (opt.values.includes(val)) return opt;
+        return { ...opt, values: [...opt.values, val] };
+      }
+      return opt;
+    }));
+    setNewTagInput({ ...newTagInput, [optionId]: '' });
   };
 
-  const handleRemoveVariant = (index: number) => {
-    setVariants(variants.filter((_, i) => i !== index));
+  const handleRemoveOptionValue = (optionId: string, valToRemove: string) => {
+    setVariantOptions(variantOptions.map(opt => {
+      if (opt.id === optionId) {
+        return { ...opt, values: opt.values.filter(v => v !== valToRemove) };
+      }
+      return opt;
+    }));
   };
 
-  // Tier Pricing Helpers
-  const handleAddTier = () => {
-    setTierPricing([...tierPricing, { minQty: (tierPricing[tierPricing.length - 1]?.minQty || 5) + 5, price: Math.max(1, currentPrice - 50) }]);
+  const handleRemoveOption = (optionId: string) => {
+    setVariantOptions(variantOptions.filter(opt => opt.id !== optionId));
   };
 
-  const handleRemoveTier = (index: number) => {
-    setTierPricing(tierPricing.filter((_, i) => i !== index));
-  };
-
-  // Attribute Helpers
-  const handleAddAttribute = () => {
-    setAttributes([...attributes, { key: '', value: '' }]);
-  };
-
-  const handleRemoveAttribute = (index: number) => {
-    setAttributes(attributes.filter((_, i) => i !== index));
-  };
-
-  // Gallery URL Helpers
-  const handleAddGalleryUrl = () => {
-    if (!newGalleryInput.trim()) return;
-    setGalleryUrls([...galleryUrls, newGalleryInput.trim()]);
-    setNewGalleryInput('');
-  };
-
-  const handleRemoveGalleryUrl = (index: number) => {
-    setGalleryUrls(galleryUrls.filter((_, i) => i !== index));
-  };
-
-  // Submit Handler
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!title.trim()) {
-      toast.error('Product title is required');
+  // Generate Variant Combinations
+  const handleGenerateVariants = () => {
+    if (variantOptions.length === 0 || variantOptions.every(o => o.values.length === 0)) {
+      toast.error('Please add at least one option with values (e.g., Size: S, M)');
       return;
     }
 
-    if (!sku.trim()) {
-      toast.error('SKU is required');
+    const validOptions = variantOptions.filter(o => o.values.length > 0);
+    if (validOptions.length === 0) return;
+
+    // Cartesian product
+    const cartesian = (arrays: string[][]): string[][] => {
+      return arrays.reduce((acc, curr) => {
+        return acc.flatMap(a => curr.map(b => [...a, b]));
+      }, [[]] as string[][]);
+    };
+
+    const combinations = cartesian(validOptions.map(o => o.values));
+    const cleanSkuBase = (skuBase.trim() || 'SKU').toUpperCase();
+
+    const newVariants: GeneratedVariant[] = combinations.map((combo, idx) => {
+      const optionsRecord: Record<string, string> = {};
+      validOptions.forEach((opt, oIdx) => {
+        optionsRecord[opt.name] = combo[oIdx];
+      });
+
+      const comboLabel = combo.join(' / ');
+      const variantSku = `${cleanSkuBase}-${idx + 1}`;
+      const titlePrefix = productTitle.trim() || productName.trim() || 'Product';
+
+      return {
+        id: `var-${Date.now()}-${idx}`,
+        sku: variantSku,
+        title: `${titlePrefix} - ${comboLabel}`,
+        description: description.trim(),
+        options: optionsRecord,
+        basePrice: Number(basePrice) || 599,
+        salePrice: Number(salePrice) || 299,
+        stock: Number(stock) || 50,
+        isExpanded: false
+      };
+    });
+
+    setGeneratedVariants(newVariants);
+    toast.success(`Generated ${newVariants.length} variant combinations!`);
+  };
+
+  const handleUpdateGeneratedVariant = (idx: number, updates: Partial<GeneratedVariant>) => {
+    const copy = [...generatedVariants];
+    copy[idx] = { ...copy[idx], ...updates };
+    setGeneratedVariants(copy);
+  };
+
+  const handleRemoveGeneratedVariant = (idx: number) => {
+    setGeneratedVariants(generatedVariants.filter((_, i) => i !== idx));
+  };
+
+  // Add Spec Field
+  const handleAddSpec = () => {
+    setSpecs([...specs, { id: `spec-${Date.now()}`, key: '', value: '' }]);
+  };
+
+  const handleUpdateSpec = (id: string, field: 'key' | 'value', val: string) => {
+    setSpecs(specs.map(s => s.id === id ? { ...s, [field]: val } : s));
+  };
+
+  const handleRemoveSpec = (id: string) => {
+    setSpecs(specs.filter(s => s.id !== id));
+  };
+
+  // Submission handler
+  const handleSave = async (publishStatus: 'active' | 'draft') => {
+    if (!productName.trim()) {
+      toast.error('Product Name is required');
       return;
     }
 
-    if (currentPrice <= 0) {
-      toast.error('Selling price must be greater than 0');
+    if (!selectedCategory) {
+      toast.error('Please select a category');
       return;
     }
 
-    // Convert attributes array to object
-    const attributesMap: Record<string, string> = {};
-    attributes.forEach(attr => {
-      if (attr.key.trim()) {
-        attributesMap[attr.key.trim()] = attr.value.trim();
+    if (!basePrice || Number(basePrice) <= 0) {
+      toast.error('Valid Base / MRP price is required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const cleanSkuBase = (skuBase.trim() || 'SKU').toUpperCase();
+    const finalTitle = productTitle.trim() || productName.trim();
+
+    // Prepare attributes object
+    const attributesObj: Record<string, string> = {};
+    specs.forEach(s => {
+      if (s.key.trim() && s.value.trim()) {
+        attributesObj[s.key.trim()] = s.value.trim();
       }
     });
 
-    const discountPercentage = Math.max(
-      0,
-      Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-    );
+    // Prepare variants
+    const finalVariants = generatedVariants.length > 0
+      ? generatedVariants.map((v, idx) => ({
+          productCode: v.sku || `${cleanSkuBase}-${idx + 1}`,
+          title: v.title || `${finalTitle} - ${idx + 1}`,
+          description: v.description || description.trim(),
+          price: {
+            base: Number(v.basePrice || basePrice),
+            sale: Number(v.salePrice || salePrice)
+          },
+          inventory: {
+            quantity: Number(v.stock ?? stock),
+            lowStockThreshold: Number(lowStockAlert) || 10
+          },
+          moq: Number(moq) || 1,
+          attributes: v.options,
+          images: v.image ? [{ url: v.image }] : []
+        }))
+      : [
+          {
+            productCode: `${cleanSkuBase}-1`,
+            title: finalTitle,
+            description: description.trim(),
+            price: {
+              base: Number(basePrice),
+              sale: Number(salePrice || basePrice)
+            },
+            inventory: {
+              quantity: Number(stock) || 50,
+              lowStockThreshold: Number(lowStockAlert) || 10
+            },
+            moq: Number(moq) || 1,
+            attributes: {},
+            images: []
+          }
+        ];
 
-    const payload = {
-      sku: sku.trim(),
-      title: title.trim(),
-      brand: brand.trim() || 'Generic',
-      category,
-      subcategory: subcategory || undefined,
-      currentPrice: Number(currentPrice),
-      originalPrice: Number(originalPrice),
-      costPrice: Number(costPrice),
-      discountPercentage,
-      stock: Number(stock),
-      lowStockThreshold: Number(lowStockThreshold),
-      binLocation: binLocation.trim(),
-      image: mainImage.trim(),
-      gallery: galleryUrls,
-      rating: 4.8,
-      reviews: 0,
-      status,
-      tag: tag.trim() || undefined,
-      badges: tag.trim() ? [tag.trim()] : [],
-      variants: variants.length > 0 ? variants : undefined,
-      tierPricing: tierPricing.length > 0 ? tierPricing : undefined,
-      attributes: Object.keys(attributesMap).length > 0 ? attributesMap : undefined,
-      description: description.trim()
+    // Parse dimensions
+    const dimParts = dimensions.split(/[×xX*]/).map(p => parseFloat(p.trim())).filter(n => !isNaN(n));
+    const shippingPayload = {
+      weight: Number(weight) || 0.5,
+      dimensions: {
+        length: dimParts[0] || 30,
+        width: dimParts[1] || 20,
+        height: dimParts[2] || 10
+      }
     };
 
-    dispatch(addProduct(payload));
-    toast.success(`Product "${title}" created successfully!`);
-    onSuccess();
+    const backendPayload: Record<string, any> = {
+      name: productName.trim(),
+      title: finalTitle,
+      description: description.trim() || productName.trim(),
+      category: selectedCategory.id,
+      brand: brand.trim() || 'Generic',
+      status: publishStatus,
+      shipping: shippingPayload,
+      attributes: Object.keys(attributesObj).length > 0 ? attributesObj : undefined,
+      variants: finalVariants
+    };
+
+    try {
+      const res = await adminProductsApi.create(backendPayload);
+      const createdProd = res?.product || res?.data || res;
+
+      // Update Redux Store
+      const localReduxProduct: AdminProduct = {
+        id: createdProd?._id || createdProd?.id || `prod-${Date.now()}`,
+        sku: cleanSkuBase,
+        title: finalTitle,
+        brand: brand.trim() || 'Generic',
+        category: selectedCategory.name,
+        currentPrice: Number(salePrice || basePrice),
+        originalPrice: Number(basePrice),
+        discountPercentage: Math.max(0, Math.round(((Number(basePrice) - Number(salePrice || basePrice)) / Number(basePrice)) * 100)),
+        stock: finalVariants.reduce((sum, v) => sum + v.inventory.quantity, 0),
+        lowStockThreshold: Number(lowStockAlert) || 10,
+        image: finalVariants[0]?.images?.[0]?.url || 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80',
+        gallery: [],
+        rating: 4.8,
+        reviews: 0,
+        status: publishStatus === 'active' ? 'Active' : 'Draft',
+        description: description.trim(),
+        dateAdded: new Date().toISOString()
+      };
+
+      dispatch(addProduct(localReduxProduct));
+      toast.success(publishStatus === 'active' ? 'Product published to catalog!' : 'Product draft saved!');
+      onSuccess();
+    } catch (err: any) {
+      console.error('Failed to create product:', err);
+      // Fallback local addition if network error
+      const localReduxProduct: AdminProduct = {
+        id: `prod-${Date.now()}`,
+        sku: cleanSkuBase,
+        title: finalTitle,
+        brand: brand.trim() || 'Generic',
+        category: selectedCategory.name,
+        currentPrice: Number(salePrice || basePrice),
+        originalPrice: Number(basePrice),
+        discountPercentage: Math.max(0, Math.round(((Number(basePrice) - Number(salePrice || basePrice)) / Number(basePrice)) * 100)),
+        stock: finalVariants.reduce((sum, v) => sum + v.inventory.quantity, 0),
+        lowStockThreshold: Number(lowStockAlert) || 10,
+        image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80',
+        gallery: [],
+        rating: 4.8,
+        reviews: 0,
+        status: publishStatus === 'active' ? 'Active' : 'Draft',
+        description: description.trim(),
+        dateAdded: new Date().toISOString()
+      };
+      dispatch(addProduct(localReduxProduct));
+      toast.success(`Product created locally! (${err.message})`);
+      onSuccess();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Top action header */}
-      <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200 shadow-sm sticky top-2 z-20">
-        <div className="flex items-center gap-3">
+    <div className="max-w-7xl mx-auto space-y-6 pb-20">
+      
+      {/* Top Bar Header */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
           <button
             type="button"
             onClick={onSuccess}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
-            title="Back to All Products"
+            className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer text-slate-700"
+            title="Back to products list"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">Create New Catalog Product</h1>
-            <p className="text-xs text-slate-500">All data persists locally in Redux Toolkit and LocalStorage</p>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#A44101]/10 text-[#A44101]">
+                NEW PRODUCT
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                Per-variant price · stock · images
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 tracking-tight">
+              Add Product
+            </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={onSuccess}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            onClick={() => handleSave('draft')}
+            disabled={isSubmitting}
+            className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
-            Cancel
+            Save Draft
           </button>
           <button
-            type="submit"
-            className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2"
+            type="button"
+            onClick={() => handleSave('active')}
+            disabled={isSubmitting}
+            className="px-6 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-sm font-bold shadow-sm transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
           >
-            <Save className="w-4 h-4" />
-            Publish Product
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Publishing...</span>
+              </>
+            ) : (
+              <span>Publish to Catalog</span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* 1. General Info Accordion */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('general')}
-          className="w-full flex items-center justify-between p-5 bg-slate-50/70 text-left border-b border-slate-100 font-bold text-slate-800 text-sm hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">1</div>
-            <span>General Information</span>
-          </div>
-          {openSections.general ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </button>
+      {/* Main Grid: Left Column (7-8 cols) & Right Column (4-5 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* LEFT COLUMN */}
+        <div className="lg:col-span-8 space-y-6">
 
-        {openSections.general && (
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="md:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1.5">
-                Product Title <span className="text-rose-500">*</span>
+          {/* Card 1: Product (parent + defaults seed) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
+                <h2 className="text-sm font-bold text-slate-900">
+                  Product (parent + defaults seed)
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Single SKU: fill these and Publish — one variant is auto-created. Multi SKU: Generate copies title, description, price &amp; stock into every variant; edit per card after.
+              </p>
+            </div>
+
+            {/* Product Name */}
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Product Name *
               </label>
               <input
                 type="text"
-                required
-                placeholder="e.g. 1000W Smart Multifunctional Blender"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                value={productName}
+                onChange={(e) => setProductName(e.target.value)}
+                placeholder="e.g. Cotton Crew Neck T-Shirt"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
               />
             </div>
 
+            {/* Product Title */}
             <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">
-                SKU / Item Code <span className="text-rose-500">*</span>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Product Title *
               </label>
               <input
                 type="text"
-                required
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                className="w-full px-3.5 py-2.5 font-mono bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                value={productTitle}
+                onChange={(e) => setProductTitle(e.target.value)}
+                placeholder="Customer-facing title (blank = use product name)"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Seeded into each variant title on generate. Effective: <span className="font-semibold text-slate-600">{effectiveTitle}</span>
+              </p>
             </div>
 
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">Brand</label>
-              <input
-                type="text"
-                placeholder="e.g. Philips / BoAt / Generic"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
+            {/* SKU Base & Brand */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  SKU / Product code base *
+                </label>
+                <input
+                  type="text"
+                  value={skuBase}
+                  onChange={(e) => setSkuBase(e.target.value.toUpperCase())}
+                  placeholder="E.G. TSHIRT100"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  variants: {skuBase.trim() ? `${skuBase.trim()}-1, ${skuBase.trim()}-2, ...` : 'SKU-1, SKU-2, ...'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Brand
+                </label>
+                <input
+                  type="text"
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  placeholder="Brand name..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+              </div>
             </div>
 
+            {/* Category */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="font-semibold text-slate-700">Category</label>
+                <label className="text-xs font-bold text-slate-800">
+                  Category *
+                </label>
                 <button
                   type="button"
                   onClick={onOpenQuickCategory}
-                  className="text-indigo-600 hover:text-indigo-700 font-semibold text-[11px] flex items-center gap-1"
+                  className="text-xs font-bold text-[#A44101] hover:underline cursor-pointer"
                 >
-                  <FolderPlus className="w-3 h-3" /> Quick Add
+                  + Add / Manage Category
                 </button>
               </div>
-              <select
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  setSubcategory('');
-                }}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <Select
+                    value={selectedCategoryId}
+                    onValueChange={(val) => setSelectedCategoryId(val)}
+                  >
+                    <SelectTrigger className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 font-medium">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onOpenQuickCategory}
+                  className="px-3.5 py-2.5 rounded-xl border border-dashed border-[#A44101]/40 hover:bg-[#A44101]/5 text-[#A44101] text-xs font-bold transition-colors cursor-pointer shrink-0"
+                >
+                  + Add Category
+                </button>
+              </div>
             </div>
 
+            {/* Description */}
             <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">Subcategory</label>
-              <select
-                value={subcategory}
-                onChange={(e) => setSubcategory(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              >
-                <option value="">None / General</option>
-                {subcategoryList.map((sc, i) => (
-                  <option key={i} value={sc}>
-                    {sc}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">Publish Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              >
-                <option value="Active">Active (Visible in Store)</option>
-                <option value="Draft">Draft (Internal Only)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">Marketing Badge / Tag</label>
-              <input
-                type="text"
-                placeholder="e.g. HOT DEAL, TRENDING, NEW DROP"
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1.5">Description & Highlights</label>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Description *
+              </label>
               <textarea
-                rows={3}
-                placeholder="Key features, specifications, and box contents..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                rows={3}
+                placeholder="Shared description — copied into each variant, then editable per SKU"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all resize-y min-h-[85px]"
               />
             </div>
           </div>
-        )}
-      </div>
 
-      {/* 2. Pricing & Tier Pricing Accordion */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('pricing')}
-          className="w-full flex items-center justify-between p-5 bg-slate-50/70 text-left border-b border-slate-100 font-bold text-slate-800 text-sm hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</div>
-            <span>Pricing, Cost & B2B Tier Pricing</span>
-          </div>
-          {openSections.pricing ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </button>
+          {/* Card 2: Default price & stock */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                <h2 className="text-sm font-bold text-slate-900">
+                  Default price &amp; stock (not final — copied into variants)
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Real selling price and stock live on each variant card after generate. Change a variant anytime without touching these defaults.
+              </p>
+            </div>
 
-        {openSections.pricing && (
-          <div className="p-6 space-y-6 text-xs">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">
-                  Selling Price (₹) <span className="text-rose-500">*</span>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Base / MRP (₹) *
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  required
-                  value={currentPrice}
-                  onChange={(e) => setCurrentPrice(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold"
+                  value={basePrice}
+                  onChange={(e) => setBasePrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="599"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">MRP / Original Price (₹)</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Sale (₹) *
+                </label>
                 <input
                   type="number"
-                  min="1"
-                  value={originalPrice}
-                  onChange={(e) => setOriginalPrice(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={salePrice}
+                  onChange={(e) => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="299"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">Internal Cost Price (₹)</label>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Stock
+                </label>
                 <input
                   type="number"
-                  min="0"
-                  value={costPrice}
-                  onChange={(e) => setCostPrice(Number(e.target.value))}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="50"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  MOQ
+                </label>
+                <input
+                  type="number"
+                  value={moq}
+                  onChange={(e) => setMoq(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="1"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
                 />
               </div>
             </div>
-
-            {/* Calculated margin badge */}
-            <div className="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-xl flex items-center justify-between text-emerald-800">
-              <span className="font-semibold">Calculated Discount:</span>
-              <span className="font-bold">
-                {Math.max(0, Math.round(((originalPrice - currentPrice) / originalPrice) * 100))}% OFF
-              </span>
-            </div>
-
-            {/* Wholesale / Tier Pricing */}
-            <div className="pt-3 border-t border-slate-100">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h4 className="font-bold text-slate-800">Tier Pricing (Quantity Discounts)</h4>
-                  <p className="text-[11px] text-slate-500">Provide discounted rates for bulk B2B purchases</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddTier}
-                  className="px-2.5 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Tier
-                </button>
-              </div>
-
-              {tierPricing.length === 0 ? (
-                <div className="text-slate-400 italic text-center py-2">No tier pricing configured.</div>
-              ) : (
-                <div className="space-y-2">
-                  {tierPricing.map((tier, idx) => (
-                    <div key={idx} className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-slate-500 font-medium">Min Qty:</span>
-                      <input
-                        type="number"
-                        min="2"
-                        value={tier.minQty}
-                        onChange={(e) => {
-                          const updated = [...tierPricing];
-                          updated[idx].minQty = Number(e.target.value);
-                          setTierPricing(updated);
-                        }}
-                        className="w-24 px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold"
-                      />
-                      <span className="text-slate-500 font-medium">Price per unit (₹):</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={tier.price}
-                        onChange={(e) => {
-                          const updated = [...tierPricing];
-                          updated[idx].price = Number(e.target.value);
-                          setTierPricing(updated);
-                        }}
-                        className="w-28 px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-emerald-700"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTier(idx)}
-                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg ml-auto"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
-        )}
-      </div>
 
-      {/* 3. Inventory & Warehouse Accordion */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('inventory')}
-          className="w-full flex items-center justify-between p-5 bg-slate-50/70 text-left border-b border-slate-100 font-bold text-slate-800 text-sm hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">3</div>
-            <span>Inventory, Thresholds & Bin Location</span>
-          </div>
-          {openSections.inventory ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </button>
-
-        {openSections.inventory && (
-          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">
-                Current Initial Stock Qty <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                required
-                value={stock}
-                onChange={(e) => setStock(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">Low-Stock Alert Threshold</label>
-              <input
-                type="number"
-                min="1"
-                value={lowStockThreshold}
-                onChange={(e) => setLowStockThreshold(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-              />
-              <p className="text-[10px] text-slate-400 mt-1">Triggers low stock badge if remaining qty &le; threshold</p>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">Warehouse Bin / Shelf Location</label>
-              <input
-                type="text"
-                placeholder="e.g. WH-1 Rack B-04"
-                value={binLocation}
-                onChange={(e) => setBinLocation(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 4. Product Variants Accordion */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('variants')}
-          className="w-full flex items-center justify-between p-5 bg-slate-50/70 text-left border-b border-slate-100 font-bold text-slate-800 text-sm hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">4</div>
-            <span>Variants (Sizes, Colors, Sub-SKUs)</span>
-          </div>
-          {openSections.variants ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </button>
-
-        {openSections.variants && (
-          <div className="p-6 space-y-4 text-xs">
+          {/* Card 3: Variant Options */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-slate-500">Configure distinct sizes, colors, and SKU variations</p>
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#A44101]" />
+                <h2 className="text-sm font-bold text-slate-900">
+                  Variant Options
+                </h2>
+              </div>
               <button
                 type="button"
-                onClick={handleAddVariant}
-                className="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg font-semibold flex items-center gap-1"
+                onClick={handleAddCustomOption}
+                className="px-3 py-1.5 rounded-xl border border-[#A44101]/30 hover:bg-[#A44101]/10 text-[#A44101] text-xs font-bold transition-colors cursor-pointer"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Variant
+                + Custom option
               </button>
             </div>
+            <p className="text-xs text-slate-500">
+              Pick options → values → generate (max 3 options). Custom options save to the dictionary for reuse on every future product.
+            </p>
 
-            {variants.length === 0 ? (
-              <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
-                No variants configured. Product will be sold as a single standard unit.
+            {/* Quick add custom option inline form */}
+            {showAddOptionInput && (
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
+                <input
+                  type="text"
+                  value={newOptionName}
+                  onChange={(e) => setNewOptionName(e.target.value)}
+                  placeholder="Option name (e.g. Color, Size, Style)..."
+                  className="flex-1 px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#A44101]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleConfirmAddOption();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleConfirmAddOption}
+                  className="px-3 py-2 bg-[#A44101] text-white text-xs font-bold rounded-lg cursor-pointer"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddOptionInput(false)}
+                  className="px-3 py-2 bg-white border border-slate-200 text-xs font-semibold rounded-lg text-slate-600 cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {/* Options List */}
+            {variantOptions.length === 0 ? (
+              <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-slate-400">
+                No options selected — use <span className="font-semibold text-slate-600">+ Custom option</span>, or publish to generate a single default variant.
               </div>
             ) : (
               <div className="space-y-3">
-                {variants.map((variant, idx) => (
-                  <div key={variant.id} className="grid grid-cols-1 md:grid-cols-5 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl items-center">
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-medium">Variant Name</label>
-                      <input
-                        type="text"
-                        value={variant.name}
-                        onChange={(e) => handleUpdateVariant(idx, 'name', e.target.value)}
-                        className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-medium">Sub-SKU</label>
-                      <input
-                        type="text"
-                        value={variant.sku}
-                        onChange={(e) => handleUpdateVariant(idx, 'sku', e.target.value)}
-                        className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-medium">Price (₹)</label>
-                      <input
-                        type="number"
-                        value={variant.price}
-                        onChange={(e) => handleUpdateVariant(idx, 'price', Number(e.target.value))}
-                        className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-500 font-medium">Stock</label>
-                      <input
-                        type="number"
-                        value={variant.stock}
-                        onChange={(e) => handleUpdateVariant(idx, 'stock', Number(e.target.value))}
-                        className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg font-bold"
-                      />
-                    </div>
-                    <div className="flex items-center justify-end">
+                {variantOptions.map((opt) => (
+                  <div key={opt.id} className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        {opt.name}
+                      </span>
                       <button
                         type="button"
-                        onClick={() => handleRemoveVariant(idx)}
-                        className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg mt-3"
+                        onClick={() => handleRemoveOption(opt.id)}
+                        className="p-1 text-slate-400 hover:text-red-500 rounded transition cursor-pointer"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {opt.values.map((val, vIdx) => (
+                        <span
+                          key={vIdx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-800 shadow-2xs"
+                        >
+                          <span>{val}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOptionValue(opt.id, val)}
+                            className="text-slate-400 hover:text-red-600 cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+
+                      <div className="inline-flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={newTagInput[opt.id] || ''}
+                          onChange={(e) => setNewTagInput({ ...newTagInput, [opt.id]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddOptionValue(opt.id);
+                            }
+                          }}
+                          placeholder={`Add ${opt.name} value...`}
+                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 w-32 focus:outline-none focus:border-[#A44101]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddOptionValue(opt.id)}
+                          className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        )}
-      </div>
 
-      {/* 5. Custom Attributes Accordion */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('attributes')}
-          className="w-full flex items-center justify-between p-5 bg-slate-50/70 text-left border-b border-slate-100 font-bold text-slate-800 text-sm hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">5</div>
-            <span>Custom Specifications & Attributes</span>
-          </div>
-          {openSections.attributes ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </button>
-
-        {openSections.attributes && (
-          <div className="p-6 space-y-4 text-xs">
-            <div className="flex items-center justify-between">
-              <p className="text-slate-500">Key specs like Material, Dimensions, Weight, Battery Life, etc.</p>
+            {/* Generate Button */}
+            <div>
               <button
                 type="button"
-                onClick={handleAddAttribute}
-                className="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg font-semibold flex items-center gap-1"
+                onClick={handleGenerateVariants}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" /> Add Spec
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Generate variant combinations</span>
               </button>
             </div>
 
-            <div className="space-y-2.5">
-              {attributes.map((attr, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    placeholder="Attribute Name (e.g. Battery Capacity)"
-                    value={attr.key}
-                    onChange={(e) => {
-                      const updated = [...attributes];
-                      updated[idx].key = e.target.value;
-                      setAttributes(updated);
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Value (e.g. 5000 mAh)"
-                    value={attr.value}
-                    onChange={(e) => {
-                      const updated = [...attributes];
-                      updated[idx].value = e.target.value;
-                      setAttributes(updated);
-                    }}
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium"
-                  />
+            {/* Render Generated Variants List if any */}
+            {generatedVariants.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Generated Variants ({generatedVariants.length})
+                  </span>
                   <button
                     type="button"
-                    onClick={() => handleRemoveAttribute(idx)}
-                    className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                    onClick={() => setGeneratedVariants([])}
+                    className="text-xs text-red-600 hover:underline cursor-pointer"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    Clear All
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* 6. Media & URLs Accordion */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => toggleSection('media')}
-          className="w-full flex items-center justify-between p-5 bg-slate-50/70 text-left border-b border-slate-100 font-bold text-slate-800 text-sm hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center text-xs font-bold">6</div>
-            <span>Media URLs & Gallery</span>
-          </div>
-          {openSections.media ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-        </button>
+                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                  {generatedVariants.map((v, idx) => (
+                    <div
+                      key={v.id}
+                      className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-3 hover:border-slate-300 transition-colors shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 font-mono text-[11px] font-bold text-slate-700 shrink-0">
+                            {v.sku}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 truncate">
+                            {v.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateGeneratedVariant(idx, { isExpanded: !v.isExpanded })}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                          >
+                            {v.isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGeneratedVariant(idx)}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
 
-        {openSections.media && (
-          <div className="p-6 space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1.5">
-                Main Image URL <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex gap-3">
-                <input
-                  type="url"
-                  required
-                  value={mainImage}
-                  onChange={(e) => setMainImage(e.target.value)}
-                  className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
-                <img
-                  src={mainImage}
-                  alt="Preview"
-                  className="w-11 h-11 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=150&q=80';
-                  }}
-                />
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Base Price</label>
+                          <input
+                            type="number"
+                            value={v.basePrice}
+                            onChange={(e) => handleUpdateGeneratedVariant(idx, { basePrice: Number(e.target.value) || 0 })}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Sale Price</label>
+                          <input
+                            type="number"
+                            value={v.salePrice}
+                            onChange={(e) => handleUpdateGeneratedVariant(idx, { salePrice: Number(e.target.value) || 0 })}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Stock</label>
+                          <input
+                            type="number"
+                            value={v.stock}
+                            onChange={(e) => handleUpdateGeneratedVariant(idx, { stock: Number(e.target.value) || 0 })}
+                            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      {v.isExpanded && (
+                        <div className="pt-2 border-t border-slate-100 space-y-2">
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Custom Title</label>
+                            <input
+                              type="text"
+                              value={v.title}
+                              onChange={(e) => handleUpdateGeneratedVariant(idx, { title: e.target.value })}
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-slate-500 block mb-0.5">Custom Image URL</label>
+                            <input
+                              type="url"
+                              value={v.image || ''}
+                              onChange={(e) => handleUpdateGeneratedVariant(idx, { image: e.target.value })}
+                              placeholder="https://images.unsplash.com/..."
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+          </div>
 
-            <div className="pt-3 border-t border-slate-100">
-              <label className="block font-semibold text-slate-700 mb-1.5">Additional Gallery Images</label>
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="url"
-                  placeholder="Paste image URL here..."
-                  value={newGalleryInput}
-                  onChange={(e) => setNewGalleryInput(e.target.value)}
-                  className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddGalleryUrl}
-                  className="px-3.5 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" /> Add
-                </button>
+          {/* Card 4: Product Specs (shared, non-variant) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
+                <h2 className="text-sm font-bold text-slate-900">
+                  Product Specs (shared, non-variant)
+                </h2>
               </div>
+              <button
+                type="button"
+                onClick={handleAddSpec}
+                className="px-3 py-1.5 rounded-xl border border-[#A44101]/30 hover:bg-[#A44101]/10 text-[#A44101] text-xs font-bold transition-colors cursor-pointer"
+              >
+                + Custom field
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Shared across all variants. Custom fields are saved to the Attributes dictionary for reuse.
+            </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {galleryUrls.map((url, idx) => (
-                  <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video">
-                    <img 
-                      src={url} 
-                      alt={`Gallery ${idx + 1}`} 
-                      className="w-full h-full object-cover" 
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=150&q=80';
-                      }}
+            {specs.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No specs yet. Click <span className="font-semibold text-slate-600">Custom field</span> or add under Products → Attributes.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {specs.map((spec) => (
+                  <div key={spec.id} className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={spec.key}
+                      onChange={(e) => handleUpdateSpec(spec.id, 'key', e.target.value)}
+                      placeholder="e.g. Material, Fabric, Warranty"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#A44101]"
+                    />
+                    <input
+                      type="text"
+                      value={spec.value}
+                      onChange={(e) => handleUpdateSpec(spec.id, 'value', e.target.value)}
+                      placeholder="e.g. 100% Cotton, 1 Year"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#A44101]"
                     />
                     <button
                       type="button"
-                      onClick={() => handleRemoveGalleryUrl(idx)}
-                      className="absolute top-1.5 right-1.5 p-1 bg-rose-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleRemoveSpec(spec.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 rounded cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* RIGHT COLUMN SIDEBAR */}
+        <div className="lg:col-span-4 space-y-6">
+
+          {/* Product shipping (fallback) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">
+                Product shipping (fallback) *
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Used when a variant leaves shipping blank. Primary variant overrides sync here on save.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Weight (kg) *
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="0.5"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Dimensions L×W×H (cm) *
+              </label>
+              <input
+                type="text"
+                value={dimensions}
+                onChange={(e) => setDimensions(e.target.value)}
+                placeholder="30 × 20 × 10"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                Default low stock alert
+              </label>
+              <input
+                type="number"
+                value={lowStockAlert}
+                onChange={(e) => setLowStockAlert(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="15"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101]"
+              />
             </div>
           </div>
-        )}
+
+          {/* How fields work Guide */}
+          <div className="bg-[#A44101]/5 rounded-2xl border border-[#A44101]/15 p-5 space-y-3">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              How fields work
+            </h3>
+            <ol className="text-xs text-slate-600 space-y-2 list-decimal list-inside leading-relaxed">
+              <li>
+                <span className="font-semibold text-slate-800">Top title + description + price&amp;stock</span> = seed / single-SKU shortcut
+              </li>
+              <li>
+                <span className="font-semibold text-slate-800">Generate</span> → every variant inherits those values
+              </li>
+              <li>
+                <span className="font-semibold text-slate-800">Expand a variant</span> → edit its own title, desc, price, stock, images
+              </li>
+              <li>
+                <span className="font-semibold text-slate-800">Customer sees</span> the selected variant's title / desc / price / stock
+              </li>
+            </ol>
+            <p className="text-[11px] text-slate-400 italic pt-1 border-t border-[#A44101]/10">
+              Wholesale is not used in this flow.
+            </p>
+          </div>
+
+        </div>
+
       </div>
 
-      {/* Bottom Submit Bar */}
-      <div className="flex items-center justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={onSuccess}
-          className="px-5 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="px-6 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          Create & Publish Product
-        </button>
-      </div>
-    </form>
+    </div>
   );
 };

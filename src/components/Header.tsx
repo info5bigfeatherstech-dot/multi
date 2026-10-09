@@ -30,6 +30,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
+import { storefrontProductsApi } from '../api';
 
 export interface NavCategoryMenuItem {
   id: string;
@@ -194,6 +195,7 @@ export interface HeaderProps {
   onSelectCategory?: (categoryId: string, subcategory?: string) => void;
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -203,14 +205,119 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectCategory,
   onGoToAdmin,
   onGoToContact,
+  onOpenAuthModal,
 }) => {
   const { openCart, totalCount, subtotal } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCategoryTab, setActiveCategoryTab] = useState("all");
-  const [hoveredNavCat, setHoveredNavCat] = useState<NavCategoryMenuItem>(ALL_CATEGORIES_MENU[0]);
+  const [navCategories, setNavCategories] = useState<NavCategoryMenuItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('abb_dynamic_categories_cache');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((cat: any, idx: number) => ({
+            id: cat.id,
+            name: cat.name,
+            badge: idx === 0 ? 'Bestseller' : undefined,
+            badgeColor: 'bg-[#A44101]/10 text-[#A44101]',
+            icon: LayoutGrid,
+            imageUrl: '',
+            description: `${cat.name} collections, deals & accessories`,
+            subcategories: cat.subcategories || ['All Products', 'Trending Deals'],
+          }));
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [hoveredNavCat, setHoveredNavCat] = useState<NavCategoryMenuItem | null>(() => {
+    return null;
+  });
   const [expandedMobileCats, setExpandedMobileCats] = useState<{ [catId: string]: boolean }>({});
+
+  // Fetch dynamic categories from backend API
+  useEffect(() => {
+    storefrontProductsApi.getCategories()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          const dynamicMenu: NavCategoryMenuItem[] = res.map((cat: any, idx: number) => {
+            const catId = cat.slug || cat._id || cat.id;
+            const subcats: string[] = Array.isArray(cat.children) && cat.children.length > 0
+              ? cat.children.map((c: any) => typeof c === 'string' ? c : c.name || c.title)
+              : (CATEGORY_SUBCATEGORIES[cat.slug] || [
+                  `All ${cat.name}`,
+                  'Bestsellers',
+                  'New Arrivals',
+                  'Trending Deals'
+                ]);
+
+            return {
+              id: catId,
+              name: cat.name,
+              badge: cat.showInMovingFast ? 'Popular' : (idx === 0 ? 'Bestseller' : undefined),
+              badgeColor: 'bg-[#A44101]/10 text-[#A44101]',
+              icon: LayoutGrid,
+              imageUrl: cat.image?.url || cat.image || '',
+              description: cat.description || `${cat.name} collections, deals & accessories`,
+              subcategories: subcats,
+            };
+          });
+
+          setNavCategories(dynamicMenu);
+          if (dynamicMenu.length > 0) {
+            setHoveredNavCat(dynamicMenu[0]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Dynamic categories fetch error:', err?.message);
+      });
+  }, []);
+
+  // Real-time Customer Auth State
+  const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(() => {
+    return typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token')) : false;
+  });
+  const [customerName, setCustomerName] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const n = localStorage.getItem('abb_user_profile_name');
+    return n && n !== 'Google User' ? n : '';
+  });
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      setIsCustomerLoggedIn(Boolean(localStorage.getItem('user_access_token')));
+      const n = localStorage.getItem('abb_user_profile_name');
+      setCustomerName(n && n !== 'Google User' ? n : '');
+    };
+    window.addEventListener('abb_auth_change', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener('abb_auth_change', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, []);
+
+  const handleAccountClick = () => {
+    const token = localStorage.getItem('user_access_token');
+    if (token) {
+      if (onGoToProfile) onGoToProfile();
+      else {
+        window.history.pushState(null, '', '/profile');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    } else {
+      if (onOpenAuthModal) {
+        onOpenAuthModal();
+      } else if (onGoToProfile) {
+        onGoToProfile();
+      }
+    }
+  };
 
   // Hover dropdown state for Nav Bar "All Categories"
   const [isNavDropdownOpen, setIsNavDropdownOpen] = useState(false);
@@ -432,13 +539,7 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Account */}
               <button
                 type="button"
-                onClick={() => {
-                  if (onGoToProfile) onGoToProfile();
-                  else {
-                    window.history.pushState(null, '', '/profile');
-                    window.dispatchEvent(new PopStateEvent('popstate'));
-                  }
-                }}
+                onClick={handleAccountClick}
                 className="flex items-center gap-2 p-2 sm:px-3 text-navy hover:text-[#A44101] transition-colors cursor-pointer group"
                 aria-label="User Account"
               >
@@ -446,8 +547,14 @@ export const Header: React.FC<HeaderProps> = ({
                   <User className="w-4 h-4" />
                 </div>
                 <div className="hidden xl:flex flex-col text-left leading-tight">
-                  <span className="text-[10px] text-mutedGray font-medium">Namaste</span>
-                  <span className="text-xs font-bold text-navy group-hover:text-[#A44101] transition-colors">My Account</span>
+                  <span className="text-[10px] text-mutedGray font-medium">
+                    {isCustomerLoggedIn ? 'Namaste' : 'Welcome'}
+                  </span>
+                  <span className="text-xs font-bold text-navy group-hover:text-[#A44101] transition-colors">
+                    {isCustomerLoggedIn
+                      ? (customerName ? customerName.split(' ')[0] : 'My Account')
+                      : 'Sign In / Register'}
+                  </span>
                 </div>
               </button>
 
@@ -542,8 +649,8 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     {/* Left Column: Categories List */}
                     <div className="w-[230px] py-2 px-1.5 border-r border-slate-100 max-h-[460px] overflow-y-auto space-y-0.5 shrink-0 bg-white">
-                      {ALL_CATEGORIES_MENU.map((cat) => {
-                        const isCatSelected = (hoveredNavCat?.id || ALL_CATEGORIES_MENU[0].id) === cat.id;
+                      {navCategories.map((cat) => {
+                        const isCatSelected = (hoveredNavCat?.id || navCategories[0]?.id) === cat.id;
 
                         return (
                           <button
@@ -748,13 +855,13 @@ export const Header: React.FC<HeaderProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-2.5 px-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-mutedGray">
-                      Browse All Categories ({ALL_CATEGORIES_MENU.length})
+                      Browse All Categories ({navCategories.length})
                     </h3>
                   </div>
 
                   {/* Complete Category List with Expandable Subcategories */}
                   <div className="space-y-1.5">
-                    {ALL_CATEGORIES_MENU.map((cat) => {
+                    {navCategories.map((cat) => {
                       const IconComp = cat.icon;
                       const isCatActive = activeCategoryTab === cat.id;
                       const isExpanded = !!expandedMobileCats[cat.id];
@@ -815,16 +922,12 @@ export const Header: React.FC<HeaderProps> = ({
                       onClick={(e) => {
                         e.preventDefault();
                         setIsMobileMenuOpen(false);
-                        if (onGoToProfile) onGoToProfile();
-                        else {
-                          window.history.pushState(null, '', '/profile');
-                          window.dispatchEvent(new PopStateEvent('popstate'));
-                        }
+                        handleAccountClick();
                       }}
                       className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 cursor-pointer"
                     >
                       <ShoppingBag className="w-4 h-4 text-slate-500" />
-                      <span>My Orders & Profile</span>
+                      <span>{isCustomerLoggedIn ? 'My Orders & Profile' : 'Sign In / Register'}</span>
                     </a>
                     <a
                       href="/wishlist"

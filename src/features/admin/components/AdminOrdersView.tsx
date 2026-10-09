@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   ShoppingBag, 
@@ -7,10 +7,22 @@ import {
   ChevronUp, 
   User, 
   MapPin, 
-  Package
+  Package,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
-import { mockAdminStore, OrderStatus } from '../mockAdminStore';
+import { mockAdminStore, OrderStatus, AdminOrder } from '../mockAdminStore';
+import { adminOrdersApi } from '../../../api';
 import { AdminGiftIntentPanel } from './AdminGiftIntentPanel';
+import { AdminOrderDetailView } from './AdminOrderDetailView';
+import toast from 'react-hot-toast';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../../../components/ui/select';
 
 interface AdminOrdersViewProps {
   initialStatusFilter?: string;
@@ -36,22 +48,124 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [orders, setOrders] = useState<AdminOrder[]>(() => mockAdminStore.getOrders());
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Load orders reactively
-  const orders = useMemo(() => {
-    return mockAdminStore.getOrders();
-  }, [refreshTrigger]);
+  const fetchLiveOrders = async () => {
+    setIsLoading(true);
+    try {
+      if (activeTab === 'RTO') {
+        const rtoRes = await adminOrdersApi.getRtoOrders();
+        const rtoList = rtoRes.orders || rtoRes.data || (Array.isArray(rtoRes) ? rtoRes : []);
+        if (Array.isArray(rtoList) && rtoList.length > 0) {
+          const mapped: AdminOrder[] = rtoList.map((ord: any) => ({
+            id: ord.orderId || ord._id || String(Math.random()),
+            orderNumber: ord.orderIdDisplay || ord.orderId || '#RTO-LIVE',
+            customerName: ord.shippingAddress?.fullName || ord.customerName || (ord.contactPhone ? `Customer (${ord.contactPhone})` : 'Shopper'),
+            customerPhone: ord.contactPhone || ord.shippingAddress?.phone || '+91 98XXX XXXXX',
+            customerEmail: ord.customerEmail || 'customer@store.com',
+            items: (ord.items || []).map((it: any, idx: number) => ({
+              id: it.productId || `item-${idx}`,
+              productId: it.productId || 'item-1',
+              productTitle: it.productTitle || it.title || ord.orderIdDisplay || 'RTO Items',
+              sku: it.sku || 'SKU-RTO',
+              price: it.price || it.unitPrice || 299,
+              quantity: it.quantity || 1,
+              image: it.image || '/images/products/placeholder.png',
+            })),
+            totalAmount: Math.round(ord.amountInr || ord.totalAmount || 0),
+            subtotal: Math.round(ord.subtotalInr || ord.amountInr || ord.totalAmount || 0),
+            discount: Math.round(ord.discountInr || 0),
+            paymentMethod: (ord.paymentMethod === 'online' ? 'UPI' : (ord.paymentMethod === 'cod' ? 'COD' : 'UPI')) as any,
+            paymentStatus: ord.paymentStatus === 'paid' ? 'Paid' : 'Pending',
+            status: 'RTO',
+            isGiftOrder: false,
+            shippingAddress: typeof ord.shippingAddress === 'string' ? ord.shippingAddress : (
+              ord.shippingAddress?.addressLine1 ? `${ord.shippingAddress.addressLine1}, ${ord.shippingAddress.city || ''}` : 'India'
+            ),
+            createdAt: ord.createdAt || new Date().toISOString(),
+            updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
+          }));
+          setOrders(mapped);
+          return;
+        }
+      }
+
+      const res = await adminOrdersApi.getAll({
+        status: activeTab !== 'All' ? activeTab.toLowerCase() : undefined,
+        search: searchQuery.trim() || undefined,
+      });
+
+      const rawOrders = res.orders || res.data?.orders || res.data || (Array.isArray(res) ? res : []);
+      if (Array.isArray(rawOrders) && rawOrders.length > 0) {
+        const mapped: AdminOrder[] = rawOrders.map((ord: any) => ({
+          id: ord.orderId || ord._id || String(Math.random()),
+          orderNumber: ord.orderIdDisplay || ord.orderId || '#ORD-LIVE',
+          customerName: ord.shippingAddress?.fullName || ord.customerName || (ord.contactPhone ? `Customer (${ord.contactPhone})` : 'Indian Shopper'),
+          customerPhone: ord.contactPhone || ord.shippingAddress?.phone || '+91 98XXX XXXXX',
+          customerEmail: ord.customerEmail || 'customer@store.com',
+          items: (ord.items || []).map((it: any, idx: number) => ({
+            id: it.productId || `item-${idx}`,
+            productId: it.productId || 'item-1',
+            productTitle: it.productTitle || it.title || ord.orderIdDisplay || 'Order Item',
+            sku: it.sku || 'SKU-LIVE',
+            price: it.price || it.unitPrice || 299,
+            quantity: it.quantity || 1,
+            image: it.image || '/images/products/placeholder.png',
+          })),
+          totalAmount: Math.round(ord.amountInr || ord.totalAmount || 0),
+          subtotal: Math.round(ord.subtotalInr || ord.amountInr || ord.totalAmount || 0),
+          discount: Math.round(ord.discountInr || 0),
+          paymentMethod: (ord.paymentMethod === 'online' ? 'UPI' : (ord.paymentMethod === 'cod' ? 'COD' : 'UPI')) as any,
+          paymentStatus: ord.paymentStatus === 'paid' ? 'Paid' : 'Pending',
+          status: (
+            ord.orderStatus === 'confirmed' ? 'Confirmed' :
+            ord.orderStatus === 'processing' ? 'Processing' :
+            ord.orderStatus === 'shipped' ? 'Shipped' :
+            ord.orderStatus === 'delivered' ? 'Delivered' :
+            ord.orderStatus === 'cancelled' ? 'Cancelled' :
+            ord.orderStatus === 'rto' ? 'RTO' :
+            ord.orderStatus === 'returned' ? 'Returned' : 'Pending'
+          ),
+          isGiftOrder: Boolean(ord.isGiftOrder || (ord.orderIntentType && ord.orderIntentType.includes('gift'))),
+          giftIntent: ord.isGiftOrder ? {
+            isGift: true,
+            recipientName: 'Gift Recipient',
+            senderName: ord.shippingAddress?.fullName || ord.customerName || 'Customer',
+            recipientPhone: ord.contactPhone || '',
+            deliveryAddress: 'Pan India',
+            giftMessage: 'Best wishes!',
+            occasion: (ord.orderIntentType || 'Festival').replace('gift_', '').toUpperCase(),
+            includeCard: true,
+            packagingTheme: 'Classic Saffron Gold'
+          } : undefined,
+          shippingAddress: typeof ord.shippingAddress === 'string' ? ord.shippingAddress : (
+            ord.shippingAddress?.addressLine1 ? `${ord.shippingAddress.addressLine1}, ${ord.shippingAddress.city || ''} ${ord.shippingAddress.postalCode || ''}` : 'India'
+          ),
+          createdAt: ord.createdAt || new Date().toISOString(),
+          updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
+        }));
+        setOrders(mapped);
+      }
+    } catch {
+      // Fallback stays in state
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveOrders();
+  }, [activeTab]);
 
   const filteredOrders = useMemo(() => {
     let list = [...orders];
 
-    // Status Tab Filter
     if (activeTab !== 'All') {
       list = list.filter((o) => o.status === activeTab);
     }
 
-    // Search Query (Order #, Name, Phone, Email)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((o) => 
@@ -66,20 +180,38 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
     return list;
   }, [orders, activeTab, searchQuery]);
 
-  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
-    const success = mockAdminStore.updateOrderStatus(orderId, newStatus);
-    if (success) {
-      setRefreshTrigger((prev) => prev + 1);
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      await adminOrdersApi.updateFulfillmentStatus(orderId, newStatus.toLowerCase());
+      toast.success(`Order status updated to ${newStatus}`);
+    } catch {
+      // Offline fallback
+      mockAdminStore.updateOrderStatus(orderId, newStatus);
     }
+    setOrders((prev) =>
+      prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
+    );
   };
 
   const handleRefresh = () => {
-    setRefreshTrigger((prev) => prev + 1);
+    fetchLiveOrders();
   };
 
   const toggleExpand = (orderId: string) => {
     setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
   };
+
+  if (selectedOrderId) {
+    return (
+      <AdminOrderDetailView
+        orderId={selectedOrderId}
+        onBack={() => {
+          setSelectedOrderId(null);
+          fetchLiveOrders();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5 sm:space-y-6 animate-fadeIn">
@@ -95,6 +227,16 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={fetchLiveOrders}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 text-xs font-bold text-navy bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+            title="Refresh Live Orders from Backend"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#A44101] ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Syncing...' : 'Live Sync'}</span>
+          </button>
           <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs">
             {filteredOrders.length} Orders Listed
           </span>
@@ -194,8 +336,9 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                         <td className="py-3.5 px-4 font-mono font-bold text-navy">
                           <button
                             type="button"
-                            onClick={() => toggleExpand(order.id)}
+                            onClick={() => setSelectedOrderId(order.orderNumber || order.id)}
                             className="text-[#A44101] hover:underline font-bold text-left cursor-pointer"
+                            title="Open order details"
                           >
                             {order.orderNumber}
                           </button>
@@ -245,47 +388,64 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                           </span>
                         </td>
 
-                        {/* Live Status Selector */}
+                        {/* Live Status Selector with Shadcn Select */}
                         <td className="py-3.5 px-4">
-                          <select
+                          <Select
                             value={order.status}
-                            onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider border cursor-pointer focus:outline-none ${
-                              order.status === 'Pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                              order.status === 'Confirmed' ? 'bg-blue-50 text-blue-800 border-blue-300' :
-                              order.status === 'Processing' ? 'bg-purple-50 text-purple-800 border-purple-300' :
-                              order.status === 'Shipped' ? 'bg-indigo-50 text-indigo-800 border-indigo-300' :
-                              order.status === 'Delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                              order.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-300' :
-                              order.status === 'Returned' ? 'bg-slate-100 text-slate-700 border-slate-300' :
-                              'bg-amber-100 text-amber-900 border-amber-400'
-                            }`}
+                            onValueChange={(val) => handleStatusChange(order.id, val as OrderStatus)}
                           >
-                            <option value="Pending">Pending</option>
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Shipped">Shipped</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                            <option value="Returned">Returned</option>
-                            <option value="RTO">RTO</option>
-                          </select>
+                            <SelectTrigger
+                              className={`h-7 px-2.5 rounded-lg text-[11px] font-black uppercase tracking-wider border shadow-2xs w-[130px] ${
+                                order.status === 'Pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                                order.status === 'Confirmed' ? 'bg-blue-50 text-blue-800 border-blue-300' :
+                                order.status === 'Processing' ? 'bg-purple-50 text-purple-800 border-purple-300' :
+                                order.status === 'Shipped' ? 'bg-indigo-50 text-indigo-800 border-indigo-300' :
+                                order.status === 'Delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                                order.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                                order.status === 'Returned' ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                                'bg-amber-100 text-amber-900 border-amber-400'
+                              }`}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="end" className="w-[145px]">
+                              <SelectItem value="Pending">Pending</SelectItem>
+                              <SelectItem value="Confirmed">Confirmed</SelectItem>
+                              <SelectItem value="Processing">Processing</SelectItem>
+                              <SelectItem value="Shipped">Shipped</SelectItem>
+                              <SelectItem value="Delivered">Delivered</SelectItem>
+                              <SelectItem value="Cancelled">Cancelled</SelectItem>
+                              <SelectItem value="Returned">Returned</SelectItem>
+                              <SelectItem value="RTO">RTO</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </td>
 
-                        {/* Expand / Collapse Action */}
+                        {/* Expand / Details Action */}
                         <td className="py-3.5 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => toggleExpand(order.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all cursor-pointer"
-                          >
-                            <span>{isExpanded ? 'Hide' : 'Details'}</span>
-                            {isExpanded ? (
-                              <ChevronUp className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderId(order.orderNumber || order.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all cursor-pointer text-xs"
+                              title="Open order page"
+                            >
+                              <span>Details</span>
+                              <ExternalLink className="w-3 h-3 text-slate-500" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(order.id)}
+                              className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all cursor-pointer"
+                              title={isExpanded ? "Collapse inline preview" : "Expand inline preview"}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
                         </td>
                       </tr>
 

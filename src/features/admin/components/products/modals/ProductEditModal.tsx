@@ -15,6 +15,14 @@ import {
 import toast from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../../../../../store/hooks';
 import { updateProduct, AdminProduct, ProductVariant } from '../../../../../store/adminProductsSlice';
+import { adminProductsApi } from '../../../../../api';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../../../../../components/ui/select';
 
 interface ProductEditModalProps {
   product: AdminProduct;
@@ -120,6 +128,28 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onC
     const calculatedDiscount = originalPrice > currentPrice
       ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
       : 0;
+
+    (async () => {
+      try {
+        await adminProductsApi.update(product.sku || product.id, {
+          title: title.trim(),
+          name: title.trim(),
+          description: description.trim(),
+          status: status.toLowerCase(),
+          brand: brand.trim(),
+          category,
+          subcategory,
+          variants: variants.length > 0 ? variants : [{
+            price: Number(currentPrice),
+            mrp: Number(originalPrice),
+            stock: Number(stock),
+            sku: sku.trim()
+          }]
+        });
+      } catch {
+        // local redux fallback
+      }
+    })();
 
     dispatch(updateProduct({
       id: product.id,
@@ -261,49 +291,61 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onC
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Category *
                   </label>
-                  <select
+                  <Select
                     value={category}
-                    onChange={(e) => {
-                      setCategory(e.target.value);
+                    onValueChange={(val) => {
+                      setCategory(val);
                       setSubcategory('');
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-[#A44101]"
                   >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full h-10 px-3.5 rounded-xl border border-slate-300 text-sm bg-white">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Sub-Category
                   </label>
-                  <select
-                    value={subcategory}
-                    onChange={(e) => setSubcategory(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-[#A44101]"
+                  <Select
+                    value={subcategory || '__none__'}
+                    onValueChange={(val) => setSubcategory(val === '__none__' ? '' : val)}
                   >
-                    <option value="">None / General</option>
-                    {subcategoryList.map((sub, idx) => (
-                      <option key={idx} value={sub}>{sub}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full h-10 px-3.5 rounded-xl border border-slate-300 text-sm bg-white">
+                      <SelectValue placeholder="None / General" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None / General</SelectItem>
+                      {subcategoryList.map((sub, idx) => (
+                        <SelectItem key={idx} value={sub}>{sub}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Publication Status
                   </label>
-                  <select
+                  <Select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:border-[#A44101]"
+                    onValueChange={(val) => setStatus(val as any)}
                   >
-                    <option value="Active">Active (Visible in Store)</option>
-                    <option value="Draft">Draft (Hidden)</option>
-                    <option value="Archived">Archived</option>
-                  </select>
+                    <SelectTrigger className="w-full h-10 px-3.5 rounded-xl border border-slate-300 text-sm bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active (Visible in Store)</SelectItem>
+                      <SelectItem value="Draft">Draft (Hidden)</SelectItem>
+                      <SelectItem value="Archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>

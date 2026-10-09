@@ -17,6 +17,13 @@ import {
   clearSelection 
 } from '../../../../store/adminProductsSlice';
 import toast from 'react-hot-toast';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../../../../components/ui/select';
 
 export const LabelsBadgesTab: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -132,17 +139,23 @@ export const LabelsBadgesTab: React.FC = () => {
               Select Preset Badge to Assign
             </label>
             <div className="flex items-center gap-2">
-              <select
-                value={selectedBadgeToAssign}
-                onChange={(e) => setSelectedBadgeToAssign(e.target.value)}
-                className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              >
-                {availableBadges.map((badge) => (
-                  <option key={badge} value={badge}>
-                    {badge}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <Select
+                  value={selectedBadgeToAssign}
+                  onValueChange={(val) => setSelectedBadgeToAssign(val)}
+                >
+                  <SelectTrigger className="h-9 px-3 bg-white border-slate-200 rounded-xl text-xs text-slate-800">
+                    <SelectValue placeholder="Select Badge" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableBadges.map((badge) => (
+                      <SelectItem key={badge} value={badge}>
+                        {badge}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <button
                 type="button"
                 onClick={() => handleAssignBadgeToSelected(selectedBadgeToAssign)}

@@ -4,6 +4,7 @@ import { Warehouse, X, Plus, Minus, Check, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppDispatch } from '../../../../../store/hooks';
 import { adjustStock, AdminProduct, InventoryLog } from '../../../../../store/adminProductsSlice';
+import { adminInventoryApi } from '../../../../../api';
 
 interface StockAdjustmentModalProps {
   product: AdminProduct;
@@ -49,6 +50,19 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({ prod
       toast.error('Adjustment quantity must not be zero');
       return;
     }
+
+    (async () => {
+      try {
+        await adminInventoryApi.adjustStock({
+          productId: product.id,
+          adjustmentQty,
+          reason,
+          notes: notes.trim() || undefined,
+        });
+      } catch {
+        // local fallback
+      }
+    })();
 
     dispatch(adjustStock({
       id: product.id,

@@ -851,6 +851,7 @@ class MockAdminStoreEngine {
   public logout(): void {
     try {
       localStorage.removeItem(STORAGE_KEYS.SESSION);
+      localStorage.removeItem('admin_access_token');
     } catch (e) {
       console.error(e);
     }

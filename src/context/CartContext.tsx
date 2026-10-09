@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { storefrontCartApi } from '../api';
 
 export interface CartItem {
   id: string;
@@ -83,6 +84,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [cartItems]);
 
+  // Sync with backend cart if authenticated
+  useEffect(() => {
+    const syncBackendCart = () => {
+      const token = localStorage.getItem('user_access_token');
+      if (!token) return;
+
+      storefrontCartApi.getCart()
+        .then((res) => {
+          const items = res?.items || res;
+          if (Array.isArray(items) && items.length > 0) {
+            const apiItems = items.map((i: any) => ({
+              id: i.productId || i.id,
+              title: i.title || 'Cart Item',
+              price: i.price || 0,
+              originalPrice: i.originalPrice || i.price * 1.5,
+              image: i.image || '',
+              qty: i.quantity || i.qty || 1,
+              category: i.category || 'General',
+            }));
+            setCartItems(apiItems);
+          }
+        })
+        .catch(() => {
+          // Token invalid or offline, fallback safely to local cart
+        });
+    };
+
+    syncBackendCart();
+    window.addEventListener('abb_auth_change', syncBackendCart);
+    return () => {
+      window.removeEventListener('abb_auth_change', syncBackendCart);
+    };
+  }, []);
+
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
   const toggleCart = () => setIsCartOpen((prev) => !prev);
@@ -112,30 +147,43 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ];
     });
 
+    // Call storefrontCartApi in background
+    storefrontCartApi.addItem(product.id, qty).catch(() => {});
+
     // Automatically slide drawer open when item is added!
     setIsCartOpen(true);
   };
 
   const removeFromCart = (id: string) => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
+    storefrontCartApi.removeItem(id).catch(() => {});
   };
 
   const updateQty = (id: string, delta: number) => {
+    let finalQty = 1;
     setCartItems((prev) =>
       prev
         .map((item) => {
           if (item.id === id) {
             const newQty = item.qty + delta;
+            finalQty = newQty;
             return newQty > 0 ? { ...item, qty: newQty } : null;
           }
           return item;
         })
         .filter((item): item is CartItem => item !== null)
     );
+
+    if (finalQty > 0) {
+      storefrontCartApi.updateQuantity(id, finalQty).catch(() => {});
+    } else {
+      storefrontCartApi.removeItem(id).catch(() => {});
+    }
   };
 
   const clearCart = () => {
     setCartItems([]);
+    storefrontCartApi.clearCart().catch(() => {});
   };
 
   const totalCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
