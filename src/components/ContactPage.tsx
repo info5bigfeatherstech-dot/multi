@@ -120,8 +120,8 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
           name: name.trim(),
           phone: phone.trim(),
           email: email.trim() || `${phone.replace(/\D/g, '')}@customer.in`,
-          interestCategory: category,
-          source: `Support Form (${TARGET_SUPPORT_EMAIL})`,
+          interestCategory: `${category} (Desk: ${TARGET_SUPPORT_EMAIL})`,
+          source: 'Support Form',
           createdAt: new Date().toISOString(),
           status: 'New'
         });
@@ -285,7 +285,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
 
           {/* Card 3: Email */}
           <a
-            href="mailto:support.apnabharatbazaar@gmail.com?subject=Support%20Inquiry%20-%20Apna%20Bharat%20Bazaar"
+            href={`mailto:${TARGET_SUPPORT_EMAIL}?subject=Support%20Inquiry%20-%20MehtaMart`}
             className="group bg-white rounded-2xl p-5 shadow-sm hover:shadow-md border border-slate-200 hover:border-blue-500 transition-all flex flex-col justify-between"
           >
             <div>
@@ -303,7 +303,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-700 truncate">
-              <span className="truncate">support.apnabharatbazaar@gmail.com</span>
+              <span className="truncate">{TARGET_SUPPORT_EMAIL}</span>
             </div>
           </a>
 
@@ -344,7 +344,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
                       Submit a Support Ticket
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                      Our customer support manager will review your inquiry and follow up within 15 minutes.
+                      Messages are sent directly to our official customer care desk at <strong className="text-navy">{TARGET_SUPPORT_EMAIL}</strong>.
                     </p>
                   </div>
 
@@ -445,14 +445,14 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-3 px-6 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs sm:text-sm font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 active:scale-98"
+                      className="w-full py-3.5 px-6 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs sm:text-sm font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 active:scale-98"
                     >
                       {isSubmitting ? (
-                        <span>Submitting Ticket...</span>
+                        <span>Submitting Ticket to {TARGET_SUPPORT_EMAIL}...</span>
                       ) : (
                         <>
                           <Send className="w-4 h-4" />
-                          <span>Submit Support Request</span>
+                          <span>Submit Ticket to {TARGET_SUPPORT_EMAIL}</span>
                         </>
                       )}
                     </button>
@@ -473,11 +473,16 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
                       Ticket #{submittedTicket.ticketId}
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                      Thank you, <strong>{submittedTicket.name}</strong>! Our Mumbai support executive will contact you via WhatsApp ({submittedTicket.phone}) shortly.
+                      Thank you, <strong>{submittedTicket.name}</strong>! Your ticket is addressed to{' '}
+                      <strong className="text-[#A44101]">{submittedTicket.targetEmail}</strong>. Our customer executive will review and contact you via WhatsApp ({submittedTicket.phone}) shortly.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-left max-w-md mx-auto space-y-2">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Recipient Email Desk:</span>
+                      <span className="font-bold text-[#A44101]">{submittedTicket.targetEmail}</span>
+                    </div>
                     <div className="flex justify-between text-slate-500">
                       <span>Category:</span>
                       <span className="font-bold text-navy">{submittedTicket.category}</span>
@@ -488,16 +493,54 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
                         <span className="font-bold text-navy">{submittedTicket.orderNumber}</span>
                       </div>
                     )}
+                    {submittedTicket.email !== 'N/A' && (
+                      <div className="flex justify-between text-slate-500">
+                        <span>Customer Email:</span>
+                        <span className="font-medium text-navy">{submittedTicket.email}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-slate-500">
                       <span>Submitted At:</span>
                       <span className="font-medium text-navy">{submittedTicket.submittedAt}</span>
                     </div>
                   </div>
 
+                  {/* Quick Email Dispatch & Copy Actions */}
+                  <div className="max-w-md mx-auto flex flex-col sm:flex-row gap-2.5 pt-2">
+                    <a
+                      href={submittedTicket.mailtoUrl}
+                      className="flex-1 py-2.5 px-3 rounded-lg bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Mail className="w-4 h-4" />
+                      <span>Send / Open in Email App</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyTicket(submittedTicket)}
+                      className="flex-1 py-2.5 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-600" />
+                          <span className="text-emerald-700">Copied to Clipboard!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-slate-500" />
+                          <span>Copy Ticket Info</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setSubmittedTicket(null)}
+                      onClick={() => {
+                        setSubmittedTicket(null);
+                        setMessage('');
+                        setOrderNumber('');
+                      }}
                       className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
                     >
                       Submit Another Query
