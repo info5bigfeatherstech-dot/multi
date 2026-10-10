@@ -1060,7 +1060,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs text-charcoal">
                 <p className="font-bold text-navy mb-1">Direct WhatsApp / Call:</p>
                 <p className="text-[#A44101] font-black">+91 93200 01717</p>
-                <p className="text-slate-600 mt-1">support.apnabharatbazaar@gmail.com</p>
+                <p className="text-slate-600 mt-1">support.MehtaMartMHM@gmail.com</p>
               </div>
             </motion.div>
           </>

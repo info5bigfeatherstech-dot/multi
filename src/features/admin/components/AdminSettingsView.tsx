@@ -17,7 +17,7 @@ import { adminAuthApi } from '../../../api';
 export const AdminSettingsView: React.FC = () => {
   const [storeName, setStoreName] = useState('Apna Bharat Bazaar');
   const [supportPhone, setSupportPhone] = useState('+91 93200 01717');
-  const [supportEmail, setSupportEmail] = useState('support.apnabharatbazaar@gmail.com');
+  const [supportEmail, setSupportEmail] = useState('support.MehtaMartMHM@gmail.com');
   const [deliveryTime, setDeliveryTime] = useState('2-5 Business Days Pan India');
   const [feedback, setFeedback] = useState<string | null>(null);
 
