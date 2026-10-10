@@ -49,6 +49,7 @@ export interface AdminProduct {
   brand?: string;
   category: string;
   subcategory?: string;
+  slug?: string;
   currentPrice: number;
   originalPrice: number;
   costPrice?: number;
@@ -579,9 +580,20 @@ export const adminProductsSlice = createSlice({
 
     // 4. Archive Product: Marks status as 'Archived'
     archiveProduct: (state, action: PayloadAction<string>) => {
-      const prod = state.products.find((p) => p.id === action.payload);
+      const prod = state.products.find((p) => p.id === action.payload || p.sku === action.payload);
       if (prod) {
         prod.status = 'Archived';
+        prod.updatedAt = new Date().toISOString();
+        state.lastUpdated = new Date().toISOString();
+        saveStateToStorage(state);
+      }
+    },
+
+    // 4b. Restore Product: Marks status as 'Active'
+    restoreProduct: (state, action: PayloadAction<string>) => {
+      const prod = state.products.find((p) => p.id === action.payload || p.sku === action.payload);
+      if (prod) {
+        prod.status = 'Active';
         prod.updatedAt = new Date().toISOString();
         state.lastUpdated = new Date().toISOString();
         saveStateToStorage(state);
@@ -800,6 +812,7 @@ export const {
   updateProduct,
   deleteProduct,
   archiveProduct,
+  restoreProduct,
   toggleProductStatus,
   adjustStock,
   addCategory,

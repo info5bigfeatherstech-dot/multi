@@ -15,6 +15,7 @@ import { CategoriesTab } from './products/CategoriesTab';
 import { InventoryTab } from './products/InventoryTab';
 import { LabelsBadgesTab } from './products/LabelsBadgesTab';
 import { BulkUploadTab } from './products/BulkUploadTab';
+import { ArchivedProductsTab } from './products/ArchivedProductsTab';
 
 // Modals
 import { ProductEditModal } from './products/modals/ProductEditModal';
@@ -23,7 +24,7 @@ import { StockAdjustmentModal } from './products/modals/StockAdjustmentModal';
 import { QuickCategoryModal } from './products/modals/QuickCategoryModal';
 import { BulkUploadModal } from './products/modals/BulkUploadModal';
 
-export type ProductSubTab = 'all' | 'add' | 'categories' | 'inventory' | 'labels' | 'bulk-upload';
+export type ProductSubTab = 'all' | 'add' | 'categories' | 'inventory' | 'labels' | 'bulk-upload' | 'archived';
 
 export interface AdminProductsViewProps {
   initialSubTab?: ProductSubTab;
@@ -291,6 +292,10 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
           <BulkUploadTab
             onSuccess={() => setActiveTab('all')}
           />
+        )}
+
+        {activeTab === 'archived' && (
+          <ArchivedProductsTab />
         )}
       </main>
 

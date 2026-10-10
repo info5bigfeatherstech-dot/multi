@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Search, 
   Plus, 
@@ -383,6 +384,17 @@ export const LabelsBadgesTab: React.FC = () => {
   useEffect(() => {
     fetchLabels();
   }, [fetchLabels]);
+
+  // Lock body scroll while any modal is open
+  useEffect(() => {
+    if (isFormModalOpen || assigningLabel || deletingLabel) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isFormModalOpen, assigningLabel, deletingLabel]);
 
   // Save to local storage on change
   const persistLabels = (updated: ProductLabelItem[]) => {
@@ -890,14 +902,11 @@ export const LabelsBadgesTab: React.FC = () => {
       </div>
 
       {/* =========================================================================
-          MODAL 1: CREATE OR EDIT LABEL
-          ========================================================================= */}
-      {/* =========================================================================
           MODAL 1: CREATE OR EDIT LABEL (MATCHING SCREENSHOT)
           ========================================================================= */}
-      {isFormModalOpen && (
+      {isFormModalOpen && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] bg-[#333333]/85 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 z-[99999] bg-[#333333]/85 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsFormModalOpen(false);
           }}
@@ -1110,15 +1119,16 @@ export const LabelsBadgesTab: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* =========================================================================
           MODAL 2: ASSIGN PRODUCTS TO LABEL (BOX ICON)
           ========================================================================= */}
-      {assigningLabel && (
+      {assigningLabel && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] bg-[#333333]/85 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 z-[99999] bg-[#333333]/85 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
           onClick={(e) => {
             if (e.target === e.currentTarget) setAssigningLabel(null);
           }}
@@ -1271,15 +1281,16 @@ export const LabelsBadgesTab: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* =========================================================================
           MODAL 3: DELETE CONFIRMATION
           ========================================================================= */}
-      {deletingLabel && (
+      {deletingLabel && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] bg-[#333333]/85 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 z-[99999] bg-[#333333]/85 backdrop-blur-[2px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn"
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeletingLabel(null);
           }}
@@ -1311,7 +1322,8 @@ export const LabelsBadgesTab: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

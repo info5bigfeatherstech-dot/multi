@@ -268,6 +268,14 @@ export const adminProductsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  getArchived: async (params?: { page?: number; limit?: number; search?: string }) => {
+    try {
+      const res = await apiClient.get("/admin/products/archived", { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
   bulkUpdateStatus: async (ids: string[], status: "Active" | "Draft") => {
     try {
       const res = await apiClient.patch("/admin/products/bulk-status", { ids, status });
@@ -556,6 +564,101 @@ export const adminOrdersApi = {
     try {
       const cleanId = orderId.replace(/^#/, '');
       const res = await apiClient.put(`/orders/admin/items/${encodeURIComponent(cleanId)}/status`, { status });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+/* ============================================================
+   11. ADMIN PRODUCT REVIEWS & CUSTOM REVIEWS API
+   ============================================================ */
+export interface AdminReviewItem {
+  _id: string;
+  source: 'customer' | 'admin';
+  storefront: string;
+  rating: number;
+  comment: string;
+  displayName?: string;
+  isActive: boolean;
+  verifiedPurchase?: boolean;
+  orderId?: string | null;
+  images?: Array<string | { url?: string; publicId?: string }>;
+  createdAt: string;
+  updatedAt: string;
+  product?: {
+    _id?: string;
+    id?: string;
+    title?: string;
+    name?: string;
+    slug?: string;
+    thumb?: string | null;
+  };
+  customer?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  } | null;
+}
+
+export const adminReviewsApi = {
+  list: async (params?: {
+    page?: number;
+    limit?: number;
+    productId?: string;
+    source?: 'customer' | 'admin';
+    isActive?: 'true' | 'false' | boolean;
+  }) => {
+    try {
+      const q: any = { ...params };
+      if (typeof q.isActive === 'boolean') {
+        q.isActive = q.isActive ? 'true' : 'false';
+      }
+      const res = await apiClient.get("/admin/product-reviews", { params: q });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  patchStatus: async (id: string, isActive: boolean) => {
+    try {
+      const res = await apiClient.patch(`/admin/product-reviews/${encodeURIComponent(id)}/status`, { isActive });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  createGenerated: async (payload: {
+    productId: string;
+    rating: number;
+    comment: string;
+    displayName: string;
+    isActive?: boolean;
+  }) => {
+    try {
+      const res = await apiClient.post("/admin/product-reviews/generated", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  updateGenerated: async (id: string, updates: {
+    rating?: number;
+    comment?: string;
+    displayName?: string;
+    isActive?: boolean;
+  }) => {
+    try {
+      const res = await apiClient.put(`/admin/product-reviews/generated/${encodeURIComponent(id)}`, updates);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  deleteGenerated: async (id: string) => {
+    try {
+      const res = await apiClient.delete(`/admin/product-reviews/generated/${encodeURIComponent(id)}`);
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));

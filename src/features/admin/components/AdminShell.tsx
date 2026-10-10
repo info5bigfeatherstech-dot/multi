@@ -17,16 +17,20 @@ import {
   ExternalLink,
   Sliders,
   Database,
-  ChevronDown,
   Box,
   PlusCircle,
   FolderTree,
   Tag,
   Boxes,
-  Truck
+  Truck,
+  Archive,
+  Star,
+  MessageSquare,
+  ShieldCheck,
+  BarChart2
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
-import { adminOrdersApi, adminProductsApi, adminAnalyticsApi } from '../../../api';
+import { adminOrdersApi, adminProductsApi, adminAnalyticsApi, adminReviewsApi } from '../../../api';
 
 export type AdminTab = 
   | 'dashboard' 
@@ -40,6 +44,13 @@ export type AdminTab =
   | 'products-labels'
   | 'products-inventory'
   | 'products-bulkupload'
+  | 'products-archived'
+  | 'archived'
+  | 'reviews'
+  | 'reviews-product'
+  | 'reviews-customer'
+  | 'reviews-management'
+  | 'reviews-reports'
   | 'analytics' 
   | 'outofstock' 
   | 'leads' 
@@ -61,6 +72,119 @@ interface AdminShellProps {
   children: React.ReactNode;
 }
 
+interface SidebarNavItemProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  isActive?: boolean;
+  onClick: () => void;
+  badge?: React.ReactNode;
+}
+
+const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
+  icon: Icon,
+  label,
+  isActive = false,
+  onClick,
+  badge,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-all cursor-pointer group ${
+      isActive
+        ? 'bg-[#A44101] text-white shadow-xs font-bold'
+        : 'text-slate-800 hover:bg-slate-200/70 font-bold'
+    }`}
+  >
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div
+        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
+          isActive
+            ? 'bg-white/20 text-white'
+            : 'bg-orange-50 border border-orange-200/80 text-[#A44101]'
+        }`}
+      >
+        <Icon className="w-4 h-4 stroke-[2.2]" />
+      </div>
+      <span className={`text-sm truncate ${isActive ? 'text-white' : 'text-slate-800 group-hover:text-navy'}`}>
+        {label}
+      </span>
+    </div>
+    {badge && <div className="shrink-0 ml-2">{badge}</div>}
+  </button>
+);
+
+interface SidebarCollapsibleHeaderProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  badge?: React.ReactNode;
+}
+
+const SidebarCollapsibleHeader: React.FC<SidebarCollapsibleHeaderProps> = ({
+  icon: Icon,
+  label,
+  isExpanded,
+  onToggle,
+  badge,
+}) => (
+  <button
+    type="button"
+    onClick={onToggle}
+    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-slate-800 hover:bg-slate-200/70 transition-all cursor-pointer group font-bold"
+  >
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-center text-[#A44101] shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
+        <Icon className="w-4 h-4 stroke-[2.2]" />
+      </div>
+      <span className="text-sm font-bold text-slate-800 group-hover:text-navy truncate">
+        {label}
+      </span>
+    </div>
+    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+      {badge}
+      <ChevronRight
+        className={`w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
+          isExpanded ? 'rotate-90' : ''
+        }`}
+      />
+    </div>
+  </button>
+);
+
+interface SidebarSubItemProps {
+  icon?: React.ComponentType<{ className?: string }>;
+  label: string;
+  isActive?: boolean;
+  onClick: () => void;
+  badge?: React.ReactNode;
+}
+
+const SidebarSubItem: React.FC<SidebarSubItemProps> = ({
+  icon: Icon,
+  label,
+  isActive = false,
+  onClick,
+  badge,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+      isActive
+        ? 'bg-[#A44101] text-white shadow-xs'
+        : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
+    }`}
+  >
+    <div className="flex items-center gap-2 min-w-0">
+      {Icon && <Icon className="w-3.5 h-3.5 shrink-0" />}
+      <span className="truncate">{label}</span>
+    </div>
+    {badge && <div className="shrink-0 ml-1.5">{badge}</div>}
+  </button>
+);
+
 export const AdminShell: React.FC<AdminShellProps> = ({
   currentUser,
   currentTab,
@@ -71,6 +195,8 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProductsExpanded, setIsProductsExpanded] = useState(true);
+  const [isArchivedExpanded, setIsArchivedExpanded] = useState(true);
+  const [isReviewsExpanded, setIsReviewsExpanded] = useState(true);
   const [isSettingsMode, setIsSettingsMode] = useState(
     currentTab.startsWith('settings')
   );
@@ -79,15 +205,20 @@ export const AdminShell: React.FC<AdminShellProps> = ({
     orders: mockAdminStore.getOrders().length,
     products: mockAdminStore.getProducts().length,
     abandoned: mockAdminStore.getAbandonedCarts().length,
+    archived: 0,
+    pendingReviews: 3,
+    totalReviews: 7,
   });
 
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [ordRes, prodRes, anaRes] = await Promise.allSettled([
+        const [ordRes, prodRes, anaRes, archRes, revRes] = await Promise.allSettled([
           adminOrdersApi.getSummary(),
           adminProductsApi.getAll({ limit: 1 }),
           adminAnalyticsApi.getSummary('30d'),
+          adminProductsApi.getArchived({ limit: 1 }),
+          adminReviewsApi.list({ limit: 100 }),
         ]);
 
         let ordersCount = counts.orders;
@@ -109,10 +240,29 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           else if (c?.total !== undefined) abandonedCount = c.total;
         }
 
+        let archivedCount = counts.archived;
+        if (archRes.status === 'fulfilled' && archRes.value) {
+          const aVal = archRes.value;
+          if (aVal.total !== undefined) archivedCount = aVal.total;
+          else if (aVal.count !== undefined) archivedCount = aVal.count;
+          else if (Array.isArray(aVal.products)) archivedCount = aVal.products.length;
+        }
+
+        let pendingReviewsCount = counts.pendingReviews;
+        let totalReviewsCount = counts.totalReviews;
+        if (revRes.status === 'fulfilled' && revRes.value) {
+          const rList = revRes.value.reviews || revRes.value.data || (Array.isArray(revRes.value) ? revRes.value : []);
+          totalReviewsCount = revRes.value.pagination?.total || rList.length;
+          pendingReviewsCount = rList.filter((r: any) => !r.isActive).length;
+        }
+
         setCounts({
           orders: ordersCount,
           products: productsCount,
           abandoned: abandonedCount,
+          archived: archivedCount,
+          pendingReviews: pendingReviewsCount,
+          totalReviews: totalReviewsCount,
         });
       } catch {
         // defaults
@@ -181,11 +331,11 @@ export const AdminShell: React.FC<AdminShellProps> = ({
             <button
               type="button"
               onClick={onVisitStore}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-navy bg-white hover:bg-slate-50 text-xs font-bold text-navy transition-all shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-200/80 hover:border-[#A44101] bg-white hover:bg-orange-50/60 text-xs font-bold text-navy hover:text-[#A44101] transition-all shadow-2xs cursor-pointer"
             >
               <Store className="w-3.5 h-3.5 text-[#A44101]" />
               <span className="hidden md:inline">View Customer Store</span>
-              <ExternalLink className="w-3 h-3 text-slate-400" />
+              <ExternalLink className="w-3 h-3 text-[#A44101]/60" />
             </button>
           )}
 
@@ -226,65 +376,41 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                 <button
                   type="button"
                   onClick={handleExitSettingsMode}
-                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white hover:bg-slate-200 text-navy text-xs font-bold transition-all cursor-pointer border border-slate-200 shadow-2xs"
+                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-200 text-navy text-xs font-bold transition-all cursor-pointer border border-slate-200 shadow-2xs"
                 >
                   <ArrowLeft className="w-4 h-4 text-[#A44101]" />
                   <span>← Back to admin</span>
                 </button>
 
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-2.5 mb-2">
                     System Settings
                   </span>
-                  <div className="space-y-1 text-xs">
-                    <button
-                      type="button"
+                  <div className="space-y-1">
+                    <SidebarNavItem
+                      icon={Sliders}
+                      label="General Configuration"
+                      isActive={currentTab === 'settings'}
                       onClick={() => handleTabClick('settings')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'settings'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Sliders className="w-4 h-4" />
-                      <span>General Configuration</span>
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <SidebarNavItem
+                      icon={Truck}
+                      label="Delivery & Courier Hubs"
+                      isActive={currentTab === 'settings-shipping'}
                       onClick={() => handleTabClick('settings-shipping')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'settings-shipping'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Truck className="w-4 h-4" />
-                      <span>Delivery &amp; Courier Hubs</span>
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <SidebarNavItem
+                      icon={Users}
+                      label="Staff & Role Matrix"
+                      isActive={currentTab === 'settings-staff' || currentTab === 'staff'}
                       onClick={() => handleTabClick('settings-staff')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'settings-staff' || currentTab === 'staff'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Users className="w-4 h-4" />
-                      <span>Staff &amp; Role Matrix</span>
-                    </button>
-                    <button
-                      type="button"
+                    />
+                    <SidebarNavItem
+                      icon={Database}
+                      label="Mock Storage & Backup"
+                      isActive={currentTab === 'settings-backup'}
                       onClick={() => handleTabClick('settings-backup')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'settings-backup'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Database className="w-4 h-4" />
-                      <span>Mock Storage &amp; Backup</span>
-                    </button>
+                    />
                   </div>
                 </div>
               </div>
@@ -293,268 +419,279 @@ export const AdminShell: React.FC<AdminShellProps> = ({
               <div className="space-y-5 animate-fadeIn">
                 {/* CATEGORY 1: Overview */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-2.5 mb-1.5">
                     Overview
                   </span>
-                  <div className="space-y-1 text-xs">
-                    <button
-                      type="button"
+                  <div className="space-y-1">
+                    <SidebarNavItem
+                      icon={LayoutDashboard}
+                      label="Dashboard"
+                      isActive={currentTab === 'dashboard'}
                       onClick={() => handleTabClick('dashboard')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'dashboard'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <LayoutDashboard className="w-4 h-4" />
-                      <span>Dashboard</span>
-                    </button>
+                    />
                   </div>
                 </div>
 
                 {/* CATEGORY 2: Operations */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-2.5 mb-1.5">
                     Operations
                   </span>
-                  <div className="space-y-1 text-xs">
-                    <button
-                      type="button"
+                  <div className="space-y-1">
+                    <SidebarNavItem
+                      icon={ShoppingBag}
+                      label="Orders"
+                      isActive={currentTab === 'orders'}
                       onClick={() => handleTabClick('orders')}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'orders'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ShoppingBag className="w-4 h-4" />
-                        <span>Orders</span>
-                      </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                        currentTab === 'orders' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
-                      }`}>
-                        {counts.orders}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* CATEGORY 3: Products (Collapsible Hierarchy) */}
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsProductsExpanded(!isProductsExpanded)}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-slate-200/70 transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-center text-[#A44101] shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
-                        <Package className="w-4 h-4 stroke-[2.2]" />
-                      </div>
-                      <span className="font-bold text-slate-800 text-sm">Products</span>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isProductsExpanded ? '' : '-rotate-90'}`} />
-                  </button>
-
-                  {isProductsExpanded && (
-                    <div className="border-l-2 border-slate-200/90 ml-5 pl-3.5 space-y-1 pt-1 text-xs">
-                      {/* All Products */}
-                      <button
-                        type="button"
-                        onClick={() => handleTabClick('products-all')}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                          currentTab === 'products' || currentTab === 'products-all'
-                            ? 'bg-[#A44101] text-white shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Box className="w-4 h-4" />
-                          <span>All Products</span>
-                        </div>
+                      badge={
                         <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                          currentTab === 'products' || currentTab === 'products-all'
-                            ? 'bg-white/25 text-white'
-                            : 'bg-slate-200/90 text-slate-700'
+                          currentTab === 'orders' ? 'bg-white/25 text-white' : 'bg-orange-100/90 text-[#A44101] border border-orange-200/70'
                         }`}>
-                          {counts.products}
+                          {counts.orders}
                         </span>
-                      </button>
+                      }
+                    />
 
-                      {/* Add Product */}
-                      <button
-                        type="button"
-                        onClick={() => handleTabClick('products-add')}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                          currentTab === 'products-add'
-                            ? 'bg-[#A44101] text-white shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
-                        }`}
-                      >
-                        <PlusCircle className="w-4 h-4" />
-                        <span>Add Product</span>
-                      </button>
+                    {/* Products (Collapsible Hierarchy) */}
+                    <div className="space-y-1">
+                      <SidebarCollapsibleHeader
+                        icon={Package}
+                        label="Products"
+                        isExpanded={isProductsExpanded}
+                        onToggle={() => setIsProductsExpanded(!isProductsExpanded)}
+                      />
 
-                      {/* Categories */}
-                      <button
-                        type="button"
-                        onClick={() => handleTabClick('products-categories')}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                          currentTab === 'products-categories'
-                            ? 'bg-[#A44101] text-white shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
-                        }`}
-                      >
-                        <FolderTree className="w-4 h-4" />
-                        <span>Categories</span>
-                      </button>
+                      {isProductsExpanded && (
+                        <div className="border-l-2 border-orange-200/70 ml-6 pl-3 space-y-1 my-1">
+                          <SidebarSubItem
+                            icon={Box}
+                            label="All Products"
+                            isActive={currentTab === 'products' || currentTab === 'products-all'}
+                            onClick={() => handleTabClick('products-all')}
+                            badge={
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                                currentTab === 'products' || currentTab === 'products-all' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-700'
+                              }`}>
+                                {counts.products}
+                              </span>
+                            }
+                          />
 
-                      {/* Labels */}
-                      <button
-                        type="button"
-                        onClick={() => handleTabClick('products-labels')}
-                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                          currentTab === 'products-labels'
-                            ? 'bg-[#A44101] text-white shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
-                        }`}
-                      >
-                        <Tag className="w-4 h-4" />
-                        <span>Labels</span>
-                      </button>
+                          <SidebarSubItem
+                            icon={PlusCircle}
+                            label="Add Product"
+                            isActive={currentTab === 'products-add'}
+                            onClick={() => handleTabClick('products-add')}
+                          />
 
-                      {/* Inventory */}
-                      <button
-                        type="button"
-                        onClick={() => handleTabClick('products-inventory')}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                          currentTab === 'products-inventory' || currentTab === 'outofstock'
-                            ? 'bg-[#A44101] text-white shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-200/80 hover:text-navy'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Boxes className="w-4 h-4" />
-                          <span>Inventory</span>
+                          <SidebarSubItem
+                            icon={FolderTree}
+                            label="Categories"
+                            isActive={currentTab === 'products-categories'}
+                            onClick={() => handleTabClick('products-categories')}
+                          />
+
+                          <SidebarSubItem
+                            icon={Tag}
+                            label="Labels"
+                            isActive={currentTab === 'products-labels'}
+                            onClick={() => handleTabClick('products-labels')}
+                          />
+
+                          <SidebarSubItem
+                            icon={Boxes}
+                            label="Inventory"
+                            isActive={currentTab === 'products-inventory' || currentTab === 'outofstock'}
+                            onClick={() => handleTabClick('products-inventory')}
+                            badge={
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                                currentTab === 'products-inventory' || currentTab === 'outofstock' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200/60'
+                              }`}>
+                                2 Low
+                              </span>
+                            }
+                          />
                         </div>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                          currentTab === 'products-inventory' || currentTab === 'outofstock'
-                            ? 'bg-white/25 text-white'
-                            : 'bg-amber-100 text-amber-900 border border-amber-200/60'
-                        }`}>
-                          2 Low
-                        </span>
-                      </button>
+                      )}
                     </div>
-                  )}
 
-                  {/* Store Analytics right below Products menu */}
-                  <div className="pt-1 text-xs">
-                    <button
-                      type="button"
+                    {/* Store Analytics */}
+                    <SidebarNavItem
+                      icon={BarChart3}
+                      label="Store Analytics"
+                      isActive={currentTab === 'analytics'}
                       onClick={() => handleTabClick('analytics')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'analytics'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      <span>Store Analytics</span>
-                    </button>
+                    />
+
+                    {/* Archived (Collapsible Hierarchy) */}
+                    <div className="space-y-1">
+                      <SidebarCollapsibleHeader
+                        icon={Archive}
+                        label="Archived"
+                        isExpanded={isArchivedExpanded}
+                        onToggle={() => setIsArchivedExpanded(!isArchivedExpanded)}
+                      />
+
+                      {isArchivedExpanded && (
+                        <div className="border-l-2 border-orange-200/70 ml-6 pl-3 space-y-1 my-1">
+                          <SidebarSubItem
+                            icon={Box}
+                            label="Archived Products"
+                            isActive={currentTab === 'products-archived' || currentTab === 'archived'}
+                            onClick={() => handleTabClick('products-archived')}
+                            badge={
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                                currentTab === 'products-archived' || currentTab === 'archived' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-700'
+                              }`}>
+                                {counts.archived ?? 0}
+                              </span>
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Reviews (Collapsible Hierarchy) */}
+                    <div className="space-y-1">
+                      <SidebarCollapsibleHeader
+                        icon={Star}
+                        label="Reviews"
+                        isExpanded={isReviewsExpanded}
+                        onToggle={() => setIsReviewsExpanded(!isReviewsExpanded)}
+                        badge={
+                          counts.pendingReviews > 0 ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200/60">
+                              {counts.pendingReviews} Pending
+                            </span>
+                          ) : undefined
+                        }
+                      />
+
+                      {isReviewsExpanded && (
+                        <div className="border-l-2 border-orange-200/70 ml-6 pl-3 space-y-1 my-1">
+                          <SidebarSubItem
+                            icon={Star}
+                            label="Product Reviews"
+                            isActive={currentTab === 'reviews' || currentTab === 'reviews-product'}
+                            onClick={() => handleTabClick('reviews-product')}
+                            badge={
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                                currentTab === 'reviews' || currentTab === 'reviews-product' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-700'
+                              }`}>
+                                {counts.totalReviews ?? 7}
+                              </span>
+                            }
+                          />
+
+                          <SidebarSubItem
+                            icon={MessageSquare}
+                            label="Customer Reviews"
+                            isActive={currentTab === 'reviews-customer'}
+                            onClick={() => handleTabClick('reviews-customer')}
+                          />
+
+                          <SidebarSubItem
+                            icon={ShieldCheck}
+                            label="Review Management"
+                            isActive={currentTab === 'reviews-management'}
+                            onClick={() => handleTabClick('reviews-management')}
+                            badge={
+                              counts.pendingReviews > 0 ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                  currentTab === 'reviews-management' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200/60'
+                                }`}>
+                                  {counts.pendingReviews} Pending
+                                </span>
+                              ) : undefined
+                            }
+                          />
+
+                          <SidebarSubItem
+                            icon={BarChart2}
+                            label="Review Reports"
+                            isActive={currentTab === 'reviews-reports'}
+                            onClick={() => handleTabClick('reviews-reports')}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {/* CATEGORY 4: Growth */}
+                {/* CATEGORY 3: Growth */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-2.5 mb-1.5">
                     Growth
                   </span>
-                  <div className="space-y-1 text-xs">
-                    <button
-                      type="button"
+                  <div className="space-y-1">
+                    <SidebarNavItem
+                      icon={Users}
+                      label="Customer Leads"
+                      isActive={currentTab === 'leads'}
                       onClick={() => handleTabClick('leads')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'leads'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Users className="w-4 h-4" />
-                      <span>Customer Leads</span>
-                    </button>
-                    <button
-                      type="button"
+                    />
+
+                    <SidebarNavItem
+                      icon={ShoppingCart}
+                      label="Abandoned Carts"
+                      isActive={currentTab === 'abandoned'}
                       onClick={() => handleTabClick('abandoned')}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'abandoned'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ShoppingCart className="w-4 h-4" />
-                        <span>Abandoned Carts</span>
-                      </div>
-                      <span className="text-[10px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full font-bold shadow-2xs">
-                        {counts.abandoned}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
+                      badge={
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          currentTab === 'abandoned' ? 'bg-white/25 text-white' : 'bg-rose-500 text-white shadow-2xs'
+                        }`}>
+                          {counts.abandoned}
+                        </span>
+                      }
+                    />
+
+                    <SidebarNavItem
+                      icon={Ticket}
+                      label="Marketing & Coupons"
+                      isActive={currentTab === 'marketing'}
                       onClick={() => handleTabClick('marketing')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'marketing'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <Ticket className="w-4 h-4" />
-                      <span>Marketing &amp; Coupons</span>
-                    </button>
+                    />
                   </div>
                 </div>
 
-                {/* CATEGORY 5: Team & Security */}
+                {/* CATEGORY 4: Team & Access */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
-                    Team &amp; Access
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-2.5 mb-1.5">
+                    Team & Access
                   </span>
-                  <div className="space-y-1 text-xs">
-                    <button
-                      type="button"
+                  <div className="space-y-1">
+                    <SidebarNavItem
+                      icon={Users}
+                      label="Staff & Permissions"
+                      isActive={currentTab === 'staff'}
                       onClick={() => handleTabClick('staff')}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
-                        currentTab === 'staff'
-                          ? 'bg-[#A44101] text-white shadow-xs'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Users className="w-4 h-4" />
-                        <span>Staff &amp; Permissions</span>
-                      </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                        currentTab === 'staff' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
-                      }`}>
-                        Roles
-                      </span>
-                    </button>
+                      badge={
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          currentTab === 'staff' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-700'
+                        }`}>
+                          Roles
+                        </span>
+                      }
+                    />
                   </div>
                 </div>
 
-                {/* Settings Trigger */}
+                {/* Store Settings Trigger */}
                 <div className="pt-2 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={handleEnterSettingsMode}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold text-xs text-slate-700 hover:bg-slate-200/80 hover:text-navy transition-all cursor-pointer"
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-slate-800 hover:bg-slate-200/70 transition-all cursor-pointer group font-bold"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Settings className="w-4 h-4 text-slate-500" />
-                      <span>Store Settings</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-orange-50 border border-orange-200/80 flex items-center justify-center text-[#A44101] shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
+                        <Settings className="w-4 h-4 stroke-[2.2]" />
+                      </div>
+                      <span className="text-sm font-bold text-slate-800 group-hover:text-navy truncate">
+                        Store Settings
+                      </span>
                     </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
                   </button>
                 </div>
               </div>
