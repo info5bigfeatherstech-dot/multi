@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 import { 
   storefrontProductsApi, 
   storefrontAddressApi, 
@@ -119,6 +120,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   const handleToggleWishlist = async () => {
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
+      return;
+    }
     const nextState = !isWishlisted;
     setIsWishlisted(nextState);
     try {

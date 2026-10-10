@@ -24,6 +24,7 @@ import {
   getProductsByCategoryId 
 } from '../data/storeData';
 import { useCart } from '../context/CartContext';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
 interface CategoryPageProps {
   categoryId: string;
@@ -216,6 +217,10 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   const toggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
+      return;
+    }
     setWishlistIds((prev) => ({
       ...prev,
       [productId]: !prev[productId],

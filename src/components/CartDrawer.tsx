@@ -11,6 +11,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
 interface CartDrawerProps {
   onGoToCheckout: () => void;
@@ -53,6 +54,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
   }, [isCartOpen]);
 
   const handleCheckoutClick = () => {
+    if (!isAuthenticated()) {
+      closeCart();
+      requireAuth({ message: 'Please log in or register to proceed to checkout' });
+      return;
+    }
     closeCart();
     onGoToCheckout();
   };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isAuthenticated } from './utils/authGuard';
 import { AnnouncementBar } from './components/AnnouncementBar';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
@@ -17,7 +18,6 @@ import { CartProvider } from './context/CartContext';
 import { ProductItem, getProductById } from './data/storeData';
 import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
-import { ApiStatusInspector } from './components/ApiStatusInspector';
 import { AuthModal } from './components/AuthModal';
 
 type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact';
@@ -136,9 +136,19 @@ export const App: React.FC = () => {
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path === '/wishlist') {
-        setCurrentView('wishlist');
-        setSelectedProduct(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const token = localStorage.getItem('user_access_token');
+        if (!token) {
+          setCurrentView('home');
+          setSelectedProduct(null);
+          window.history.replaceState(null, '', '/');
+          setPostAuthRedirect('wishlist');
+          setAuthModalMessage('Please log in or register to view your wishlist');
+          setIsAuthModalOpen(true);
+        } else {
+          setCurrentView('wishlist');
+          setSelectedProduct(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       } else if (path === '/profile' || path === '/orders' || path === '/account') {
         const token = localStorage.getItem('user_access_token');
         if (!token) {
@@ -154,9 +164,19 @@ export const App: React.FC = () => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } else if (path === '/checkout' || path === '/cart') {
-        setCurrentView('checkout');
-        setSelectedProduct(null);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const token = localStorage.getItem('user_access_token');
+        if (!token) {
+          setCurrentView('home');
+          setSelectedProduct(null);
+          window.history.replaceState(null, '', '/');
+          setPostAuthRedirect('checkout');
+          setAuthModalMessage('Please log in or register to proceed to checkout');
+          setIsAuthModalOpen(true);
+        } else {
+          setCurrentView('checkout');
+          setSelectedProduct(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       } else if (path === '/contact' || path === '/contact-us' || path === '/support') {
         setCurrentView('contact');
         setSelectedProduct(null);
@@ -199,6 +219,12 @@ export const App: React.FC = () => {
   };
 
   const handleGoToWishlist = () => {
+    if (!isAuthenticated()) {
+      setPostAuthRedirect('wishlist');
+      setAuthModalMessage('Please log in or register to view your wishlist');
+      setIsAuthModalOpen(true);
+      return;
+    }
     setCurrentView('wishlist');
     setSelectedProduct(null);
     window.history.pushState(null, '', '/wishlist');
@@ -219,16 +245,44 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Listen for global require-auth events fired by any component
+  useEffect(() => {
+    const handleRequireAuth = (e: Event) => {
+      const detail = (e as CustomEvent<{ message?: string; redirectTo?: string }>).detail;
+      setPostAuthRedirect(null);
+      setAuthModalMessage(detail?.message || 'Please log in or register to continue');
+      setIsAuthModalOpen(true);
+    };
+    window.addEventListener('abb_require_auth', handleRequireAuth);
+    return () => window.removeEventListener('abb_require_auth', handleRequireAuth);
+  }, []);
+
   const handleAuthSuccess = () => {
     if (postAuthRedirect === 'profile') {
       setPostAuthRedirect(null);
       setCurrentView('profile');
       window.history.pushState(null, '', '/profile');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (postAuthRedirect === 'checkout') {
+      setPostAuthRedirect(null);
+      setCurrentView('checkout');
+      window.history.pushState(null, '', '/checkout');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (postAuthRedirect === 'wishlist') {
+      setPostAuthRedirect(null);
+      setCurrentView('wishlist');
+      window.history.pushState(null, '', '/wishlist');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleGoToCheckout = () => {
+    if (!isAuthenticated()) {
+      setPostAuthRedirect('checkout');
+      setAuthModalMessage('Please log in or register to proceed to checkout');
+      setIsAuthModalOpen(true);
+      return;
+    }
     setCurrentView('checkout');
     setSelectedProduct(null);
     window.history.pushState(null, '', '/checkout');
@@ -360,8 +414,6 @@ export const App: React.FC = () => {
         {/* Slide-in Cart Drawer */}
         <CartDrawer onGoToCheckout={handleGoToCheckout} />
 
-        {/* Floating API & Razorpay Inspector */}
-        <ApiStatusInspector />
 
         {/* Customer Login & Registration Modal */}
         <AuthModal

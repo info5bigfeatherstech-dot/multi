@@ -21,7 +21,8 @@ import {
   Home,
   Briefcase,
   Building,
-  CheckCircle2
+  CheckCircle2,
+  Pencil
 } from 'lucide-react';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 import { 
@@ -87,6 +88,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     state?: string;
     pincode: string;
     isDefault?: boolean;
+    houseNumber?: string;
+    area?: string;
+    addressLine1?: string;
+    landmark?: string;
   }>>(() => {
     try {
       const saved = localStorage.getItem('abb_saved_addresses_v1');
@@ -94,15 +99,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((a: any) => ({
-            id: a.id,
-            name: a.name,
+            id: a.id || a._id,
+            name: a.name || a.fullName,
             type: a.type || 'Home',
             phone: a.phone,
-            addressLine: a.addressLine || a.address || '',
+            addressLine: a.addressLine || a.address || a.street || '',
             city: a.city,
             state: a.state || 'Delhi',
             pincode: a.pincode,
             isDefault: a.isDefault,
+            houseNumber: a.houseNumber || '',
+            area: a.area || '',
+            addressLine1: a.addressLine1 || '',
+            landmark: a.landmark || a.addressLine2 || '',
           }));
         }
       }
@@ -114,6 +123,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Inline Address Form State (No Modal Popup)
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addrFullName, setAddrFullName] = useState(() => userName || '');
   const [addrPhone, setAddrPhone] = useState(() => userPhone.replace('+91 ', '') || '');
   const [addrPincode, setAddrPincode] = useState('');
@@ -179,6 +189,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             state: a.state || 'Delhi',
             pincode: a.pincode,
             isDefault: a.isDefault || false,
+            houseNumber: a.houseNumber || '',
+            area: a.area || '',
+            addressLine1: a.addressLine1 || '',
+            landmark: a.landmark || a.addressLine2 || '',
           }));
           setAddresses((prev) => {
             const merged = [...apiAddrs, ...prev.filter(p => !apiAddrs.some(a => a.id === p.id))];
@@ -328,6 +342,67 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
+  const resetAddressForm = () => {
+    setEditingAddressId(null);
+    setAddrFullName(userName || '');
+    setAddrPhone((userPhone || '').replace('+91 ', '') || '');
+    setAddrPincode('');
+    setAddrHouseNumber('');
+    setAddrArea('');
+    setAddrAddressLine1('');
+    setAddrLandmark('');
+    setAddrCity('');
+    setAddrState('');
+    setAddrType('Home');
+    setAddrIsDefault(false);
+    setPincodeHint('');
+    setAddressFormError('');
+  };
+
+  const handleStartEditAddress = (addr: any) => {
+    setEditingAddressId(addr.id);
+    setAddressFormError('');
+    setAddrFullName(addr.name || '');
+    const cleanPhone = (addr.phone || '').replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+    setAddrPhone(cleanPhone);
+    setAddrPincode(addr.pincode || '');
+    setAddrCity(addr.city || '');
+    setAddrState(addr.state || 'Delhi');
+    setAddrType((addr.type as 'Home' | 'Work' | 'Other') || 'Home');
+    setAddrIsDefault(Boolean(addr.isDefault));
+
+    if (addr.houseNumber) {
+      setAddrHouseNumber(addr.houseNumber);
+    } else {
+      const parts = (addr.addressLine || '').split(',').map((s: string) => s.trim());
+      setAddrHouseNumber(parts[0] || '');
+    }
+
+    if (addr.area) {
+      setAddrArea(addr.area);
+    } else {
+      const parts = (addr.addressLine || '').split(',').map((s: string) => s.trim());
+      setAddrArea(parts.length > 2 ? parts[parts.length - 2] : (parts[1] || ''));
+    }
+
+    if (addr.addressLine1) {
+      setAddrAddressLine1(addr.addressLine1);
+    } else {
+      setAddrAddressLine1(addr.addressLine || '');
+    }
+
+    setAddrLandmark(addr.landmark || '');
+    setPincodeHint(`${addr.city || ''}${addr.state ? `, ${addr.state}` : ''}`);
+    setShowAddressForm(true);
+
+    setTimeout(() => {
+      const formEl = document.getElementById('profile-address-form');
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
   const handleSaveInlineAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddressFormError('');
@@ -336,9 +411,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setAddressFormError('Please enter full name');
       return;
     }
-    const cleanPhone = addrPhone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      setAddressFormError('Please enter a valid 10-digit mobile number');
+    const cleanPhone = addrPhone.replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setAddressFormError('Phone must be a valid 10-digit Indian mobile number (e.g. 9876543210)');
       return;
     }
     const cleanPin = addrPincode.replace(/\D/g, '');
@@ -377,6 +452,69 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       addrLandmark.trim() ? `Near ${addrLandmark.trim()}` : '',
     ].filter(Boolean).join(', ');
 
+    if (editingAddressId) {
+      // 1. Updating existing address
+      try {
+        await storefrontAddressApi.update(editingAddressId, {
+          fullName: addrFullName.trim(),
+          name: addrFullName.trim(),
+          phone: cleanPhone,
+          houseNumber: addrHouseNumber.trim(),
+          area: addrArea.trim(),
+          postalCode: cleanPin,
+          pincode: cleanPin,
+          addressLine1: finalAddressLine1,
+          addressLine2: addrLandmark.trim(),
+          street: fullStreet,
+          landmark: addrLandmark.trim(),
+          city: addrCity.trim(),
+          state: addrState.trim() || 'Delhi',
+          type: addrType,
+          isDefault: addrIsDefault,
+        });
+      } catch (apiErr: any) {
+        console.warn('Backend update address warning:', apiErr?.message);
+      }
+
+      const updatedObj = {
+        id: editingAddressId,
+        name: addrFullName.trim(),
+        phone: cleanPhone,
+        type: addrType,
+        addressLine: fullStreet,
+        city: addrCity.trim(),
+        state: addrState.trim() || 'Delhi',
+        pincode: cleanPin,
+        isDefault: addrIsDefault,
+        houseNumber: addrHouseNumber.trim(),
+        area: addrArea.trim(),
+        addressLine1: finalAddressLine1,
+        landmark: addrLandmark.trim(),
+      };
+
+      let updatedList = addresses.map((a) => (a.id === editingAddressId ? { ...a, ...updatedObj } : a));
+      if (addrIsDefault) {
+        updatedList = updatedList.map((a) => ({
+          ...a,
+          isDefault: a.id === editingAddressId,
+        }));
+      }
+
+      setAddresses(updatedList);
+      try {
+        localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updatedList));
+      } catch (err) {
+        console.warn(err);
+      }
+
+      setAddressSuccessMsg('Delivery address updated successfully!');
+      resetAddressForm();
+      setShowAddressForm(false);
+      setTimeout(() => setAddressSuccessMsg(''), 3000);
+      setIsSavingAddress(false);
+      return;
+    }
+
     const newAddrObj = {
       id: `addr_${Date.now()}`,
       name: addrFullName.trim(),
@@ -387,6 +525,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       state: addrState.trim() || 'Delhi',
       pincode: cleanPin,
       isDefault: addresses.length === 0 || addrIsDefault,
+      houseNumber: addrHouseNumber.trim(),
+      area: addrArea.trim(),
+      addressLine1: finalAddressLine1,
+      landmark: addrLandmark.trim(),
     };
 
     try {
@@ -427,15 +569,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       }
 
       setAddressSuccessMsg('Delivery address saved successfully!');
-      setAddrHouseNumber('');
-      setAddrArea('');
-      setAddrAddressLine1('');
-      setAddrLandmark('');
-      setAddrPincode('');
-      setAddrCity('');
-      setAddrState('');
-      setPincodeHint('');
-      setAddrIsDefault(false);
+      resetAddressForm();
       setShowAddressForm(false);
       setTimeout(() => setAddressSuccessMsg(''), 3000);
     } catch (apiErr: any) {
@@ -883,14 +1017,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   {addresses.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setShowAddressForm(!showAddressForm)}
+                      onClick={() => {
+                        if (showAddressForm && !editingAddressId) {
+                          setShowAddressForm(false);
+                        } else {
+                          resetAddressForm();
+                          setShowAddressForm(true);
+                        }
+                      }}
                       className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ${
-                        showAddressForm
+                        showAddressForm && !editingAddressId
                           ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                           : 'bg-[#A44101] hover:bg-[#8C3701] text-white active:scale-98'
                       }`}
                     >
-                      {showAddressForm ? (
+                      {showAddressForm && !editingAddressId ? (
                         <>
                           <X className="w-4 h-4" />
                           <span>Close Form</span>
@@ -920,84 +1061,113 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       Your Saved Addresses ({addresses.length})
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {addresses.map((addr) => (
-                        <div
-                          key={addr.id}
-                          className={`p-4 rounded-2xl border transition-all relative ${
-                            addr.isDefault 
-                              ? 'border-navy bg-stone-50/70 shadow-xs' 
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy flex items-center gap-1">
-                                {addr.type === 'Home' && <Home className="w-3 h-3" />}
-                                {addr.type === 'Work' && <Briefcase className="w-3 h-3" />}
-                                {addr.type === 'Other' && <Building className="w-3 h-3" />}
-                                <span>{addr.type}</span>
-                              </span>
-                              {addr.isDefault && (
-                                <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded border border-[#A44101]/20">
-                                  Default
+                      {addresses.map((addr) => {
+                        const isBeingEdited = editingAddressId === addr.id;
+                        return (
+                          <div
+                            key={addr.id}
+                            className={`p-4 rounded-2xl border transition-all relative ${
+                              isBeingEdited
+                                ? 'border-[#A44101] ring-2 ring-[#A44101]/30 bg-amber-50/30 shadow-sm'
+                                : addr.isDefault 
+                                  ? 'border-navy bg-stone-50/70 shadow-xs' 
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy flex items-center gap-1">
+                                  {addr.type === 'Home' && <Home className="w-3 h-3" />}
+                                  {addr.type === 'Work' && <Briefcase className="w-3 h-3" />}
+                                  {addr.type === 'Other' && <Building className="w-3 h-3" />}
+                                  <span>{addr.type}</span>
                                 </span>
-                              )}
-                            </div>
+                                {addr.isDefault && (
+                                  <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded border border-[#A44101]/20">
+                                    Default
+                                  </span>
+                                )}
+                                {isBeingEdited && (
+                                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 animate-pulse">
+                                    Editing...
+                                  </span>
+                                )}
+                              </div>
 
-                            <div className="flex items-center gap-2">
-                              {!addr.isDefault && (
+                              <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handleSetDefaultAddress(addr.id)}
-                                  className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer"
+                                  onClick={() => handleStartEditAddress(addr)}
+                                  className="px-2 py-1 rounded-lg text-[11px] font-bold text-navy hover:text-[#A44101] hover:bg-stone-100 flex items-center gap-1 transition-colors cursor-pointer"
+                                  title="Edit Address"
                                 >
-                                  Set Default
+                                  <Pencil className="w-3.5 h-3.5 text-[#A44101]" />
+                                  <span>Edit</span>
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteAddress(addr.id)}
-                                className="text-slate-400 hover:text-red-600 p-1 cursor-pointer transition-colors"
-                                title="Delete Address"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                {!addr.isDefault && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetDefaultAddress(addr.id)}
+                                    className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer px-1 py-1"
+                                  >
+                                    Set Default
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAddress(addr.id)}
+                                  className="text-slate-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 cursor-pointer transition-colors"
+                                  title="Delete Address"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
 
-                          <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
-                          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                            {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
-                          </p>
-                          <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>{addr.phone}</span>
-                          </p>
-                        </div>
-                      ))}
+                            <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
+                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                              {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
+                            </p>
+                            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>{addr.phone}</span>
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
                 {/* Inline Address Entry Form: Shown when 0 addresses exist OR when showAddressForm is true */}
                 {(addresses.length === 0 || showAddressForm) && (
-                  <div className="p-5 sm:p-6 rounded-2xl border border-slate-200 bg-stone-50/60 shadow-xs space-y-5 animate-fadeIn">
+                  <div id="profile-address-form" className="p-5 sm:p-6 rounded-2xl border border-slate-200 bg-stone-50/60 shadow-xs space-y-5 animate-fadeIn">
                     <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
                       <div>
                         <h3 className="text-sm font-bold text-navy flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-[#A44101]" />
-                          <span>{addresses.length === 0 ? 'Add Delivery Address' : 'Add New Delivery Address'}</span>
+                          <span>
+                            {editingAddressId
+                              ? 'Edit Delivery Address'
+                              : (addresses.length === 0 ? 'Add Delivery Address' : 'Add New Delivery Address')}
+                          </span>
                         </h3>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {addresses.length === 0
-                            ? 'You have not added any addresses yet. Fill in the fields below to save your delivery address.'
-                            : 'Enter the new shipping destination details below.'}
+                          {editingAddressId
+                            ? 'Update the recipient and delivery details for this address below.'
+                            : (addresses.length === 0
+                              ? 'You have not added any addresses yet. Fill in the fields below to save your delivery address.'
+                              : 'Enter the new shipping destination details below.')}
                         </p>
                       </div>
                       {addresses.length > 0 && (
                         <button
                           type="button"
-                          onClick={() => setShowAddressForm(false)}
+                          onClick={() => {
+                            setEditingAddressId(null);
+                            setShowAddressForm(false);
+                            resetAddressForm();
+                          }}
                           className="text-slate-400 hover:text-navy p-1 cursor-pointer"
                         >
                           <X className="w-4 h-4" />
@@ -1203,12 +1373,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           className="px-6 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-60 active:scale-98"
                         >
                           {isSavingAddress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                          <span>{isSavingAddress ? 'Saving Address...' : 'Save Delivery Address'}</span>
+                          <span>
+                            {isSavingAddress 
+                              ? (editingAddressId ? 'Updating Address...' : 'Saving Address...') 
+                              : (editingAddressId ? 'Update Delivery Address' : 'Save Delivery Address')}
+                          </span>
                         </button>
                         {addresses.length > 0 && (
                           <button
                             type="button"
-                            onClick={() => setShowAddressForm(false)}
+                            onClick={() => {
+                              setEditingAddressId(null);
+                              setShowAddressForm(false);
+                              resetAddressForm();
+                            }}
                             className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-stone-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
                           >
                             Cancel

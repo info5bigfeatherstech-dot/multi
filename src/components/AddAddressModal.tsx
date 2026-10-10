@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
   ChevronLeft, 
@@ -10,7 +10,8 @@ import {
   Briefcase, 
   Building,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 
@@ -69,6 +70,9 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
   const [pincodeSuccessMsg, setPincodeSuccessMsg] = useState('');
   const [availableLocalities, setAvailableLocalities] = useState<string[]>([]);
+  const [isCustomArea, setIsCustomArea] = useState(false);
+  const [isLocalityDropdownOpen, setIsLocalityDropdownOpen] = useState(false);
+  const localityDropdownRef = useRef<HTMLDivElement>(null);
 
   // Validation errors
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -119,12 +123,32 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
       setAddressType(initialValues?.type || 'Home');
       setPincodeSuccessMsg('');
       setAvailableLocalities([]);
+      setIsCustomArea(false);
+      setIsLocalityDropdownOpen(false);
 
       if (initialValues?.pincode && initialValues.pincode.length === 6) {
         fetchAndApplyPincode(initialValues.pincode);
       }
     }
   }, [isOpen, initialValues]);
+
+  // Dismiss locality dropdown on clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        localityDropdownRef.current &&
+        !localityDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsLocalityDropdownOpen(false);
+      }
+    };
+    if (isLocalityDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isLocalityDropdownOpen]);
 
   // Update city / locality hint when pincode changes
   const handlePincodeChange = (val: string) => {
@@ -141,8 +165,9 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
     const newErrors: { [key: string]: string } = {};
 
     if (!fullName.trim()) newErrors.fullName = 'Please enter your full name';
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) {
-      newErrors.phone = 'Please enter a valid 10-digit mobile number';
+    const cleanPhone = phone.replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      newErrors.phone = 'Please enter a valid 10-digit Indian mobile number (e.g. 9876543210)';
     }
     if (!pincode.trim() || pincode.trim().length !== 6) {
       newErrors.pincode = 'Please enter a valid 6-digit Pincode';
@@ -188,10 +213,12 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
 
     const fullString = parts.join(', ');
 
+    const cleanPhone = phone.replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+
     const newAddress: NewAddressData = {
       id: `addr-${Date.now()}`,
       name: fullName.trim(),
-      phone: phone.trim().startsWith('+91') ? phone.trim() : `+91 ${phone.trim()}`,
+      phone: cleanPhone,
       pincode: pincode.trim(),
       houseFlat: houseFlat.trim(),
       floorNo: floorNo.trim(),
@@ -340,20 +367,27 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
               {/* Phone */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Phone <span className="text-[#A44101]">*</span>
+                  Mobile Number <span className="text-[#A44101]">*</span>
                 </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value);
-                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
-                  }}
-                  placeholder="10-digit mobile number"
-                  className={`w-full px-4 py-3 rounded-2xl border text-sm text-navy placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#A44101] transition-all bg-white ${
-                    errors.phone ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus:border-[#A44101]'
-                  }`}
-                />
+                <div className={`flex items-center px-4 py-2.5 rounded-2xl border text-sm text-navy bg-white focus-within:ring-1 focus-within:ring-[#A44101] transition-all ${
+                  errors.phone ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus-within:border-[#A44101]'
+                }`}>
+                  <span className="text-xs font-bold text-slate-500 mr-2 shrink-0 select-none">
+                    🇮🇳 +91
+                  </span>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={phone.replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(0, 10)}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(0, 10);
+                      setPhone(cleaned);
+                      if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+                    }}
+                    placeholder="9876543210"
+                    className="w-full bg-transparent outline-none placeholder:text-slate-400 font-medium"
+                  />
+                </div>
                 {errors.phone && (
                   <p className="text-rose-500 text-[11px] font-medium mt-1">{errors.phone}</p>
                 )}
@@ -494,42 +528,127 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
                       </span>
                     )}
                   </div>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-[#A44101] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={areaLocality}
-                      onChange={(e) => {
-                        setAreaLocality(e.target.value);
-                        if (errors.areaLocality) setErrors((prev) => ({ ...prev, areaLocality: '' }));
-                      }}
-                      placeholder="Colony, Sector, or Locality"
-                      className={`w-full pl-9 pr-4 py-2.5 rounded-2xl border text-xs sm:text-sm text-navy placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#A44101] transition-all bg-white ${
-                        errors.areaLocality ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus:border-[#A44101]'
-                      }`}
-                    />
-                  </div>
-                  {/* Suggestion pills if pincode maps to multiple localities */}
-                  {availableLocalities.length > 1 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] text-slate-500 font-bold">Pick Area:</span>
-                      {availableLocalities.slice(0, 6).map((loc) => (
-                        <button
-                          key={loc}
-                          type="button"
-                          onClick={() => {
-                            setAreaLocality(loc);
-                            if (errors.areaLocality) setErrors((prev) => ({ ...prev, areaLocality: '' }));
-                          }}
-                          className={`text-[10px] px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
-                            areaLocality.toLowerCase() === loc.toLowerCase()
-                              ? 'bg-[#A44101] text-white border-[#A44101] font-bold shadow-2xs'
-                              : 'bg-stone-50 text-slate-700 border-slate-200 hover:border-[#A44101]'
+                  {availableLocalities.length > 0 ? (
+                    <div className="space-y-2 relative" ref={localityDropdownRef}>
+                      {/* Custom Dropdown Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsLocalityDropdownOpen((prev) => !prev)}
+                        className={`w-full pl-9 pr-9 py-2.5 rounded-2xl border text-xs sm:text-sm text-left transition-all bg-white flex items-center justify-between cursor-pointer relative ${
+                          isLocalityDropdownOpen
+                            ? 'border-[#A44101] ring-2 ring-[#A44101]/15 shadow-sm'
+                            : errors.areaLocality
+                            ? 'border-rose-400 bg-rose-50/20'
+                            : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <MapPin className="w-4 h-4 text-[#A44101] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <span className={`truncate font-medium ${areaLocality ? 'text-navy' : 'text-slate-400'}`}>
+                          {areaLocality || '-- Select Area / Locality --'}
+                        </span>
+                        <ChevronDown
+                          className={`w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 transition-transform duration-200 pointer-events-none ${
+                            isLocalityDropdownOpen ? 'rotate-180 text-[#A44101]' : ''
                           }`}
-                        >
-                          {loc}
-                        </button>
-                      ))}
+                        />
+                      </button>
+
+                      {/* Custom Floating Dropdown Menu */}
+                      <AnimatePresence>
+                        {isLocalityDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden"
+                          >
+                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              <span>Postal API Localities</span>
+                              <span className="text-emerald-700 font-semibold">{availableLocalities.length} found</span>
+                            </div>
+
+                            <div className="max-h-56 overflow-y-auto divide-y divide-slate-100/60 p-1">
+                              {availableLocalities.map((loc) => {
+                                const isSelected = areaLocality.toLowerCase() === loc.toLowerCase();
+                                return (
+                                  <button
+                                    key={loc}
+                                    type="button"
+                                    onClick={() => {
+                                      setAreaLocality(loc);
+                                      setIsCustomArea(false);
+                                      setIsLocalityDropdownOpen(false);
+                                      if (errors.areaLocality) setErrors((prev) => ({ ...prev, areaLocality: '' }));
+                                    }}
+                                    className={`w-full px-3 py-2.5 rounded-xl text-xs sm:text-sm text-left transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
+                                        : 'text-slate-700 hover:bg-slate-50 hover:text-navy font-medium'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 truncate">
+                                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSelected ? 'bg-[#A44101]' : 'bg-slate-300'}`} />
+                                      <span className="truncate">{loc}</span>
+                                    </div>
+                                    {isSelected && <Check className="w-4 h-4 text-[#A44101] shrink-0 stroke-[2.5]" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Option for custom / manual typing */}
+                            <div className="p-1 border-t border-slate-100 bg-stone-50/50">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsCustomArea(true);
+                                  setIsLocalityDropdownOpen(false);
+                                }}
+                                className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-[#A44101] hover:bg-[#A44101]/10 transition-colors flex items-center gap-2 cursor-pointer"
+                              >
+                                <span>✏️</span>
+                                <span>Enter custom area / locality manually</span>
+                              </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Manual input if user chose custom area */}
+                      {(isCustomArea || (!availableLocalities.includes(areaLocality) && areaLocality)) && (
+                        <div className="relative animate-in fade-in duration-150 pt-1">
+                          <input
+                            type="text"
+                            value={areaLocality}
+                            onChange={(e) => {
+                              setAreaLocality(e.target.value);
+                              if (errors.areaLocality) setErrors((prev) => ({ ...prev, areaLocality: '' }));
+                            }}
+                            placeholder="Enter specific colony, sector or area"
+                            className={`w-full px-4 py-2 rounded-xl border text-xs text-navy placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#A44101] transition-all bg-stone-50/60 ${
+                              errors.areaLocality ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus:border-[#A44101]'
+                            }`}
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <MapPin className="w-4 h-4 text-[#A44101] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={areaLocality}
+                        onChange={(e) => {
+                          setAreaLocality(e.target.value);
+                          if (errors.areaLocality) setErrors((prev) => ({ ...prev, areaLocality: '' }));
+                        }}
+                        placeholder="Colony, Sector, or Locality"
+                        className={`w-full pl-9 pr-4 py-2.5 rounded-2xl border text-xs sm:text-sm text-navy placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#A44101] transition-all bg-white ${
+                          errors.areaLocality ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus:border-[#A44101]'
+                        }`}
+                      />
                     </div>
                   )}
                   {errors.areaLocality && (

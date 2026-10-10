@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heart, 
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getAllProducts, ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
 interface WishlistPageProps {
   onSelectProduct?: (product: ProductItem) => void;
@@ -31,6 +32,15 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(initialWishlist);
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
   const [allMoved, setAllMoved] = useState(false);
+
+  // Auth guard: redirect to home if not logged in
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to view your wishlist' });
+      onBackToHome?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRemove = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -266,6 +276,10 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (!isAuthenticated()) {
+                                  requireAuth({ message: 'Please log in or register to proceed to checkout' });
+                                  return;
+                                }
                                 onGoToCheckout?.();
                               }}
                               className="py-2 px-2 rounded-xl text-xs font-bold bg-navy hover:bg-navy-light text-white text-center flex items-center justify-center transition-colors shadow-xs cursor-pointer"
@@ -310,7 +324,13 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
               <div className="pt-2 space-y-2">
                 <button
                   type="button"
-                  onClick={onGoToCheckout}
+                  onClick={() => {
+                    if (!isAuthenticated()) {
+                      requireAuth({ message: 'Please log in or register to proceed to checkout' });
+                      return;
+                    }
+                    onGoToCheckout?.();
+                  }}
                   className="w-full py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                 >
                   <ShoppingBag className="w-4 h-4" />

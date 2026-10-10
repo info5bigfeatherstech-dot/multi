@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { NEW_ARRIVALS_PRODUCTS, ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
 interface NewArrivalsSectionProps {
   onProductClick?: (product: ProductItem) => void;
@@ -41,6 +42,10 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
 
   const handleToggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
+      return;
+    }
     setWishlistIds((prev) => ({
       ...prev,
       [productId]: !prev[productId],

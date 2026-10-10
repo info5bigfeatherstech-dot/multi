@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { UNDER_99_PRODUCTS, ProductItem } from '../data/storeData';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
 interface Under99SectionProps {
   onProductClick?: (product: ProductItem) => void;
@@ -54,6 +55,10 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
   };
 
   const handleToggleWishlist = (id: string) => {
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
+      return;
+    }
     setWishlistIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 

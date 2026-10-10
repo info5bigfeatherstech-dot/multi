@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { storefrontCartApi } from '../api';
+import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
 export interface CartItem {
   id: string;
@@ -39,38 +40,23 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const INITIAL_CART_ITEMS: CartItem[] = [
-  {
-    id: 'prod-1',
-    title: 'Tri-Ply Heavy Bottom Stainless Steel Induction Pressure Cooker 3L',
-    price: 399,
-    originalPrice: 899,
-    image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=400&q=80',
-    qty: 1,
-    category: 'Home & Kitchen',
-  },
-  {
-    id: 'prod-2',
-    title: 'True Wireless Magnetic Touch Bluetooth Earbuds with Digital Display',
-    price: 248,
-    originalPrice: 799,
-    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80',
-    qty: 1,
-    category: 'Smart Gadgets',
-  },
-];
+
+
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('apna_bharat_cart');
       if (saved) {
-        return JSON.parse(saved);
+        // Only load cart from localStorage if user is authenticated
+        if (isAuthenticated()) {
+          return JSON.parse(saved);
+        }
       }
     } catch {
       // ignore
     }
-    return INITIAL_CART_ITEMS;
+    return [];
   });
 
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -123,6 +109,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toggleCart = () => setIsCartOpen((prev) => !prev);
 
   const addToCart = (product: AddProductInput, qty = 1) => {
+    // Require authentication before adding to cart
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to add items to your cart' });
+      return;
+    }
+
     const itemPrice = product.currentPrice ?? product.price ?? 0;
     const itemOriginalPrice = product.originalPrice ?? itemPrice * 1.5;
 

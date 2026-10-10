@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   ShieldCheck,
   Truck,
   CreditCard,
@@ -13,17 +12,18 @@ import {
   Coins,
   Tag,
   QrCode,
-  Lock,
   CheckCircle2,
   PartyPopper,
   MapPin,
   Download,
-  RefreshCw
+  RefreshCw,
+  Pencil
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
 import { AddAddressModal, NewAddressData } from './AddAddressModal';
 import { storefrontCheckoutApi, storefrontAddressApi } from '../api';
+import { isAuthenticated, requireAuth } from '../utils/authGuard';
 
 interface CheckoutPageProps {
   onBackToHome?: () => void;
@@ -69,25 +69,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
 
-  const [addresses, setAddresses] = useState<Array<{ id: string; name: string; type: string; phone: string; address: string; city: string; pincode: string }>>(() => {
+  const [addresses, setAddresses] = useState<Array<{ id: string; name: string; type: string; phone: string; address: string; city: string; pincode: string; isDefault?: boolean }>>(() => {
     try {
       const saved = localStorage.getItem('abb_saved_addresses_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const userSaved = parsed
-            // Only keep entries with real MongoDB ObjectIds (24 hex chars)
-            .filter((a: any) => isValidObjectId(String(a.id || '')))
-            .map((a: any) => ({
-              id: a.id,
-              name: a.name,
-              type: a.type || 'Home',
-              phone: a.phone,
-              address: a.addressLine || a.address || '',
-              city: a.city,
-              pincode: a.pincode,
-            }));
-          return userSaved;
+          return parsed.map((a: any) => ({
+            id: String(a.id || a._id || `addr-${Date.now()}`),
+            name: a.name || a.fullName || 'Valued Customer',
+            type: a.type || 'Home',
+            phone: a.phone || '',
+            address: a.addressLine || a.address || a.street || a.fullAddressString || '',
+            city: a.city || 'Delhi',
+            pincode: a.pincode || a.postalCode || '110001',
+            isDefault: Boolean(a.isDefault),
+          }));
         }
       }
     } catch {
@@ -102,9 +99,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Only select addresses with valid 24-char hex MongoDB ObjectIds
-          const valid = parsed.filter((a: any) => isValidObjectId(String(a.id || '')));
-          if (valid.length > 0) return valid[0].id;
+          // Prefer default address, otherwise first address
+          const defaultAddr = parsed.find((a: any) => a.isDefault) || parsed[0];
+          return String(defaultAddr.id || defaultAddr._id || '');
         }
       }
     } catch {
@@ -113,6 +110,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     return '';
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
 
   // --------------------------------------------------------------------------
   // Payment Method & Plan Selection
@@ -186,6 +184,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const balancePayableOnDelivery = displayTotalPayable - advancePayableNow;
 
   // --------------------------------------------------------------------------
+  // Mount: Auth guard — redirect to home if not logged in
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to proceed to checkout' });
+      onBackToHome?.();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --------------------------------------------------------------------------
   // Mount: Load Checkout Settings, Available Coupons & Customer Addresses
   // --------------------------------------------------------------------------
   useEffect(() => {
@@ -212,7 +221,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       })
       .catch(() => { });
 
-    // 3. Address Book Sync — use the real MongoDB _id as the canonical id
+    // 3. Address Book Sync
     storefrontAddressApi.list()
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) {
@@ -227,22 +236,24 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 address: a.addressLine1 || a.street || a.addressLine || a.address || '',
                 city: a.city || 'Delhi',
                 pincode: a.postalCode || a.pincode || '110001',
+                isDefault: Boolean(a.isDefault),
               };
-            })
-            // Only keep addresses with valid MongoDB ObjectIds
-            .filter((a) => isValidObjectId(a.id));
+            });
 
           setAddresses((prev) => {
             const combined = [...apiAddrs, ...prev.filter(p => !apiAddrs.some(a => a.id === p.id))];
-            // Persist updated valid list to localStorage
-            try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(combined.filter(a => isValidObjectId(a.id)))); } catch { /* ignore */ }
+            try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(combined)); } catch { /* ignore */ }
             return combined;
           });
 
-          // Auto-select first valid address if current selection is stale/invalid
+          // Auto-select default or first address if current selection is empty or not in list
           setSelectedAddressId((prev) => {
-            if (isValidObjectId(prev)) return prev;
-            return apiAddrs.length > 0 ? apiAddrs[0].id : prev;
+            if (prev) {
+              const exists = apiAddrs.some(a => a.id === prev);
+              if (exists) return prev;
+            }
+            const def = apiAddrs.find(a => a.isDefault) || apiAddrs[0];
+            return def ? def.id : prev;
           });
         }
       })
@@ -290,14 +301,89 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   }, [selectedAddressId, addresses]);
 
   // --------------------------------------------------------------------------
+  // --------------------------------------------------------------------------
+  // Auto-sync address to backend if stored with a temporary client ID
+  // --------------------------------------------------------------------------
+  const ensureAddressSavedOnServer = async (addr: {
+    id: string;
+    name: string;
+    phone: string;
+    address: string;
+    city: string;
+    pincode: string;
+    type?: string;
+  }): Promise<string> => {
+    if (isValidObjectId(addr.id)) {
+      return addr.id;
+    }
+
+    const cleanPhone = String(addr.phone || '').trim().replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+
+    try {
+      const serverRes = await storefrontAddressApi.create({
+        fullName: addr.name,
+        name: addr.name,
+        phone: cleanPhone || '9876543210',
+        houseNumber: addr.address || 'Address',
+        area: addr.city || 'Locality',
+        addressLine1: addr.address || 'Address Line 1',
+        postalCode: addr.pincode || '110001',
+        street: addr.address || 'Street',
+        city: addr.city || 'Delhi',
+        state: 'Delhi',
+        pincode: addr.pincode || '110001',
+        type: addr.type === 'Work' ? 'Work' : 'Home',
+        isDefault: true,
+      });
+
+      const realId = String(
+        serverRes?._id ||
+        serverRes?.id ||
+        serverRes?.address?._id ||
+        serverRes?.address?.id ||
+        serverRes?.data?._id ||
+        serverRes?.data?.id ||
+        ''
+      );
+
+      if (realId && isValidObjectId(realId)) {
+        setAddresses((prev) => {
+          const updated = prev.map((a) => (a.id === addr.id ? { ...a, id: realId } : a));
+          try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated)); } catch { /* ignore */ }
+          return updated;
+        });
+        setSelectedAddressId(realId);
+        return realId;
+      }
+    } catch (err: any) {
+      console.warn('Auto-sync address to backend error:', err?.message);
+    }
+
+    return addr.id;
+  };
+
+  // --------------------------------------------------------------------------
   // Phase 1: Two-Phase Commit - Fetch Server Authoritative Quote
   // --------------------------------------------------------------------------
   const fetchAuthoritativeQuote = async () => {
-    // Guard: only call the quote endpoint with a real MongoDB ObjectId
-    if (!selectedAddressId || !isValidObjectId(selectedAddressId) || cartItems.length === 0) {
+    if (!selectedAddressId || cartItems.length === 0) {
       setIsQuoteLoading(false);
       return;
     }
+
+    let addrIdToUse = selectedAddressId;
+    if (!isValidObjectId(addrIdToUse)) {
+      const addrObj = addresses.find((a) => a.id === selectedAddressId);
+      if (addrObj) {
+        addrIdToUse = await ensureAddressSavedOnServer(addrObj);
+      }
+    }
+
+    if (!isValidObjectId(addrIdToUse)) {
+      setIsQuoteLoading(false);
+      return;
+    }
+
     setIsQuoteLoading(true);
 
     const hint = paymentMode === 'cod' ? 'full_cod' : (paymentMode === 'advance' ? 'advance' : 'online');
@@ -306,7 +392,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     try {
       const qRes = await storefrontCheckoutApi.getQuote({
-        addressId: selectedAddressId,
+        addressId: addrIdToUse,
         paymentMethodHint: hint,
         paymentPlan: plan,
         paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
@@ -318,8 +404,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined)) {
         setServerQuote(qRes);
       }
-    } catch {
-      // Kept on local fallback
+    } catch (err: any) {
+      console.warn('Quote fetch notice:', err?.message);
     } finally {
       setIsQuoteLoading(false);
     }
@@ -333,18 +419,62 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Address Handler
   // --------------------------------------------------------------------------
   const handleSaveNewAddress = async (newAddr: NewAddressData) => {
-    // Temporarily show the address with a client-side id until we get the real MongoDB _id
-    const tempId = `temp-${Date.now()}`;
+    const cleanPhone = String(newAddr.phone || '').trim().replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+
+    if (editingAddress) {
+      const updatedAddr = {
+        ...editingAddress,
+        name: newAddr.name,
+        type: newAddr.type,
+        phone: cleanPhone,
+        address: newAddr.fullAddressString,
+        city: newAddr.city,
+        pincode: newAddr.pincode,
+      };
+
+      setAddresses((prev) => {
+        const next = prev.map((a) => (a.id === editingAddress.id ? updatedAddr : a));
+        try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch {}
+        return next;
+      });
+
+      try {
+        await storefrontAddressApi.update(editingAddress.id, {
+          fullName: newAddr.name,
+          name: newAddr.name,
+          phone: cleanPhone,
+          houseNumber: newAddr.houseFlat || newAddr.fullAddressString,
+          area: newAddr.areaLocality || newAddr.city,
+          addressLine1: newAddr.streetLine1 || newAddr.fullAddressString,
+          postalCode: newAddr.pincode,
+          street: newAddr.fullAddressString,
+          city: newAddr.city,
+          state: newAddr.state || 'Delhi',
+          pincode: newAddr.pincode,
+          type: newAddr.type === 'Work' ? 'Work' : 'Home',
+        });
+      } catch (err: any) {
+        console.warn('Backend address update note:', err?.message);
+      }
+
+      setEditingAddress(null);
+      setIsAddressModalOpen(false);
+      return;
+    }
+
+    const tempId = `addr-${Date.now()}`;
     const formatted = {
       id: tempId,
       name: newAddr.name,
       type: newAddr.type,
-      phone: newAddr.phone,
+      phone: cleanPhone,
       address: newAddr.fullAddressString,
       city: newAddr.city,
       pincode: newAddr.pincode,
+      isDefault: addresses.length === 0,
     };
     setAddresses((prev) => [formatted, ...prev]);
+    setSelectedAddressId(tempId);
     setIsAddressModalOpen(false);
 
     try {
@@ -352,7 +482,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       const serverRes = await storefrontAddressApi.create({
         fullName: newAddr.name,
         name: newAddr.name,
-        phone: newAddr.phone,
+        phone: cleanPhone,
         houseNumber: newAddr.houseFlat || newAddr.fullAddressString,
         area: newAddr.areaLocality || newAddr.city,
         addressLine1: newAddr.streetLine1 || newAddr.fullAddressString,
@@ -365,23 +495,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         isDefault: addresses.length === 0,
       });
 
-      // Extract real MongoDB _id from the server response
-      const realId = String(serverRes?._id || serverRes?.id || serverRes?.address?._id || tempId);
-      const realAddr = { ...formatted, id: realId };
+      const realId = String(
+        serverRes?._id ||
+        serverRes?.id ||
+        serverRes?.address?._id ||
+        serverRes?.address?.id ||
+        serverRes?.data?._id ||
+        serverRes?.data?.id ||
+        ''
+      );
 
-      setAddresses((prev) => {
-        const updated = prev.map(a => a.id === tempId ? realAddr : a);
-        // Persist only valid ObjectId entries
-        const validOnly = updated.filter(a => isValidObjectId(a.id));
-        try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(validOnly)); } catch { /* ignore */ }
-        return updated;
-      });
-
-      // Set selection to the real MongoDB ObjectId so quotes work immediately
-      setSelectedAddressId(realId);
-    } catch {
-      // Server save failed — remove the temp entry, address won't be usable for checkout
-      setAddresses((prev) => prev.filter(a => a.id !== tempId));
+      if (realId && isValidObjectId(realId)) {
+        const realAddr = { ...formatted, id: realId };
+        setAddresses((prev) => {
+          const updated = prev.map((a) => (a.id === tempId ? realAddr : a));
+          try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated)); } catch { /* ignore */ }
+          return updated;
+        });
+        setSelectedAddressId(realId);
+      }
+    } catch (err: any) {
+      console.warn('Backend address save note:', err?.message);
+      try {
+        const localList = [formatted, ...addresses.filter((a) => a.id !== tempId)];
+        localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(localList));
+      } catch { /* ignore */ }
     }
   };
 
@@ -466,12 +604,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       const paymentMethod = paymentMode === 'cod' ? 'full_cod' : (paymentMode === 'advance' ? 'advance' : 'online');
       const balanceCollection = paymentMode === 'cod' || paymentMode === 'advance' ? 'cod' : 'online';
 
-      // Step A: Ensure we have a valid Quote
+      // Step A: Ensure we have a valid MongoDB Address ID
+      let effectiveAddressId = selectedAddressId;
+      if (!isValidObjectId(effectiveAddressId) && selectedAddr) {
+        effectiveAddressId = await ensureAddressSavedOnServer(selectedAddr);
+      }
+
+      if (!isValidObjectId(effectiveAddressId)) {
+        alert('Please select or add a valid delivery address to proceed.');
+        setIsPlacingOrder(false);
+        setIsAddressModalOpen(true);
+        return;
+      }
+
+      // Step B: Ensure we have a valid Quote
       let activeQuote = serverQuote;
       if (!activeQuote?.quoteId) {
         try {
           activeQuote = await storefrontCheckoutApi.getQuote({
-            addressId: selectedAddressId,
+            addressId: effectiveAddressId,
             paymentMethodHint: paymentMethod,
             paymentPlan: plan,
             paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
@@ -482,27 +633,27 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           if (activeQuote?.quoteId) {
             setServerQuote(activeQuote);
           }
-        } catch (quoteErr) {
-          console.warn('Quote generation fallback:', quoteErr);
+        } catch (quoteErr: any) {
+          console.warn('Quote generation error:', quoteErr?.message);
         }
       }
 
-      // Step B: Lock Payment Choice (POST /api/checkout/confirm)
-      if (activeQuote?.quoteId) {
-        try {
-          await storefrontCheckoutApi.confirmQuote({
-            quoteId: activeQuote.quoteId,
-            paymentMethod,
-            paymentPlan: plan,
-            paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
-            balanceCollection,
-          });
-        } catch (confErr) {
-          console.warn('Quote confirm warning:', confErr);
-        }
+      if (!activeQuote?.quoteId) {
+        alert('Server Quote Required: Could not generate a checkout quote for this address. Please ensure address details are complete.');
+        setIsPlacingOrder(false);
+        return;
       }
 
-      // Step C: Place Order (POST /api/orders/items with Idempotency-Key & x-storefront)
+      // Step C: Lock Payment Choice (POST /api/checkout/confirm)
+      await storefrontCheckoutApi.confirmQuote({
+        quoteId: activeQuote.quoteId,
+        paymentMethod,
+        paymentPlan: plan,
+        paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
+        balanceCollection,
+      });
+
+      // Step D: Place Order (POST /api/orders/items with Idempotency-Key & x-storefront)
       const orderIntentPayload = isGift ? {
         isGift: true,
         recipientName: giftRecipient.trim() || 'Gift Recipient',
@@ -515,22 +666,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       } : undefined;
 
       const orderPayload = {
-        addressId: selectedAddressId,
+        addressId: effectiveAddressId,
         paymentMethod,
         onlinePaymentMode: plan === 'advance' ? 'advance' : 'full',
         balanceCollection,
         paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
-        quoteId: activeQuote?.quoteId,
+        quoteId: activeQuote.quoteId,
         couponCode: appliedCoupon || undefined,
         orderIntent: orderIntentPayload,
       };
 
-      let orderRes: any = null;
-      try {
-        orderRes = await storefrontCheckoutApi.createOrder(orderPayload);
-      } catch (createErr) {
-        console.warn('Direct order creation fallback:', createErr);
-      }
+      const orderRes = await storefrontCheckoutApi.createOrder(orderPayload);
 
       const orderData = orderRes?.order || orderRes;
       const createdOrderId = orderRes?.orderId || orderData?.orderId || orderData?.orderNumber || `ABB-2026-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -709,35 +855,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     <div className="bg-stone-50/50 min-h-screen py-6 sm:py-10 animate-fadeIn">
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
-        {/* Breadcrumb Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="text-navy hover:text-[#A44101] font-medium transition-colors cursor-pointer"
-            >
-              Home
-            </button>
-            <span>/</span>
-            <span className="text-slate-900 font-bold">Two-Phase Secure Checkout</span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-navy hover:text-[#A44101] transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Continue Shopping</span>
-            </button>
-            <div className="flex items-center gap-2 text-xs text-navy font-bold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-              <Lock className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Razorpay 256-Bit Bank Encryption</span>
-            </div>
-          </div>
-        </div>
 
         {/* ------------------------------------------------------------------ */}
         {/* VIEW A: ORDER CONFIRMATION & POST-ORDER LIFECYCLE                   */}
@@ -922,7 +1039,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsAddressModalOpen(true)}
+                    onClick={() => {
+                      setEditingAddress(null);
+                      setIsAddressModalOpen(true);
+                    }}
                     className="text-xs font-bold text-[#A44101] hover:text-[#8C3701] flex items-center gap-1.5 cursor-pointer bg-[#A44101]/10 hover:bg-[#A44101]/15 px-3 py-1.5 rounded-xl transition-all active:scale-98"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -943,7 +1063,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setIsAddressModalOpen(true)}
+                      onClick={() => {
+                        setEditingAddress(null);
+                        setIsAddressModalOpen(true);
+                      }}
                       className="px-5 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer active:scale-98"
                     >
                       <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -964,12 +1087,33 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             }`}
                         >
                           <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200 text-navy">
-                              {addr.type}
-                            </span>
-                            {isSelected && (
-                              <CheckCircle2 className="w-4 h-4 text-navy fill-white" />
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200 text-navy">
+                                {addr.type}
+                              </span>
+                              {addr.isDefault && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingAddress(addr);
+                                  setIsAddressModalOpen(true);
+                                }}
+                                className="p-1 rounded text-slate-400 hover:text-navy hover:bg-stone-100 transition-colors cursor-pointer"
+                                title="Edit Address"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              {isSelected && (
+                                <CheckCircle2 className="w-4 h-4 text-navy fill-white" />
+                              )}
+                            </div>
                           </div>
                           <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
                           <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
@@ -1472,8 +1616,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       {/* 2-Step Add Address Modal Popup */}
       <AddAddressModal
         isOpen={isAddressModalOpen}
-        onClose={() => setIsAddressModalOpen(false)}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setEditingAddress(null);
+        }}
         onSaveAddress={handleSaveNewAddress}
+        initialValues={editingAddress ? {
+          name: editingAddress.name,
+          phone: editingAddress.phone,
+          pincode: editingAddress.pincode,
+          city: editingAddress.city,
+          type: editingAddress.type,
+          streetLine1: editingAddress.address,
+        } : undefined}
       />
     </div>
   );

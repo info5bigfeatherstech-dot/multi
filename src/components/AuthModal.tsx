@@ -3,7 +3,6 @@ import {
   X,
   Mail,
   Lock,
-  Phone,
   User,
   Eye,
   EyeOff,
@@ -11,8 +10,14 @@ import {
   ArrowRight,
   HelpCircle,
   KeyRound,
-  CheckCircle2,
-  Sparkles
+  Sparkles,
+  Star,
+  ShoppingBag,
+  Heart,
+  Zap,
+  Gift,
+  Shield,
+  BadgeCheck
 } from "lucide-react";
 import { authApi } from "../api/authApi";
 import { GoogleSignInButton } from "./GoogleSignInButton";
@@ -94,7 +99,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedId);
     const isPhone = /^[6-9]\d{9}$/.test(trimmedId);
     if (!isEmail && !isPhone) {
-      setError("Identifier must be a valid email or a valid 10-digit Indian phone (e.g. 9876543210)");
+      setError("Identifier must be a valid email or 10-digit Indian mobile number (e.g. 9876543210)");
       return;
     }
 
@@ -129,30 +134,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // ── 1-CLICK DEMO LOGIN (RAHUL SHARMA) ──
-  const handleDemoLogin = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      await authApi.login({
-        identifier: "rahul.sharma@example.com",
-        password: "Password123",
-      });
-    } catch {
-      // demo token fallback
-    } finally {
-      localStorage.setItem("user_access_token", "abb_token_demo_rahul_sharma");
-      localStorage.setItem("abb_user_profile_name", "Rahul Sharma");
-      localStorage.setItem("abb_user_profile_email", "rahul.sharma@example.com");
-      localStorage.setItem("abb_user_profile_phone", "+91 98765 43210");
-      setLoading(false);
-      handleSuccessfulAuth({
-        name: "Rahul Sharma",
-        email: "rahul.sharma@example.com",
-        phone: "+91 98765 43210",
-      });
-    }
-  };
 
   // ── 2. REGISTER SUBMIT ──
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -269,132 +250,249 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const getContextualIcon = () => {
+    if (!message) return <Sparkles className="w-4 h-4 text-[#A44101]" />;
+    if (message.toLowerCase().includes("wishlist")) {
+      return <Heart className="w-4 h-4 text-rose-500 fill-rose-500/20" />;
+    }
+    if (message.toLowerCase().includes("checkout") || message.toLowerCase().includes("cart")) {
+      return <ShoppingBag className="w-4 h-4 text-amber-600" />;
+    }
+    return <Sparkles className="w-4 h-4 text-[#A44101]" />;
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      {/* Modal Container */}
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-8 animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col overflow-hidden border border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 md:p-6 animate-in fade-in duration-200">
+      {/* Modal Dialog Card */}
+      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col md:flex-row max-h-[92vh] animate-in zoom-in-95 duration-200">
+        
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors z-10 cursor-pointer"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100/90 transition-all z-20 cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Header */}
-        <div className="text-center mb-5 shrink-0">
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#A44101]/10 text-[#A44101] text-[11px] font-bold tracking-wide uppercase mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#A44101]" />
-            Apna Bharat Bazaar
-          </div>
-          {message && (
-            <p className="text-xs text-slate-500 mb-2 max-w-xs mx-auto">
-              {message}
-            </p>
-          )}
+        {/* ══════════════════════════════════════════════════════════════════
+            LEFT PANEL: BRAND STORY, VALUE PROPS & TRUST (Visible on md+)
+           ══════════════════════════════════════════════════════════════════ */}
+        <div className="hidden md:flex md:w-5/12 bg-gradient-to-br from-stone-950 via-[#231207] to-[#3f1803] text-white p-7 lg:p-8 flex-col justify-between relative overflow-hidden select-none shrink-0">
+          {/* Subtle Ambient Decorative Glows */}
+          <div className="absolute -top-20 -left-20 w-56 h-56 bg-[#A44101]/30 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -right-20 w-56 h-56 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none opacity-40" />
 
-          {/* Navigation Tabs (Hidden when in OTP mode) */}
-          {tab !== "verify-otp" ? (
-            <div className="flex border-b border-slate-200 mt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setTab("login");
-                  setError("");
-                }}
-                className={`pb-3 text-sm font-bold flex-1 text-center transition-all cursor-pointer ${
-                  tab === "login"
-                    ? "border-b-2 border-[#A44101] text-[#A44101]"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTab("register");
-                  setError("");
-                }}
-                className={`pb-3 text-sm font-bold flex-1 text-center transition-all cursor-pointer ${
-                  tab === "register"
-                    ? "border-b-2 border-[#A44101] text-[#A44101]"
-                    : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                Create Account
-              </button>
+          {/* Top Branding */}
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] font-bold text-amber-300 tracking-wider uppercase mb-4 shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              Apna Bharat Bazaar
             </div>
-          ) : (
-            <div className="text-center">
-              <h3 className="text-lg font-black text-slate-900">Verify OTP</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Enter the 6-digit verification code sent to{" "}
-                <b className="text-slate-800">{otpData.identifier}</b>
-              </p>
+            <h2 className="text-2xl font-black tracking-tight text-white leading-tight">
+              Direct from India's Factories to Your Doorstep.
+            </h2>
+            <p className="text-xs text-amber-100/70 mt-2 font-normal leading-relaxed">
+              Join thousands of Indian families enjoying certified quality products at uncompromised direct rates.
+            </p>
+          </div>
+
+          {/* Middle Value Proposition Highlights */}
+          <div className="relative z-10 my-6 space-y-3.5">
+            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-xs transition-all hover:bg-white/[0.08]">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#A44101] to-amber-600 flex items-center justify-center shrink-0 shadow-sm shadow-[#A44101]/40">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white tracking-wide">Express 2-Day Delivery</h4>
+                <p className="text-[11px] text-stone-300 mt-0.5 leading-snug">Priority fulfillment direct from nearest warehouse</p>
+              </div>
             </div>
-          )}
+
+            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-xs transition-all hover:bg-white/[0.08]">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#A44101] to-amber-600 flex items-center justify-center shrink-0 shadow-sm shadow-[#A44101]/40">
+                <Gift className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white tracking-wide">Member-Only Factory Rates</h4>
+                <p className="text-[11px] text-stone-300 mt-0.5 leading-snug">Save up to 70% with zero middleman markups</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-2.5 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-xs transition-all hover:bg-white/[0.08]">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#A44101] to-amber-600 flex items-center justify-center shrink-0 shadow-sm shadow-[#A44101]/40">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white tracking-wide">100% Buyer Protection</h4>
+                <p className="text-[11px] text-stone-300 mt-0.5 leading-snug">7-day hassle-free replacement on every order</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Social Proof Pill */}
+          <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-2">
+                <div className="w-6 h-6 rounded-full bg-amber-500 text-stone-900 text-[10px] font-black flex items-center justify-center border-2 border-stone-950">RS</div>
+                <div className="w-6 h-6 rounded-full bg-orange-400 text-stone-900 text-[10px] font-black flex items-center justify-center border-2 border-stone-950">PK</div>
+                <div className="w-6 h-6 rounded-full bg-amber-300 text-stone-900 text-[10px] font-black flex items-center justify-center border-2 border-stone-950">AS</div>
+              </div>
+              <span className="text-[11px] text-stone-300 font-medium">50k+ Happy Shoppers</span>
+            </div>
+            <div className="flex items-center gap-1 text-amber-300 text-xs font-bold bg-white/10 px-2 py-0.5 rounded-full">
+              <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
+              <span>4.9 / 5</span>
+            </div>
+          </div>
         </div>
 
-        {/* Error Notification Banner */}
-        {error && (
-          <div className="p-3 mb-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold shrink-0">
-            {error}
-          </div>
-        )}
+        {/* ══════════════════════════════════════════════════════════════════
+            RIGHT PANEL: FORM & INTERACTION AREA
+           ══════════════════════════════════════════════════════════════════ */}
+        <div className="flex-1 flex flex-col p-6 sm:p-8 overflow-y-auto">
+          {/* Header on Mobile / Contextual Notification */}
+          <div className="mb-4">
+            <div className="md:hidden flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-[#A44101] text-[11px] font-bold tracking-wide uppercase w-fit mb-3">
+              <Sparkles className="w-3.5 h-3.5 text-[#A44101]" />
+              Apna Bharat Bazaar
+            </div>
 
-        {/* Scrollable Form Content */}
-        <div className="overflow-y-auto pr-1 flex-1">
-          {/* ══════════════════════════════════════════════════
-              1. LOGIN FORM
-             ══════════════════════════════════════════════════ */}
+            {/* Context Message Banner (e.g. wishlist, checkout, account prompt) */}
+            {message && (
+              <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 text-amber-900 mb-4 animate-in fade-in-50">
+                <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shadow-xs shrink-0">
+                  {getContextualIcon()}
+                </div>
+                <div className="text-xs font-medium leading-snug">
+                  {message}
+                </div>
+              </div>
+            )}
+
+            {/* Header Title & Segmented Switcher */}
+            {tab !== "verify-otp" ? (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                      {tab === "login" ? "Welcome back!" : "Create your account"}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {tab === "login"
+                        ? "Sign in to access your cart, orders & personalized offers"
+                        : "Join in under 30 seconds for member benefits"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Modern Pill Switcher */}
+                <div className="bg-slate-100/90 p-1 rounded-2xl flex relative mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab("login");
+                      setError("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      tab === "login"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Sign In</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab("register");
+                      setError("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      tab === "register"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500 hover:text-slate-900"
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#A44101]" />
+                    <span>Create Account</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-2 mb-2">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-[#A44101] flex items-center justify-center mx-auto mb-2 border border-amber-200">
+                  <ShieldCheck className="w-6 h-6 text-[#A44101]" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Verify Security OTP</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  We've sent a 6-digit confirmation code to{" "}
+                  <b className="text-slate-800 font-semibold">{otpData.identifier}</b>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Error Notification Banner */}
+          {error && (
+            <div className="p-3 mb-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold flex items-start gap-2 animate-in fade-in">
+              <span className="shrink-0 text-sm">⚠️</span>
+              <span className="leading-tight">{error}</span>
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              1. LOGIN TAB
+             ══════════════════════════════════════════════════════════════════ */}
           {tab === "login" && (
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              {/* Identifier */}
+            <form onSubmit={handleLoginSubmit} className="space-y-3.5 flex-1">
+              {/* Identifier Input */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Email or 10-digit Phone *
                 </label>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:border-[#A44101] focus-within:bg-white transition-all">
-                  <Mail className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
+                  <Mail className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
                   <input
                     type="text"
                     required
                     placeholder="name@example.com or 9876543210"
                     value={loginForm.identifier}
                     onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
-                    className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 font-medium"
                   />
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password Input */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-slate-700">Password *</label>
-                  <span
+                  <button
+                    type="button"
                     onClick={() => setTab("register")}
-                    className="text-[11px] text-[#A44101] font-semibold hover:underline cursor-pointer"
+                    className="text-[11px] text-[#A44101] font-bold hover:underline cursor-pointer"
                   >
                     Need an account?
-                  </span>
+                  </button>
                 </div>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:border-[#A44101] focus-within:bg-white transition-all">
-                  <Lock className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3.5 py-2.5 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
+                  <Lock className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
                     placeholder="••••••••"
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full bg-transparent text-sm text-slate-900 outline-none"
+                    className="w-full bg-transparent text-sm text-slate-900 outline-none font-medium"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                    className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5 ml-1"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -402,43 +500,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               {/* Remember Me */}
-              <div className="flex items-center justify-between text-xs">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-600">
+              <div className="flex items-center justify-between text-xs pt-0.5">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-600 select-none">
                   <input
                     type="checkbox"
                     checked={loginForm.rememberMe}
                     onChange={(e) => setLoginForm({ ...loginForm, rememberMe: e.target.checked })}
-                    className="rounded border-slate-300 text-[#A44101] focus:ring-[#A44101]"
+                    className="rounded border-slate-300 text-[#A44101] focus:ring-[#A44101] w-3.5 h-3.5 cursor-pointer accent-[#A44101]"
                   />
-                  <span>Remember me across sessions</span>
+                  <span className="text-xs text-slate-600 font-medium">Keep me signed in</span>
                 </label>
               </div>
 
-              {/* Submit */}
+              {/* Primary Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#A44101] hover:bg-[#853401] text-white font-bold py-3 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 text-sm"
+                className="w-full bg-gradient-to-r from-[#A44101] via-[#b84801] to-[#A44101] hover:from-[#8d3601] hover:to-[#8d3601] text-white font-bold py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:shadow-[#A44101]/25 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 text-sm active:scale-[0.99]"
               >
-                {loading ? "Signing in..." : "Sign In"}
-                {!loading && <ArrowRight className="w-4 h-4" />}
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Signing in...
+                  </span>
+                ) : (
+                  <>
+                    <span>Sign In to Account</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
-              {/* Fast 1-Click Demo Login */}
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                disabled={loading}
-                className="w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4 text-amber-600" />
-                <span>1-Click Demo Login (Rahul Sharma)</span>
-              </button>
 
-              <div className="relative my-3 flex items-center justify-center">
+              {/* Divider */}
+              <div className="relative my-2 flex items-center justify-center">
                 <span className="h-px bg-slate-200 w-full" />
-                <span className="absolute bg-white px-3 text-[11px] font-bold text-slate-400 uppercase">
-                  OR
+                <span className="absolute bg-white px-3 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+                  OR CONTINUE WITH
                 </span>
               </div>
 
@@ -450,81 +548,81 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           )}
 
-          {/* ══════════════════════════════════════════════════
-              2. REGISTER FORM
-             ══════════════════════════════════════════════════ */}
+          {/* ══════════════════════════════════════════════════════════════════
+              2. REGISTER TAB
+             ══════════════════════════════════════════════════════════════════ */}
           {tab === "register" && (
-            <form onSubmit={handleRegisterSubmit} className="space-y-3">
+            <form onSubmit={handleRegisterSubmit} className="space-y-3 flex-1">
               {/* Full Name */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Full Name * <span className="text-slate-400 font-normal">(min 2 chars)</span>
+                  Full Name *
                 </label>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:bg-white">
+                <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
                   <User className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
                     required
-                    placeholder="Rahul Sharma"
+                    placeholder="e.g. Rahul Sharma"
                     value={regForm.name}
                     onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                    className="w-full bg-transparent text-xs sm:text-sm outline-none"
+                    className="w-full bg-transparent text-xs sm:text-sm outline-none font-medium text-slate-900"
                   />
                 </div>
               </div>
 
-              {/* Email Address */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Email Address *
-                </label>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:bg-white">
-                  <Mail className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="rahul@example.com"
-                    value={regForm.email}
-                    onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                    className="w-full bg-transparent text-xs sm:text-sm outline-none"
-                  />
+              {/* Email & Phone in responsive grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Email Address *
+                  </label>
+                  <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
+                    <Mail className="w-4 h-4 text-slate-400 mr-1.5 shrink-0" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="rahul@example.com"
+                      value={regForm.email}
+                      onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                      className="w-full bg-transparent text-xs sm:text-sm outline-none font-medium text-slate-900"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Mobile Phone (10 digits) */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Mobile Phone * <span className="text-slate-400 font-normal">(10 digits for OTP)</span>
-                </label>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:bg-white">
-                  <Phone className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-500 mr-1.5">+91</span>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    placeholder="9876543210"
-                    value={regForm.phone}
-                    onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                    className="w-full bg-transparent text-xs sm:text-sm outline-none"
-                  />
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Mobile Phone *
+                  </label>
+                  <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
+                    <span className="text-xs font-bold text-slate-500 mr-1.5">🇮🇳 +91</span>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      placeholder="9876543210"
+                      value={regForm.phone}
+                      onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
+                      className="w-full bg-transparent text-xs sm:text-sm outline-none font-medium text-slate-900"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Password & Confirm Password */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
                     Password *
                   </label>
-                  <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:bg-white">
+                  <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
                     <input
                       type={showPassword ? "text" : "password"}
                       required
                       placeholder="••••••••"
                       value={regForm.password}
                       onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                      className="w-full bg-transparent text-xs outline-none"
+                      className="w-full bg-transparent text-xs outline-none font-medium text-slate-900"
                     />
                     <button
                       type="button"
@@ -538,16 +636,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Confirm *
+                    Confirm Password *
                   </label>
-                  <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:bg-white">
+                  <div className="flex items-center bg-slate-50/80 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all">
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       required
                       placeholder="••••••••"
                       value={regForm.confirmPassword}
                       onChange={(e) => setRegForm({ ...regForm, confirmPassword: e.target.value })}
-                      className="w-full bg-transparent text-xs outline-none"
+                      className="w-full bg-transparent text-xs outline-none font-medium text-slate-900"
                     />
                     <button
                       type="button"
@@ -561,15 +659,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
 
               {/* Security Recovery Question */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center gap-1">
-                  <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Security Question (Account Recovery)</span>
+              <div className="p-2.5 rounded-xl bg-slate-50/60 border border-slate-200/80">
+                <label className="text-[11px] font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5 text-[#A44101]" />
+                  <span>Account Recovery Question</span>
                 </label>
                 <select
                   value={regForm.questionId}
                   onChange={(e) => setRegForm({ ...regForm, questionId: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-[#A44101] mb-1.5"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-[#A44101] mb-1.5 cursor-pointer font-medium"
                 >
                   {SECURITY_QUESTIONS.map((q) => (
                     <option key={q.id} value={q.id}>
@@ -577,68 +675,78 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </option>
                   ))}
                 </select>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-[#A44101] focus-within:bg-white">
+                <div className="flex items-center bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus-within:border-[#A44101]">
                   <KeyRound className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
                     required
-                    placeholder="Your secret answer"
+                    placeholder="Your secret answer for password recovery"
                     value={regForm.securityAnswer}
                     onChange={(e) => setRegForm({ ...regForm, securityAnswer: e.target.value })}
-                    className="w-full bg-transparent text-xs outline-none"
+                    className="w-full bg-transparent text-xs outline-none font-medium text-slate-900"
                   />
                 </div>
               </div>
 
               {/* Terms Checkbox */}
-              <div className="pt-1">
-                <label className="flex items-start gap-2 cursor-pointer text-[11px] text-slate-600">
+              <div>
+                <label className="flex items-start gap-2 cursor-pointer text-[11px] text-slate-600 select-none">
                   <input
                     type="checkbox"
                     required
                     checked={regForm.terms}
                     onChange={(e) => setRegForm({ ...regForm, terms: e.target.checked })}
-                    className="mt-0.5 rounded border-slate-300 text-[#A44101] focus:ring-[#A44101]"
+                    className="mt-0.5 rounded border-slate-300 text-[#A44101] focus:ring-[#A44101] accent-[#A44101] cursor-pointer"
                   />
                   <span>
-                    I agree to the <span className="underline">Terms of Service</span> and{" "}
-                    <span className="underline">Privacy Policy</span>.
+                    I accept the{" "}
+                    <span className="text-[#A44101] font-semibold hover:underline">Terms of Service</span> and{" "}
+                    <span className="text-[#A44101] font-semibold hover:underline">Privacy Policy</span>.
                   </span>
                 </label>
               </div>
 
-              {/* Submit */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 bg-[#A44101] hover:bg-[#853401] text-white font-bold py-2.5 rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 text-xs sm:text-sm"
+                className="w-full bg-gradient-to-r from-[#A44101] via-[#b84801] to-[#A44101] hover:from-[#8d3601] hover:to-[#8d3601] text-white font-bold py-3 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 text-xs sm:text-sm active:scale-[0.99]"
               >
-                <span>{loading ? "Creating Account..." : "Continue to Verify OTP"}</span>
-                <ArrowRight className="w-4 h-4" />
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating Account...
+                  </span>
+                ) : (
+                  <>
+                    <span>Continue to OTP Verification</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
-              <div className="text-center pt-2">
+              <div className="text-center pt-1">
                 <button
                   type="button"
                   onClick={() => setTab("login")}
                   className="text-xs text-slate-500 hover:text-[#A44101] font-semibold cursor-pointer"
                 >
-                  Already have an account? Sign In
+                  Already have an account? <span className="text-[#A44101] font-bold">Sign In</span>
                 </button>
               </div>
             </form>
           )}
 
-          {/* ══════════════════════════════════════════════════
-              3. OTP VERIFICATION FORM
-             ══════════════════════════════════════════════════ */}
+          {/* ══════════════════════════════════════════════════════════════════
+              3. OTP VERIFICATION TAB
+             ══════════════════════════════════════════════════════════════════ */}
           {tab === "verify-otp" && (
-            <form onSubmit={handleOtpSubmit} className="space-y-4">
+            <form onSubmit={handleOtpSubmit} className="space-y-4 flex-1">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  6-Digit OTP Code *
+                <label className="text-xs font-bold text-slate-700 block mb-1.5 text-center">
+                  Enter 6-Digit Verification Code
                 </label>
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus-within:border-[#A44101] focus-within:bg-white">
+                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 focus-within:bg-white transition-all max-w-xs mx-auto">
                   <ShieldCheck className="w-5 h-5 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
@@ -649,43 +757,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) =>
                       setOtpData({ ...otpData, otp: e.target.value.replace(/\D/g, "") })
                     }
-                    className="w-full bg-transparent text-base font-mono tracking-widest text-slate-900 outline-none text-center"
+                    className="w-full bg-transparent text-lg font-mono font-bold tracking-[0.35em] text-slate-900 outline-none text-center"
                     autoFocus
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1.5 text-center">
-                  Tip: For instant verification in test mode, enter any 6 digits (e.g. <b>123456</b>)
-                </p>
+                <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 text-[11px] text-center mt-3 max-w-sm mx-auto">
+                  💡 <b>Instant Test Mode:</b> Enter any 6-digit code (e.g. <b>123456</b>) to instantly authenticate!
+                </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otpData.otp.length < 6}
-                className="w-full bg-[#A44101] hover:bg-[#853401] text-white font-bold py-3 rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer text-sm"
+                className="w-full bg-gradient-to-r from-[#A44101] to-[#b84801] hover:from-[#8d3601] hover:to-[#8d3601] text-white font-bold py-3.5 rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer text-sm"
               >
-                {loading ? "Verifying..." : "Verify & Complete Login"}
+                {loading ? "Verifying OTP..." : "Verify & Sign In"}
               </button>
 
-              <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
+              <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setTab("register")}
-                  className="hover:text-slate-800 cursor-pointer"
+                  className="hover:text-slate-800 font-semibold cursor-pointer"
                 >
-                  ← Edit Details
+                  ← Edit Phone / Email
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setError("A fresh OTP has been resent to your phone/email.");
+                    setError("A new 6-digit OTP has been dispatched to your device.");
                   }}
-                  className="text-[#A44101] font-semibold hover:underline cursor-pointer"
+                  className="text-[#A44101] font-bold hover:underline cursor-pointer"
                 >
                   Resend OTP
                 </button>
               </div>
             </form>
           )}
+
+          {/* Footer Security Badge */}
+          <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400 font-medium">
+            <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>256-Bit SSL Encrypted & Bank-Grade Security</span>
+          </div>
         </div>
       </div>
     </div>
