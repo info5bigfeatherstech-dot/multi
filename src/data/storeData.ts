@@ -2030,28 +2030,23 @@ export const getProductsByCategoryId = (catId: string, subcategory?: string): Pr
     const section = CATEGORY_SECTIONS_DATA.find((s) => s.id === catId);
     const sectionProducts = section ? section.products : [];
 
-    const catKeywords: Record<string, string[]> = {
-      'home-kitchen': ['kitchen', 'cooker', 'tiffin', 'tawa', 'sprout', 'food', 'home', 'cookware', 'storage', 'dining', 'utility'],
-      'beauty-personal-care': ['beauty', 'care', 'skin', 'facial', 'trimmer', 'roller', 'hair', 'grooming', 'makeup', 'bath'],
-      'smart-life-gadget': ['gadget', 'bluetooth', 'fitness', 'watch', 'car', 'water bottle', 'neckband', 'usb', 'led', 'gaming', 'electronics'],
-      'home-improvement': ['improvement', 'sensor', 'drill', 'hose', 'tape', 'curtain', 'light', 'hardware', 'tool', 'repair', 'diy'],
-      'stationary': ['stationary', 'tablet', 'pen', 'organizer', 'notes', 'study', 'writing', 'notebook', 'craft', 'office', 'school'],
-      'sports-fitness': ['fitness', 'bands', 'shaker', 'yoga', 'grip', 'gym', 'exercise', 'outdoor', 'sports'],
-      'car-accessories': ['car', 'mount', 'vacuum', 'charger', 'towels', 'interior', 'exterior', 'cleaner'],
-      'fashion-world': ['fashion', 'shirt', 'cotton', 'apparel', 'wear', 'women', 'men', 'jewellery', 'footwear'],
-      'cleaning-housekeeping': ['cleaning', 'mop', 'lint', 'feeder', 'housekeeping', 'laundry', 'bathroom', 'kitchen cleaning'],
-      'baby-items': ['baby', 'feeder', 'teether', 'bottle', 'bib', 'infant', 'toys', 'kids'],
-      'tours-travels': ['travel', 'duffel', 'bag', 'pillow', 'cubes', 'luggage', 'organizer', 'gadgets'],
-      'gifts': ['toy', 'gift', 'moon lamp', 'drone', 'cactus', 'crystal', 'novelty', 'birthday', 'anniversary', 'wedding'],
-      'corporate-gifting': ['corporate', 'gift', 'set', 'employee', 'custom', 'hamper', 'executive', 'pen', 'bottle', 'notebook'],
-      'mix-item': ['tape', 'keychain', 'roller', 'clips', 'mix', 'dhamaka', 'deal', 'combo'],
-    };
-
-    const keywords = catKeywords[catId] || [catId.replace(/-/g, ' ')];
+    const norm = (str: string) => (str || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim();
+    const targetNorm = norm(catId);
+    const targetTokens = targetNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
+    const stem = (w: string) => w.replace(/(ies|s|ing|ed)$/, '');
+    const targetStems = targetTokens.map(stem);
 
     const matchedFromAll = getAllProducts().filter((p) => {
-      const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
-      return keywords.some((kw) => text.includes(kw.toLowerCase()));
+      const prodCatNorm = norm(p.category || '');
+      const prodTitleNorm = norm(p.title || '');
+      if (prodCatNorm === targetNorm || prodCatNorm.includes(targetNorm) || targetNorm.includes(prodCatNorm)) return true;
+      const catTokens = prodCatNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
+      const catStems = catTokens.map(stem);
+      if (targetStems.some((ts) => catStems.includes(ts))) return true;
+      const titleTokens = prodTitleNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
+      const titleStems = titleTokens.map(stem);
+      if (targetStems.some((ts) => titleStems.includes(ts))) return true;
+      return false;
     });
 
     const combinedMap = new Map<string, ProductItem>();
@@ -2059,17 +2054,22 @@ export const getProductsByCategoryId = (catId: string, subcategory?: string): Pr
     matchedFromAll.forEach((p) => combinedMap.set(p.id, p));
 
     products = Array.from(combinedMap.values());
+
+    if (products.length === 0) {
+      products = getAllProducts().slice(0, 20);
+    }
   }
 
-  if (subcategory && subcategory.toLowerCase() !== 'all') {
-    const subTerms = subcategory.toLowerCase().split(/[ &,/]+/).filter(Boolean);
-    const subFiltered = products.filter((p) => {
-      const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
-      return subTerms.some((term) => text.includes(term));
-    });
-    // Return filtered list if any matches, or fallback to full list
-    if (subFiltered.length > 0) {
-      return subFiltered;
+  if (subcategory && subcategory.toLowerCase() !== 'all' && !subcategory.toLowerCase().startsWith('all ')) {
+    const subTerms = subcategory.toLowerCase().split(/[ &,/]+/).filter((t) => t.length > 2);
+    if (subTerms.length > 0) {
+      const subFiltered = products.filter((p) => {
+        const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
+        return subTerms.some((term) => text.includes(term));
+      });
+      if (subFiltered.length > 0) {
+        return subFiltered;
+      }
     }
   }
 

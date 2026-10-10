@@ -19,7 +19,9 @@ import {
   CheckCircle2, 
   Percent,
   ShoppingBag,
-  Globe
+  Globe,
+  Heart,
+  Award
 } from 'lucide-react';
 import { useAppSelector } from '../../../../store/hooks';
 import { adminLabelsApi, ProductLabelItem } from '../../../../api/adminApi';
@@ -127,8 +129,6 @@ const FESTIVAL_KEYWORDS = [
   'onam',
   'karwa chauth',
   'karwachauth',
-  'new year',
-  'newyear',
   'festive',
   'festival',
   'mela',
@@ -153,11 +153,152 @@ const FESTIVAL_KEYWORDS = [
   'ram navami',
 ];
 
-const isFestivalName = (name: string): boolean => {
-  const normalized = name.toLowerCase().trim();
-  if (!normalized) return false;
-  return FESTIVAL_KEYWORDS.some((fest) => normalized.includes(fest));
+export interface DetectedTheme {
+  type: 'festival' | 'special_day' | 'national' | 'deal' | 'celebration' | 'standard';
+  styleName: string;
+  icon: string;
+  badgeText: string;
+  headerStyleColor: string;
+  pillContainerClasses: string;
+  badgeClasses: string;
+  iconClasses: string;
+  descriptionText: string;
+}
+
+export const detectLabelTheme = (name: string): DetectedTheme => {
+  const normalized = (name || '').toLowerCase().trim();
+  if (!normalized) {
+    return {
+      type: 'standard',
+      styleName: 'Standard Nav Pill',
+      icon: 'tag',
+      badgeText: '',
+      headerStyleColor: 'text-slate-400',
+      pillContainerClasses: 'bg-stone-900 border border-stone-700/80 text-white',
+      badgeClasses: 'bg-slate-700 text-white',
+      iconClasses: 'text-slate-400',
+      descriptionText: 'Standard label. Will appear with clean colors and default styling in the storefront top navbar.',
+    };
+  }
+
+  // 1. Festivals
+  const isFestive = FESTIVAL_KEYWORDS.some((fest) => normalized.includes(fest));
+  if (isFestive) {
+    return {
+      type: 'festival',
+      styleName: 'Festive Gold / Diwali',
+      icon: 'sparkles',
+      badgeText: 'FESTIVE',
+      headerStyleColor: 'text-amber-400',
+      pillContainerClasses: 'bg-black/75 border border-amber-500/80 text-white shadow-[0_0_15px_rgba(245,158,11,0.35)]',
+      badgeClasses: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white',
+      iconClasses: 'text-amber-400 fill-amber-400/20',
+      descriptionText: 'Festival celebration detected! Applied festive gold theme, glowing border, and FESTIVE badge.',
+    };
+  }
+
+  // 2. National Observances & Leaders
+  const NATIONAL_KEYWORDS = [
+    'gandhi', 'republic', 'independence', 'tiranga', 'desh', 'rashtriya', 'azadi', 'jayanti', 'nehru', 'ambedkar', 'patel'
+  ];
+  if (NATIONAL_KEYWORDS.some((kw) => normalized.includes(kw))) {
+    return {
+      type: 'national',
+      styleName: 'National Special',
+      icon: 'award',
+      badgeText: 'SPECIAL',
+      headerStyleColor: 'text-orange-400',
+      pillContainerClasses: 'bg-stone-900 border border-orange-500/70 text-white shadow-[0_0_12px_rgba(249,115,22,0.3)]',
+      badgeClasses: 'bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-600 text-white',
+      iconClasses: 'text-orange-400',
+      descriptionText: 'National observance detected! Styled with national tricolor accents and SPECIAL badge.',
+    };
+  }
+
+  // 3. Day Specials (Sunday Special, Weekend Special, etc.)
+  const DAY_SPECIAL_KEYWORDS = [
+    'sunday', 'weekend', 'saturday', 'friday', 'monday', 'wednesday', 'thursday', 'tuesday',
+    'day special', 'today special', 'super sunday', 'mega monday', 'weekend special', 'daily special'
+  ];
+  if (DAY_SPECIAL_KEYWORDS.some((kw) => normalized.includes(kw))) {
+    let badge = 'DAY SPECIAL';
+    if (normalized.includes('sunday')) badge = 'SUNDAY';
+    else if (normalized.includes('weekend')) badge = 'WEEKEND';
+    else if (normalized.includes('friday')) badge = 'FRIDAY';
+    else if (normalized.includes('monday')) badge = 'MONDAY';
+
+    return {
+      type: 'special_day',
+      styleName: 'Day Special',
+      icon: 'flame',
+      badgeText: badge,
+      headerStyleColor: 'text-red-400',
+      pillContainerClasses: 'bg-stone-900 border border-red-500/70 text-white shadow-[0_0_12px_rgba(239,68,68,0.3)]',
+      badgeClasses: 'bg-gradient-to-r from-red-600 to-orange-500 text-white',
+      iconClasses: 'text-red-400 fill-red-400/20',
+      descriptionText: 'Day Special detected! Applied high-energy day deal styling and badge.',
+    };
+  }
+
+  // 4. Celebrations (New Year, Valentine, Mother's Day, etc.)
+  if (normalized.includes('valentine') || normalized.includes('love') || normalized.includes('rose day')) {
+    return {
+      type: 'celebration',
+      styleName: 'Valentine Special',
+      icon: 'heart',
+      badgeText: 'SPECIAL',
+      headerStyleColor: 'text-rose-400',
+      pillContainerClasses: 'bg-stone-900 border border-rose-500/70 text-white shadow-[0_0_12px_rgba(244,63,94,0.3)]',
+      badgeClasses: 'bg-gradient-to-r from-pink-600 to-rose-600 text-white',
+      iconClasses: 'text-rose-400 fill-rose-400/20',
+      descriptionText: 'Valentine Special detected! Styled with romantic accents and special badge.',
+    };
+  }
+
+  if (normalized.includes('new year') || normalized.includes('newyear') || normalized.includes('31st')) {
+    return {
+      type: 'celebration',
+      styleName: 'New Year Special',
+      icon: 'sparkles',
+      badgeText: 'NEW YEAR',
+      headerStyleColor: 'text-purple-400',
+      pillContainerClasses: 'bg-stone-900 border border-purple-500/70 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)]',
+      badgeClasses: 'bg-gradient-to-r from-purple-600 to-pink-500 text-white',
+      iconClasses: 'text-purple-400',
+      descriptionText: 'New Year celebration detected! Styled with celebration purple accents and NEW YEAR badge.',
+    };
+  }
+
+  // 5. Flash Deals / Sales / Dhamaka
+  const DEAL_KEYWORDS = ['sale', 'deal', 'flash', 'dhamaka', 'loot', 'clearance', 'offer', 'bestseller'];
+  if (DEAL_KEYWORDS.some((kw) => normalized.includes(kw))) {
+    return {
+      type: 'deal',
+      styleName: 'Flash Deal / Sale',
+      icon: 'flame',
+      badgeText: 'HOT',
+      headerStyleColor: 'text-orange-400',
+      pillContainerClasses: 'bg-stone-900 border border-orange-500/70 text-white shadow-[0_0_12px_rgba(234,88,12,0.3)]',
+      badgeClasses: 'bg-gradient-to-r from-red-600 to-amber-600 text-white',
+      iconClasses: 'text-orange-400 fill-orange-400/20',
+      descriptionText: 'Hot Deal/Sale detected! Applied vibrant deal badge and flame icon.',
+    };
+  }
+
+  // Standard Default
+  return {
+    type: 'standard',
+    styleName: 'Standard Nav Pill',
+    icon: 'tag',
+    badgeText: '',
+    headerStyleColor: 'text-slate-400',
+    pillContainerClasses: 'bg-stone-900 border border-stone-700/80 text-white',
+    badgeClasses: 'bg-slate-700 text-white',
+    iconClasses: 'text-slate-400',
+    descriptionText: 'Standard label. Will appear with standard colors and styling in the storefront top navbar.',
+  };
 };
+
 
 export const LabelsBadgesTab: React.FC = () => {
   // Store products from Redux for the assign modal
@@ -184,20 +325,20 @@ export const LabelsBadgesTab: React.FC = () => {
   const [assigningLabel, setAssigningLabel] = useState<ProductLabelItem | null>(null);
   const [deletingLabel, setDeletingLabel] = useState<ProductLabelItem | null>(null);
 
-  // Form State matching screenshot
+  // Form State matching screenshot - defaults to clean neutral state
   const [formName, setFormName] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formPagePath, setFormPagePath] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formStyle, setFormStyle] = useState('Festive Gold / Diwali');
+  const [formStyle, setFormStyle] = useState('Standard Nav Pill');
   const [formShowInNav, setFormShowInNav] = useState(true);
   const [formShowOnHomepage, setFormShowOnHomepage] = useState(false);
   const [formHomepageLimit, setFormHomepageLimit] = useState(10);
   const [formHomepageSortOrder, setFormHomepageSortOrder] = useState(50);
   const [formStorefronts, setFormStorefronts] = useState<string[]>(['Ecomm', 'Wholesale']);
   const [formIsActive, setFormIsActive] = useState(true);
-  const [formIcon, setFormIcon] = useState('sparkles');
-  const [formBadgeText, setFormBadgeText] = useState('FESTIVE');
+  const [formIcon, setFormIcon] = useState('tag');
+  const [formBadgeText, setFormBadgeText] = useState('');
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
   // Assign Modal Selection State
@@ -258,38 +399,39 @@ export const LabelsBadgesTab: React.FC = () => {
     setFormSlug('');
     setFormPagePath('');
     setFormDescription('');
-    setFormStyle('Festive Gold / Diwali');
+    setFormStyle('Standard Nav Pill');
     setFormShowInNav(true);
     setFormShowOnHomepage(false);
     setFormHomepageLimit(10);
     setFormHomepageSortOrder(50);
     setFormStorefronts(['Ecomm', 'Wholesale']);
     setFormIsActive(true);
-    setFormIcon('sparkles');
-    setFormBadgeText('FESTIVE');
+    setFormIcon('tag');
+    setFormBadgeText('');
     setIsFormModalOpen(true);
   };
 
   // Open Form Modal for Edit
   const handleOpenEditModal = (lbl: ProductLabelItem) => {
+    const detected = detectLabelTheme(lbl.name);
     setEditingLabel(lbl);
     setFormName(lbl.name);
     setFormSlug(lbl.slug);
     setFormPagePath(lbl.pagePath || `/TagProducts/${lbl.slug}`);
     setFormDescription(lbl.description || '');
-    setFormStyle(lbl.style || (isFestivalName(lbl.name) ? 'Festive Gold / Diwali' : 'Festive Gold / Diwali'));
+    setFormStyle(lbl.style || detected.styleName);
     setFormShowInNav(lbl.showInNav !== false);
     setFormShowOnHomepage(lbl.showOnHomepage === true);
     setFormHomepageLimit(lbl.homepageLimit || 10);
     setFormHomepageSortOrder(lbl.homepageSortOrder || 50);
     setFormStorefronts(lbl.storefronts || ['Ecomm', 'Wholesale']);
     setFormIsActive(lbl.isActive !== false);
-    setFormIcon(lbl.icon || (isFestivalName(lbl.name) ? 'sparkles' : 'flame'));
-    setFormBadgeText(lbl.badgeText || (isFestivalName(lbl.name) ? 'FESTIVE' : 'HOT'));
+    setFormIcon(lbl.icon || detected.icon);
+    setFormBadgeText(lbl.badgeText !== undefined ? lbl.badgeText : detected.badgeText);
     setIsFormModalOpen(true);
   };
 
-  // Auto-generate slug, page path, and detect festival
+  // Auto-generate slug, page path, and dynamically detect festival or day special
   const handleNameChange = (val: string) => {
     setFormName(val);
     const generatedSlug = val
@@ -304,12 +446,11 @@ export const LabelsBadgesTab: React.FC = () => {
       setFormPagePath(generatedSlug ? `/TagProducts/${generatedSlug}` : '');
     }
 
-    // Whenever any festival is typed, automatically apply the Festive Gold / Diwali theme & sparkles icon & FESTIVE badge!
-    if (isFestivalName(val)) {
-      setFormStyle('Festive Gold / Diwali');
-      setFormIcon('sparkles');
-      setFormBadgeText('FESTIVE');
-    }
+    // Dynamic detection: if festival or day special is typed, fetch style accordingly; otherwise keep standard!
+    const theme = detectLabelTheme(val);
+    setFormStyle(theme.styleName);
+    setFormIcon(theme.icon);
+    setFormBadgeText(theme.badgeText);
   };
 
   // Submit Create or Edit Label
@@ -337,7 +478,8 @@ export const LabelsBadgesTab: React.FC = () => {
       isDefault: editingLabel ? editingLabel.isDefault : false,
       productCount: editingLabel ? editingLabel.productCount || 0 : 0,
       icon: formIcon,
-      badgeText: formBadgeText.trim() || 'FESTIVE',
+      badgeText: formBadgeText.trim(),
+      badgeStyle: detectLabelTheme(formName).badgeClasses,
     };
 
     try {
@@ -494,18 +636,23 @@ export const LabelsBadgesTab: React.FC = () => {
   const renderLabelIcon = (iconName?: string) => {
     switch (iconName) {
       case 'sparkles':
-        return <Sparkles className="w-3.5 h-3.5 text-amber-400" />;
+        return <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />;
       case 'gift':
         return <Gift className="w-3.5 h-3.5 text-rose-400" />;
+      case 'heart':
+        return <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />;
+      case 'award':
+      case 'flag':
+        return <Award className="w-3.5 h-3.5 text-orange-400" />;
       case 'star':
-        return <Star className="w-3.5 h-3.5 text-yellow-400" />;
+        return <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400/20" />;
       case 'percent':
         return <Percent className="w-3.5 h-3.5 text-emerald-400" />;
-      case 'tag':
-        return <Tag className="w-3.5 h-3.5 text-orange-400" />;
       case 'flame':
+        return <Flame className="w-3.5 h-3.5 text-red-400 fill-red-400/20 animate-pulse" />;
+      case 'tag':
       default:
-        return <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 animate-pulse" />;
+        return <Tag className="w-3.5 h-3.5 text-slate-400" />;
     }
   };
 
@@ -828,31 +975,36 @@ export const LabelsBadgesTab: React.FC = () => {
                 </span>
               </div>
 
-              {/* STOREFRONT NAVBAR APPEARANCE (Dark preview card from screenshot) */}
-              <div className="rounded-2xl bg-[#0d1527] p-4 text-white space-y-2.5 border border-slate-800 shadow-md">
-                <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
-                  <span className="text-slate-300">STOREFRONT NAVBAR APPEARANCE</span>
-                  <span className="text-amber-400 font-bold">Style: {formStyle}</span>
-                </div>
+              {/* STOREFRONT NAVBAR APPEARANCE (Live preview card matching dynamic theme) */}
+              {(() => {
+                const currentTheme = detectLabelTheme(formName);
+                return (
+                  <div className="rounded-2xl bg-[#0d1527] p-4 text-white space-y-2.5 border border-slate-800 shadow-md">
+                    <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider">
+                      <span className="text-slate-300">STOREFRONT NAVBAR APPEARANCE</span>
+                      <span className={`font-bold ${currentTheme.headerStyleColor}`}>Style: {formStyle}</span>
+                    </div>
 
-                <div className="pt-0.5 pb-0.5">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 border border-amber-500/80 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                    <Sparkles className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-                    <span className="font-extrabold text-sm tracking-tight text-white lowercase">
-                      {formName || 'rakhi'}
-                    </span>
-                    {formBadgeText && (
-                      <span className="bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs">
-                        {formBadgeText}
-                      </span>
-                    )}
+                    <div className="pt-0.5 pb-0.5">
+                      <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full select-none transition-all ${currentTheme.pillContainerClasses}`}>
+                        {renderLabelIcon(formIcon)}
+                        <span className="font-extrabold text-sm tracking-tight text-white lowercase">
+                          {formName || 'label-name'}
+                        </span>
+                        {formBadgeText && (
+                          <span className={`text-white font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${currentTheme.badgeClasses}`}>
+                            {formBadgeText}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-400 leading-relaxed font-normal">
+                      {currentTheme.descriptionText}
+                    </p>
                   </div>
-                </div>
-
-                <p className="text-xs text-slate-400 leading-relaxed font-normal">
-                  This label will appear with these colors, icons, glowing borders, and badges in the storefront top navbar.
-                </p>
-              </div>
+                );
+              })()}
 
               {/* Description Input */}
               <div>

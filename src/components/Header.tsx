@@ -25,7 +25,9 @@ import {
   Car,
   PackageCheck,
   Headphones,
-  Briefcase
+  Briefcase,
+  Tag,
+  Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
@@ -770,6 +772,18 @@ export const Header: React.FC<HeaderProps> = ({
               </button> */}
               {storefrontNavLabels.slice(0, 3).map((lbl) => {
                 const isFestive = lbl.badgeText === 'FESTIVE' || lbl.icon === 'sparkles' || (lbl as any).style?.includes('Festive');
+                const isDaySpecial = lbl.icon === 'flame' || lbl.badgeText === 'DAY SPECIAL' || lbl.badgeText === 'SUNDAY' || lbl.badgeText === 'WEEKEND';
+                const isNational = lbl.icon === 'award' || lbl.badgeText === 'SPECIAL';
+
+                const renderIcon = () => {
+                  if (lbl.icon === 'sparkles' || isFestive) return <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 animate-pulse" />;
+                  if (lbl.icon === 'heart') return <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />;
+                  if (lbl.icon === 'gift') return <Gift className="w-3.5 h-3.5 text-rose-400" />;
+                  if (lbl.icon === 'award') return <Award className="w-3.5 h-3.5 text-orange-400" />;
+                  if (lbl.icon === 'tag') return <Tag className="w-3.5 h-3.5 text-slate-400" />;
+                  return <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />;
+                };
+
                 return (
                   <button
                     key={lbl.slug || lbl.name}
@@ -781,19 +795,23 @@ export const Header: React.FC<HeaderProps> = ({
                     className={`px-3 py-1 rounded-full text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer hover:scale-102 ${
                       isFestive
                         ? 'bg-black/80 border border-amber-500/80 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
+                        : isDaySpecial
+                        ? 'bg-stone-900 border border-red-500/70 shadow-[0_0_10px_rgba(239,68,68,0.3)]'
+                        : isNational
+                        ? 'bg-stone-900 border border-orange-500/70 shadow-[0_0_10px_rgba(249,115,22,0.3)]'
                         : 'bg-[#1c1917] border border-stone-800 hover:border-[#A44101]/60 shadow-2xs'
                     }`}
                   >
-                    {isFestive ? (
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 animate-pulse" />
-                    ) : (
-                      <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                    )}
+                    {renderIcon()}
                     <span>{lbl.name}</span>
                     {lbl.badgeText && (
                       <span className={`text-white text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
                         isFestive
                           ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-2xs'
+                          : isDaySpecial
+                          ? 'bg-gradient-to-r from-red-600 to-orange-500'
+                          : isNational
+                          ? 'bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-600'
                           : 'bg-gradient-to-r from-red-600 to-amber-600'
                       }`}>
                         {lbl.badgeText}

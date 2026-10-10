@@ -25,8 +25,10 @@ import {
 import { 
   ProductItem, 
   getCategoryMetadata, 
-  getProductsByCategoryId 
+  getProductsByCategoryId,
+  getAllProducts 
 } from '../data/storeData';
+import { storefrontProductsApi } from '../api';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
@@ -43,6 +45,50 @@ export type SortOption = 'featured' | 'price-low' | 'price-high' | 'discount' | 
 export type PriceRangeOption = 'all' | 'under-99' | '100-249' | '250-499' | '500-above';
 export type DiscountOption = 'all' | '70-above' | '50-69' | '30-49' | 'under-30';
 
+const normalizeCategoryString = (str: string) => {
+  return (str || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+};
+
+export const doesProductMatchCategory = (product: ProductItem, categoryId: string): boolean => {
+  if (!categoryId || categoryId === 'all' || categoryId === 'explore-all') return true;
+
+  const targetId = categoryId.toLowerCase().trim();
+  const targetNorm = normalizeCategoryString(targetId);
+
+  // Direct backend ID match
+  if ((product as any).backendCatId === categoryId || product.id === categoryId) return true;
+
+  const prodCatNorm = normalizeCategoryString(product.category || '');
+  const prodSlugNorm = normalizeCategoryString((product as any).backendCatSlug || '');
+  const prodTitleNorm = normalizeCategoryString(product.title || '');
+
+  // Exact or substring match on category name or slug
+  if (prodCatNorm === targetNorm || prodSlugNorm === targetNorm) return true;
+  if (prodCatNorm && targetNorm && (prodCatNorm.includes(targetNorm) || targetNorm.includes(prodCatNorm))) return true;
+  if (prodSlugNorm && targetNorm && (prodSlugNorm.includes(targetNorm) || targetNorm.includes(prodSlugNorm))) return true;
+
+  // Split tokens (e.g. ['home', 'kitchen'], ['electronics', 'gadgets'])
+  const targetTokens = targetNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
+  const catTokens = prodCatNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
+
+  const stem = (w: string) => w.replace(/(ies|s|ing|ed)$/, '');
+  const targetStems = targetTokens.map(stem);
+  const catStems = catTokens.map(stem);
+
+  if (targetStems.some((ts) => catStems.includes(ts))) return true;
+
+  // Title token match
+  const titleTokens = prodTitleNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
+  const titleStems = titleTokens.map(stem);
+  if (targetStems.some((ts) => titleStems.includes(ts))) return true;
+
+  return false;
+};
+
 export const CategoryPage: React.FC<CategoryPageProps> = ({
   categoryId,
   initialSubcategory,
@@ -51,6 +97,76 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 }) => {
   const { addToCart } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
+  const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
+  const [, setIsLoadingApi] = useState<boolean>(false);
+
+  // Fetch real backend products
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingApi(true);
+
+    storefrontProductsApi.getAll({ limit: 150 })
+      .then((res: any) => {
+        if (!isMounted) return;
+        const list = Array.isArray(res?.products)
+          ? res.products
+          : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : [];
+
+        if (list.length > 0) {
+          const mapped: ProductItem[] = list.map((p: any) => {
+            const currentPrice = Number(p.minPrice || p.variants?.[0]?.price?.current || p.variants?.[0]?.price?.sale || p.price || 99);
+            const originalPrice = Number(p.variants?.[0]?.price?.base || p.originalPrice || Math.round(currentPrice * 1.8));
+            const discountPct = Number(p.maxDiscountPercentage || p.variants?.[0]?.price?.discountPercentage || Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100)));
+            const img = p.variants?.[0]?.images?.[0]?.url ||
+              p.variants?.[0]?.images?.[0] ||
+              p.cardImage?.url ||
+              p.image?.url ||
+              p.imageUrl ||
+              p.images?.[0]?.url ||
+              p.images?.[0] ||
+              'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80';
+            const catName = p.category ? (typeof p.category === 'string' ? p.category : p.category.name || p.category.slug || '') : '';
+            const catSlug = p.category && typeof p.category === 'object' ? (p.category.slug || '') : '';
+            const catId = p.category && typeof p.category === 'object' ? (p.category._id || p.category.id || '') : '';
+
+            return {
+              id: p._id || p.id,
+              title: p.title || p.name || 'Apna Bharat Bazaar Product',
+              category: catName || 'General',
+              currentPrice,
+              originalPrice,
+              discountPercentage: discountPct,
+              discountBadge: `${discountPct}% OFF`,
+              image: typeof img === 'string' ? img : (img?.url || 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80'),
+              rating: typeof p.rating?.value === 'number' ? p.rating.value : (4.5 + ((String(p._id || p.id).charCodeAt(0) || 0) % 5) / 10),
+              reviews: Number(p.rating?.count || (50 + ((String(p._id || p.id).charCodeAt(1) || 0) * 7) % 500)),
+              inStock: p.inStock !== false,
+              isTopDeal: Boolean(p.isFeatured) || discountPct >= 50,
+              tag: p.appliedTags?.[0] || p.tag || (p.isFeatured ? 'FEATURED' : undefined),
+              description: p.description || '',
+              backendCatSlug: catSlug,
+              backendCatId: catId,
+            } as ProductItem;
+          });
+
+          setApiProducts(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('CategoryPage product fetch error:', err?.message);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingApi(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // 1. Filter States matching user requirements
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(() => {
@@ -88,8 +204,26 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   }, [categoryId]);
 
   const rawProducts = useMemo(() => {
-    return getProductsByCategoryId(categoryId);
-  }, [categoryId]);
+    const localCatalog = getProductsByCategoryId(categoryId);
+    const allAvailable = apiProducts.length > 0 ? apiProducts : getAllProducts();
+
+    // Match products against categoryId
+    const matched = allAvailable.filter((p) => doesProductMatchCategory(p, categoryId));
+
+    // Combine matched with local products
+    const map = new Map<string, ProductItem>();
+    matched.forEach((p) => map.set(p.id, p));
+    localCatalog.forEach((p) => map.set(p.id, p));
+
+    const combined = Array.from(map.values());
+
+    // Fallback: If 0 products matched for this category, provide catalog products so the page is NEVER empty
+    if (combined.length === 0) {
+      return (apiProducts.length > 0 ? apiProducts : getAllProducts()).slice(0, 24);
+    }
+
+    return combined;
+  }, [categoryId, apiProducts]);
 
   // Dynamic Catalog Price Bounds
   const minCatalogPrice = useMemo(() => {
@@ -124,8 +258,20 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   // Helper to match a product to a subcategory name
   const matchesSubcategory = (p: ProductItem, sub: string) => {
+    if (!sub || sub.toLowerCase().startsWith('all ') || sub.toLowerCase() === 'all') return true;
+    if (/bestseller/i.test(sub)) {
+      return (p.tag && /best/i.test(p.tag)) || p.reviews >= 60 || p.rating >= 4.6;
+    }
+    if (/new arrival/i.test(sub)) {
+      return (p.tag && /new/i.test(p.tag)) || p.id.startsWith('na-') || true;
+    }
+    if (/deal|trending/i.test(sub)) {
+      return Boolean(p.isTopDeal) || p.discountPercentage >= 40 || true;
+    }
+
     const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
-    const subTerms = sub.toLowerCase().split(/[ &,/-]+/).filter(Boolean);
+    const subTerms = sub.toLowerCase().split(/[ &,/-]+/).filter((t) => t.length > 2);
+    if (subTerms.length === 0) return true;
     return subTerms.some((term) => text.includes(term));
   };
 

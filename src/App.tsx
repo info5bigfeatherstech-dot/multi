@@ -382,7 +382,7 @@ export const App: React.FC = () => {
             /* Home Page View */
             <>
               {/* 3. Hero Section (Featuring the Deal Banners) */}
-              <Hero />
+              <Hero onSelectCategory={handleSelectCategory} />
 
               {/* 4. Top Categories Section */}
               <CategoriesSection onSelectCategory={handleSelectCategory} />

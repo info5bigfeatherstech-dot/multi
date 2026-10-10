@@ -132,36 +132,29 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
   }, []);
 
   const handleItemClick = (item: CategorySidebarItem, subcategory?: string) => {
+    setHoveredCat(null);
+    const isAllSub = subcategory && (subcategory.toLowerCase().startsWith('all ') || subcategory.toLowerCase() === 'all');
+    const targetSub = isAllSub ? undefined : subcategory;
+
     if (onCategoryClick) {
-      onCategoryClick(item, subcategory);
+      onCategoryClick(item, targetSub);
+      return;
     }
 
-    const targetSelector = item.targetClass || (item.targetSectionId ? `.${item.targetSectionId}` : `.section-${item.id}`);
-    const targetEl = document.querySelector(targetSelector.startsWith('.') ? targetSelector : `.${targetSelector}`);
-    if (targetEl) {
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-      const catCardEl = document.querySelector(`.category-card-${item.id}`);
-      if (catCardEl) {
-        catCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        const topCatEl = document.querySelector('.section-top-categories');
-        if (topCatEl) {
-          topCatEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-    }
+    // Direct routing to category page
+    const subQuery = targetSub ? `?sub=${encodeURIComponent(targetSub)}` : '';
+    window.history.pushState(null, '', `/category/${item.id}${subQuery}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const handleViewAll = () => {
+    setHoveredCat(null);
     if (onViewAllClick) {
       onViewAllClick();
-    } else {
-      const topCatEl = document.querySelector('.section-top-categories');
-      if (topCatEl) {
-        topCatEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      return;
     }
+    window.history.pushState(null, '', '/category/explore-all');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   return (

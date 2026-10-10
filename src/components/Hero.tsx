@@ -5,7 +5,11 @@ import { HERO_TEMPLATED_BANNERS, HeroBanner } from '../data/storeData';
 import { HeroCategorySidebar } from './HeroCategorySidebar';
 import { HeroGstCard } from './HeroGstCard';
 
-export const Hero: React.FC = () => {
+export interface HeroProps {
+  onSelectCategory?: (categoryId: string, subcategory?: string) => void;
+}
+
+export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [direction, setDirection] = useState(1);
@@ -120,7 +124,10 @@ export const Hero: React.FC = () => {
           
           {/* 1. LEFT OF HERO: "Shop By Category" Sidebar (Desktop) */}
           <div className="hidden lg:block h-full">
-            <HeroCategorySidebar />
+            <HeroCategorySidebar 
+              onCategoryClick={(item, sub) => onSelectCategory?.(item.id, sub)}
+              onViewAllClick={() => onSelectCategory?.('explore-all')}
+            />
           </div>
 
           {/* 2. CENTER OF HERO: Promotional Banner Carousel */}
@@ -236,7 +243,10 @@ export const Hero: React.FC = () => {
         {/* Tablet: 2-column layout */}
         <div className="hidden md:grid lg:hidden grid-cols-2 gap-4 mt-4">
           <div className="h-[460px]">
-            <HeroCategorySidebar />
+            <HeroCategorySidebar 
+              onCategoryClick={(item, sub) => onSelectCategory?.(item.id, sub)}
+              onViewAllClick={() => onSelectCategory?.('explore-all')}
+            />
           </div>
           <div className="h-[460px]">
             <HeroGstCard />
@@ -274,7 +284,10 @@ export const Hero: React.FC = () => {
 
           {/* Category Sidebar on Mobile */}
           <div className="h-[450px]">
-            <HeroCategorySidebar />
+            <HeroCategorySidebar 
+              onCategoryClick={(item, sub) => onSelectCategory?.(item.id, sub)}
+              onViewAllClick={() => onSelectCategory?.('explore-all')}
+            />
           </div>
         </div>
 
