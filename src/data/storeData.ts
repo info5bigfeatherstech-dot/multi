@@ -19,20 +19,40 @@ export interface StoreCategory {
 }
 
 export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = {
+  // Canonical 11 categories
+  'electronics-and-gadgets': ['USB Cables & Fast Chargers', 'Mobile Holders & Stands', 'Bluetooth Earbuds & Speakers', 'Smartwatches & Straps'],
+  'electronics-gadgets': ['USB Cables & Fast Chargers', 'Mobile Holders & Stands', 'Bluetooth Earbuds & Speakers', 'Smartwatches & Straps'],
+  'gifts-and-lifestyle': ['Personalized & Novelty Gifts', 'Keychains & Wallets', 'Party Props & Birthday Decor'],
+  'gifts-lifestyle': ['Personalized & Novelty Gifts', 'Keychains & Wallets', 'Party Props & Birthday Decor'],
+  'home-and-living': ['Cleaning Supplies & Mops', 'Storage & Organizers', 'Laundry Baskets & Hangers', 'Bathroom Accessories'],
+  'home-living': ['Cleaning Supplies & Mops', 'Storage & Organizers', 'Laundry Baskets & Hangers', 'Bathroom Accessories'],
+  'home-decor': ['Wall Art & Frames', 'Decorative Lights & Lamps', 'Showpieces & Figurines', 'Vases & Artificial Flowers'],
+  'jewellery-and-accessories': ['Fashion Necklaces & Sets', 'Trendy Earrings & Studs', 'Bracelets & Bangles', 'Hair Accessories & Clips'],
+  'jewellery-accessories': ['Fashion Necklaces & Sets', 'Trendy Earrings & Studs', 'Bracelets & Bangles', 'Hair Accessories & Clips'],
+  'kitchen-and-dining': ['Storage Containers & Jars', 'Vegetable Choppers & Cutters', 'Kitchen Utensils & Gadgets', 'Water Bottles & Flasks'],
+  'kitchen-dining': ['Storage Containers & Jars', 'Vegetable Choppers & Cutters', 'Kitchen Utensils & Gadgets', 'Water Bottles & Flasks'],
+  'stationery-office-and-school': ['Diaries & Organizers', 'Pens, Highlighters & Markers', 'Desk Tidy & Calculators', 'School Supplies & Pencil Cases'],
+  'stationery-office-school': ['Diaries & Organizers', 'Pens, Highlighters & Markers', 'Desk Tidy & Calculators', 'School Supplies & Pencil Cases'],
+  'travel-and-outdoor': ['Luggage Tags & Travel Organizers', 'Camping Gear & Flasks', 'Car Accessories & Cushions'],
+  'travel-outdoor': ['Luggage Tags & Travel Organizers', 'Camping Gear & Flasks', 'Car Accessories & Cushions'],
+  'sports-and-fitness': ['Resistance Bands & Dumbbells', 'Yoga Mats & Water Shakers', 'Badminton & Cricket Accessories'],
+  'sports-fitness': ['Resistance Bands & Dumbbells', 'Yoga Mats & Water Shakers', 'Badminton & Cricket Accessories'],
+  'beauty-and-personal-care': ['Skincare & Face Wash', 'Beauty & Makeup Tools', 'Hair Trimmers & Shavers', 'Personal Care & Hygiene'],
+  'mix-items': ['Clearance Stock', 'Bulk Combo Offers', 'Assorted Wholesale Lots'],
+  'mix-item': ['Clearance Stock', 'Bulk Combo Offers', 'Assorted Wholesale Lots'],
+  
+  // Legacy aliases
   'home-kitchen': ['Kitchen', 'Cookware', 'Storage', 'Dining', 'Home Utility'],
   'smart-life-gadget': ['Mobile Accessories', 'Smart Gadgets', 'USB Gadgets', 'LED & Lighting', 'Mini Electronics', 'Gaming'],
   'baby-items': ['Baby Care', 'Feeding', 'Baby Toys', 'Baby Accessories', 'Kids Essentials'],
   'stationary': ['Writing', 'Notebooks', 'Art & Craft', 'School Supplies', 'Office Supplies'],
   'cleaning-housekeeping': ['Cleaning Tools', 'Kitchen Cleaning', 'Bathroom Cleaning', 'Laundry', 'Household Utility'],
-  'sports-fitness': ['Fitness', 'Yoga', 'Exercise', 'Sports Accessories', 'Outdoor Sports'],
   'tours-travels': ['Travel Bags', 'Organizers', 'Luggage Accessories', 'Travel Essentials', 'Travel Gadgets'],
   'fashion-world': ['Women’s Fashion', 'Men’s Fashion', 'Kids Fashion', 'Jewellery', 'Bags, Footwear & Accessories'],
   'gifts': ['Birthday & Anniversary', 'Wedding & Festival', 'Personalized Gifts', 'Gift Sets'],
-  'beauty-personal-care': ['Skincare', 'Hair Care', 'Makeup', 'Grooming', 'Beauty & Bath'],
   'home-improvement': ['Tools & Hardware', 'Electrical', 'Lighting', 'Home Repair', 'Safety & DIY'],
   'car-accessories': ['Interior', 'Exterior', 'Car Cleaning', 'Car Organizers', 'Car Utility'],
   'corporate-gifting': ['Employee Gifts', 'Client Gifts', 'Promotional Gifts', 'Custom Gifts', 'Corporate Sets'],
-  'mix-item': ['Combo Packs', 'Clearance Deals', 'Value Bundles', 'Daily Deals'],
 };
 
 export interface HeroBanner {
@@ -113,91 +133,73 @@ export const ANNOUNCEMENT_DATA: AnnouncementInfo = {
   ],
 };
 
-// Top Categories with exact imagery matching user's reference screenshot
+// Canonical 11 Categories matching user's sidebar
 export const STORE_CATEGORIES: StoreCategory[] = [
   {
-    id: "home-kitchen",
-    name: "HOME & KITCHEN",
+    id: "electronics-and-gadgets",
+    name: "ELECTRONICS & GADGETS",
+    imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["electronics-and-gadgets"],
+  },
+  {
+    id: "gifts-and-lifestyle",
+    name: "GIFTS & LIFESTYLE",
+    imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["gifts-and-lifestyle"],
+  },
+  {
+    id: "home-and-living",
+    name: "HOME & LIVING",
+    imageUrl: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["home-and-living"],
+  },
+  {
+    id: "home-decor",
+    name: "HOME DECOR",
+    imageUrl: "https://images.unsplash.com/photo-1534349762230-e0cadf78f5da?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["home-decor"],
+  },
+  {
+    id: "jewellery-and-accessories",
+    name: "JEWELLERY & ACCESSORIES",
+    imageUrl: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["jewellery-and-accessories"],
+  },
+  {
+    id: "kitchen-and-dining",
+    name: "KITCHEN & DINING",
     imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["home-kitchen"],
+    subcategories: CATEGORY_SUBCATEGORIES["kitchen-and-dining"],
   },
   {
-    id: "smart-life-gadget",
-    name: "SMART LIFE GADGETS",
-    imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["smart-life-gadget"],
+    id: "stationery-office-and-school",
+    name: "STATIONERY, OFFICE & SCHOOL",
+    imageUrl: "https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["stationery-office-and-school"],
   },
   {
-    id: "baby-items",
-    name: "BABY ITEMS",
-    imageUrl: "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["baby-items"],
+    id: "travel-and-outdoor",
+    name: "TRAVEL & OUTDOOR",
+    imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["travel-and-outdoor"],
   },
   {
-    id: "stationary",
-    name: "STATIONERY",
-    imageUrl: "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["stationary"],
-  },
-  {
-    id: "cleaning-housekeeping",
-    name: "CLEANING & HOUSEKEEPING",
-    imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["cleaning-housekeeping"],
-  },
-  {
-    id: "sports-fitness",
+    id: "sports-and-fitness",
     name: "SPORTS & FITNESS",
     imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["sports-fitness"],
+    subcategories: CATEGORY_SUBCATEGORIES["sports-and-fitness"],
   },
   {
-    id: "tours-travels",
-    name: "TOURS & TRAVELS",
-    imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["tours-travels"],
-  },
-  {
-    id: "fashion-world",
-    name: "FASHION WORLD",
-    imageUrl: "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["fashion-world"],
-  },
-  {
-    id: "gifts",
-    name: "GIFTS",
-    imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["gifts"],
-  },
-  {
-    id: "beauty-personal-care",
+    id: "beauty-and-personal-care",
     name: "BEAUTY & PERSONAL CARE",
-    imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["beauty-personal-care"],
+    imageUrl: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["beauty-and-personal-care"],
   },
   {
-    id: "home-improvement",
-    name: "HOME IMPROVEMENT",
-    imageUrl: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["home-improvement"],
-  },
-  {
-    id: "car-accessories",
-    name: "CAR ACCESSORIES",
-    imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["car-accessories"],
-  },
-  {
-    id: "corporate-gifting",
-    name: "CORPORATE GIFTING",
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["corporate-gifting"],
-  },
-  {
-    id: "mix-item",
-    name: "MIX ITEM",
-    imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80",
-    subcategories: CATEGORY_SUBCATEGORIES["mix-item"],
+    id: "mix-items",
+    name: "MIX ITEMS",
+    imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80",
+    subcategories: CATEGORY_SUBCATEGORIES["mix-items"],
   },
 ];
 

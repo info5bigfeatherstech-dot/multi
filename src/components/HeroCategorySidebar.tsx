@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, 
-  Sparkle, 
   Sparkles, 
   Smartphone, 
   ChefHat, 
-  Baby, 
   BookOpen, 
   Dumbbell, 
   Plane, 
-  Shirt, 
   Gift, 
-  Car, 
-  Wrench, 
-  Briefcase,
-  ChevronRight 
+  ChevronRight,
+  Home,
+  Palette,
+  Package
 } from 'lucide-react';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 import { storefrontProductsApi } from '../api';
@@ -30,33 +27,156 @@ export interface CategorySidebarItem {
 
 export const getCategoryIcon = (name = '', slug = ''): React.ComponentType<{ className?: string }> => {
   const s = `${name} ${slug}`.toLowerCase();
-  if (s.includes('earring') || s.includes('stud')) return Sparkle;
-  if (s.includes('necklace') || s.includes('pendant')) return Sparkles;
-  if (s.includes('chain')) return Sparkles;
-  if (s.includes('hair') || s.includes('forehead')) return Sparkle;
-  if (s.includes('nose') || s.includes('nath')) return Sparkle;
-  if (s.includes('earphone') || s.includes('gadget') || s.includes('smart') || s.includes('phone')) return Smartphone;
-  if (s.includes('mangalsutra')) return Sparkles;
-  if (s.includes('ring')) return Sparkle;
-  if (s.includes('anklet') || s.includes('toe')) return Sparkles;
-  if (s.includes('bracelet') || s.includes('bangle')) return Sparkle;
-  if (s.includes('kitchen') || s.includes('cook')) return ChefHat;
-  if (s.includes('baby')) return Baby;
-  if (s.includes('book') || s.includes('station')) return BookOpen;
-  if (s.includes('fit') || s.includes('sport') || s.includes('gym')) return Dumbbell;
-  if (s.includes('travel') || s.includes('tour')) return Plane;
-  if (s.includes('fashion') || s.includes('cloth') || s.includes('wear')) return Shirt;
-  if (s.includes('gift')) return Gift;
-  if (s.includes('car')) return Car;
-  if (s.includes('tool') || s.includes('wrench')) return Wrench;
-  if (s.includes('bag') || s.includes('corporate')) return Briefcase;
+  if (s.includes('electronic') || s.includes('gadget') || s.includes('smart') || s.includes('phone') || s.includes('mobile')) return Smartphone;
+  if (s.includes('gift') || s.includes('lifestyle')) return Gift;
+  if (s.includes('home & living') || s.includes('home and living') || s.includes('living')) return Home;
+  if (s.includes('home decor') || s.includes('decor')) return Palette;
+  if (s.includes('jewel') || s.includes('access') || s.includes('necklace') || s.includes('earring') || s.includes('ring')) return Sparkles;
+  if (s.includes('kitchen') || s.includes('dining') || s.includes('cook')) return ChefHat;
+  if (s.includes('station') || s.includes('office') || s.includes('school') || s.includes('book')) return BookOpen;
+  if (s.includes('travel') || s.includes('tour') || s.includes('outdoor')) return Plane;
+  if (s.includes('sport') || s.includes('fit') || s.includes('gym')) return Dumbbell;
+  if (s.includes('beauty') || s.includes('personal') || s.includes('skin') || s.includes('care')) return Sparkles;
+  if (s.includes('mix') || s.includes('package') || s.includes('combo') || s.includes('wholesale')) return Package;
   return LayoutGrid;
 };
+
+// Canonical 11 Fallback Categories matching user's exact specification
+export const FALLBACK_SIDEBAR_CATEGORIES: CategorySidebarItem[] = [
+  {
+    id: 'electronics-and-gadgets',
+    name: 'Electronics & Gadgets',
+    targetSectionId: 'section-electronics-and-gadgets',
+    icon: Smartphone,
+    subcategories: CATEGORY_SUBCATEGORIES['electronics-and-gadgets'] || [
+      'USB Cables & Fast Chargers',
+      'Mobile Holders & Stands',
+      'Bluetooth Earbuds & Speakers',
+      'Smartwatches & Straps'
+    ],
+  },
+  {
+    id: 'gifts-and-lifestyle',
+    name: 'Gifts & Lifestyle',
+    targetSectionId: 'section-gifts-and-lifestyle',
+    icon: Gift,
+    subcategories: CATEGORY_SUBCATEGORIES['gifts-and-lifestyle'] || [
+      'Personalized & Novelty Gifts',
+      'Keychains & Wallets',
+      'Party Props & Birthday Decor'
+    ],
+  },
+  {
+    id: 'home-and-living',
+    name: 'Home & Living',
+    targetSectionId: 'section-home-and-living',
+    icon: Home,
+    subcategories: CATEGORY_SUBCATEGORIES['home-and-living'] || [
+      'Cleaning Supplies & Mops',
+      'Storage & Organizers',
+      'Laundry Baskets & Hangers',
+      'Bathroom Accessories'
+    ],
+  },
+  {
+    id: 'home-decor',
+    name: 'Home Decor',
+    targetSectionId: 'section-home-decor',
+    icon: Palette,
+    subcategories: CATEGORY_SUBCATEGORIES['home-decor'] || [
+      'Wall Art & Frames',
+      'Decorative Lights & Lamps',
+      'Showpieces & Figurines',
+      'Vases & Artificial Flowers'
+    ],
+  },
+  {
+    id: 'jewellery-and-accessories',
+    name: 'Jewellery & Accessories',
+    targetSectionId: 'section-jewellery-and-accessories',
+    icon: Sparkles,
+    subcategories: CATEGORY_SUBCATEGORIES['jewellery-and-accessories'] || [
+      'Fashion Necklaces & Sets',
+      'Trendy Earrings & Studs',
+      'Bracelets & Bangles',
+      'Hair Accessories & Clips'
+    ],
+  },
+  {
+    id: 'kitchen-and-dining',
+    name: 'Kitchen & Dining',
+    targetSectionId: 'section-kitchen-and-dining',
+    icon: ChefHat,
+    subcategories: CATEGORY_SUBCATEGORIES['kitchen-and-dining'] || [
+      'Storage Containers & Jars',
+      'Vegetable Choppers & Cutters',
+      'Kitchen Utensils & Gadgets',
+      'Water Bottles & Flasks'
+    ],
+  },
+  {
+    id: 'stationery-office-and-school',
+    name: 'Stationery, Office & School',
+    targetSectionId: 'section-stationery-office-and-school',
+    icon: BookOpen,
+    subcategories: CATEGORY_SUBCATEGORIES['stationery-office-and-school'] || [
+      'Diaries & Organizers',
+      'Pens, Highlighters & Markers',
+      'Desk Tidy & Calculators',
+      'School Supplies & Pencil Cases'
+    ],
+  },
+  {
+    id: 'travel-and-outdoor',
+    name: 'Travel & Outdoor',
+    targetSectionId: 'section-travel-and-outdoor',
+    icon: Plane,
+    subcategories: CATEGORY_SUBCATEGORIES['travel-and-outdoor'] || [
+      'Luggage Tags & Travel Organizers',
+      'Camping Gear & Flasks',
+      'Car Accessories & Cushions'
+    ],
+  },
+  {
+    id: 'sports-and-fitness',
+    name: 'Sports & Fitness',
+    targetSectionId: 'section-sports-and-fitness',
+    icon: Dumbbell,
+    subcategories: CATEGORY_SUBCATEGORIES['sports-and-fitness'] || [
+      'Resistance Bands & Dumbbells',
+      'Yoga Mats & Water Shakers',
+      'Badminton & Cricket Accessories'
+    ],
+  },
+  {
+    id: 'beauty-and-personal-care',
+    name: 'Beauty & Personal Care',
+    targetSectionId: 'section-beauty-and-personal-care',
+    icon: Sparkles,
+    subcategories: CATEGORY_SUBCATEGORIES['beauty-and-personal-care'] || [
+      'Skincare & Face Wash',
+      'Beauty & Makeup Tools',
+      'Hair Trimmers & Shavers',
+      'Personal Care & Hygiene'
+    ],
+  },
+  {
+    id: 'mix-items',
+    name: 'Mix Items',
+    targetSectionId: 'section-mix-items',
+    icon: Package,
+    subcategories: CATEGORY_SUBCATEGORIES['mix-items'] || [
+      'Clearance Stock',
+      'Bulk Combo Offers',
+      'Assorted Wholesale Lots'
+    ],
+  },
+];
 
 const CATEGORIES_CACHE_KEY = 'abb_dynamic_categories_cache';
 
 const getCachedCategories = (): CategorySidebarItem[] => {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return FALLBACK_SIDEBAR_CATEGORIES;
   try {
     const raw = localStorage.getItem(CATEGORIES_CACHE_KEY);
     if (raw) {
@@ -65,11 +185,17 @@ const getCachedCategories = (): CategorySidebarItem[] => {
         return parsed.map((cat: any) => ({
           ...cat,
           icon: getCategoryIcon(cat.name, cat.id || cat.slug),
+          subcategories: cat.subcategories || CATEGORY_SUBCATEGORIES[cat.id] || CATEGORY_SUBCATEGORIES[cat.slug] || [
+            `All ${cat.name}`,
+            'Bestsellers',
+            'New Arrivals',
+            'Trending Deals'
+          ],
         }));
       }
     }
   } catch {}
-  return [];
+  return FALLBACK_SIDEBAR_CATEGORIES;
 };
 
 interface HeroCategorySidebarProps {
@@ -81,7 +207,7 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
   onCategoryClick,
   onViewAllClick,
 }) => {
-  // Strictly start from cached dynamic categories or empty state — NEVER show static mock categories
+  // Always initialize immediately with cached or canonical fallback categories
   const [categories, setCategories] = useState<CategorySidebarItem[]>(() => getCachedCategories());
   const [hoveredCat, setHoveredCat] = useState<CategorySidebarItem | null>(null);
 
@@ -92,9 +218,16 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
         if (Array.isArray(res) && res.length > 0) {
           const dynamicItems: CategorySidebarItem[] = res.map((cat: any) => {
             const catId = cat.slug || cat._id || cat.id;
+            const normSlug = (cat.slug || cat.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            const matchedFallback = FALLBACK_SIDEBAR_CATEGORIES.find(
+              f => f.name.toLowerCase() === cat.name.toLowerCase() || f.id === catId || f.id === cat.slug
+            );
+
             const subcats: string[] = Array.isArray(cat.children) && cat.children.length > 0
               ? cat.children.map((c: any) => (typeof c === 'string' ? c : c.name || c.title))
-              : (CATEGORY_SUBCATEGORIES[cat.slug] || [
+              : (matchedFallback?.subcategories ||
+                 CATEGORY_SUBCATEGORIES[cat.slug] || 
+                 CATEGORY_SUBCATEGORIES[normSlug] || [
                   `All ${cat.name}`,
                   'Bestsellers',
                   'New Arrivals',
@@ -113,7 +246,7 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
           setCategories(dynamicItems);
 
           try {
-            // Cache in localStorage to prevent any 1-sec flash on future visits
+            // Cache in localStorage
             localStorage.setItem(
               CATEGORIES_CACHE_KEY,
               JSON.stringify(dynamicItems.map(({ id, name, targetSectionId, subcategories }) => ({
@@ -124,10 +257,13 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
               })))
             );
           } catch {}
+        } else {
+          setCategories(FALLBACK_SIDEBAR_CATEGORIES);
         }
       })
       .catch((err) => {
-        console.warn('Hero categories fetch error:', err?.message);
+        console.warn('Hero categories fetch error, keeping fallback:', err?.message);
+        setCategories(FALLBACK_SIDEBAR_CATEGORIES);
       });
   }, []);
 
