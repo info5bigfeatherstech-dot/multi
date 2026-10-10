@@ -13,7 +13,9 @@ import {
   ChevronDown, 
   Package, 
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Copy,
+  Check
 } from 'lucide-react';
 import { mockAdminStore } from '../features/admin/mockAdminStore';
 
@@ -21,6 +23,8 @@ interface ContactPageProps {
   onBackToHome: () => void;
   onGoToOrders?: () => void;
 }
+
+const TARGET_SUPPORT_EMAIL = 'support.MehtaMartMHM@gmail.com';
 
 interface SupportTicket {
   ticketId: string;
@@ -31,6 +35,8 @@ interface SupportTicket {
   category: string;
   message: string;
   submittedAt: string;
+  targetEmail: string;
+  mailtoUrl: string;
 }
 
 export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
@@ -43,9 +49,19 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedTicket, setSubmittedTicket] = useState<SupportTicket | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // FAQ Accordion Active Index
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  const handleCopyTicket = (ticket: SupportTicket) => {
+    const text = `MehtaMart Support Ticket #${ticket.ticketId}\nTo: ${ticket.targetEmail}\nCategory: ${ticket.category}\nOrder: ${ticket.orderNumber}\nCustomer: ${ticket.name} (${ticket.phone})\nEmail: ${ticket.email}\nDate: ${ticket.submittedAt}\n\nMessage:\n${ticket.message}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,21 +71,48 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
 
     setTimeout(() => {
       const randomTicketNum = Math.floor(10000 + Math.random() * 90000);
+      const ticketId = `MHM-TK-${randomTicketNum}`;
+      const submittedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const emailSubject = `[Support Ticket #${ticketId}] ${category} - ${name.trim()}`;
+      const emailBody = [
+        `Dear MehtaMart Support Team,`,
+        ``,
+        `A customer inquiry has been submitted via the contact form:`,
+        `--------------------------------------------------`,
+        `Ticket ID       : ${ticketId}`,
+        `Customer Name   : ${name.trim()}`,
+        `WhatsApp/Phone  : ${phone.trim()}`,
+        `Customer Email  : ${email.trim() || 'Not specified'}`,
+        `Order Number    : ${orderNumber.trim() || 'N/A'}`,
+        `Inquiry Category: ${category}`,
+        `Submission Time : ${submittedAt}`,
+        `--------------------------------------------------`,
+        `Customer Message:`,
+        `${message.trim()}`,
+        `--------------------------------------------------`,
+        `Target Support Desk: ${TARGET_SUPPORT_EMAIL}`
+      ].join('\n');
+
+      const mailtoUrl = `mailto:${TARGET_SUPPORT_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
       const ticket: SupportTicket = {
-        ticketId: `ABB-TK-${randomTicketNum}`,
+        ticketId,
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || 'N/A',
         orderNumber: orderNumber.trim() || 'N/A',
         category,
         message: message.trim(),
-        submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        submittedAt,
+        targetEmail: TARGET_SUPPORT_EMAIL,
+        mailtoUrl,
       };
 
       setSubmittedTicket(ticket);
       setIsSubmitting(false);
 
-      // Save to localStorage as a customer lead/ticket so admin panel can see it too!
+      // Save to localStorage as a customer lead/ticket so admin panel can track it
       try {
         const storedLeads = mockAdminStore.getLeads();
         storedLeads.unshift({
@@ -78,13 +121,20 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
           phone: phone.trim(),
           email: email.trim() || `${phone.replace(/\D/g, '')}@customer.in`,
           interestCategory: category,
-          source: 'Support Form',
+          source: `Support Form (${TARGET_SUPPORT_EMAIL})`,
           createdAt: new Date().toISOString(),
           status: 'New'
         });
         localStorage.setItem('abb_admin_leads_v1', JSON.stringify(storedLeads));
       } catch (err) {
         console.warn('Could not save lead to mockAdminStore', err);
+      }
+
+      // Automatically trigger email dispatch to support.MehtaMartMHM@gmail.com
+      try {
+        window.location.href = mailtoUrl;
+      } catch (err) {
+        console.warn('Mailto link navigation error', err);
       }
     }, 600);
   };
