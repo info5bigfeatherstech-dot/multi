@@ -8,6 +8,7 @@ import { AdminProductsView } from './components/AdminProductsView';
 import { AdminGrowthView } from './components/AdminGrowthView';
 import { AdminSettingsView } from './components/AdminSettingsView';
 import { AdminAnalyticsView } from './components/AdminAnalyticsView';
+import { AdminStaffView } from './components/AdminStaffView';
 
 import { ensureAdminToken } from '../../api';
 
@@ -40,6 +41,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       if (path.includes('products-labels') || path.includes('/labels')) return 'products-labels';
       if (path.includes('products-inventory') || path.includes('/inventory')) return 'products-inventory';
       if (path.includes('products')) return 'products-all';
+      if (path.includes('staff')) return 'staff';
       if (path.includes('growth') || path.includes('leads') || path.includes('abandoned')) return 'abandoned';
       if (path.includes('settings')) return 'settings';
     }
@@ -119,6 +121,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       else if (path.includes('rto')) setCurrentTab('rto');
       else if (path.includes('abandoned') || path.includes('growth')) setCurrentTab('abandoned');
       else if (path.includes('leads')) setCurrentTab('leads');
+      else if (path.includes('staff')) setCurrentTab('staff');
       else if (path.includes('settings')) setCurrentTab('settings');
       else if (path.includes('dashboard') || path === '/admin') setCurrentTab('dashboard');
     };
@@ -213,7 +216,11 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
         <AdminGrowthView initialSubTab={currentTab as 'abandoned' | 'leads' | 'marketing'} />
       )}
 
-      {currentTab.startsWith('settings') && (
+      {(currentTab === 'staff' || currentTab === 'settings-staff') && (
+        <AdminStaffView />
+      )}
+
+      {currentTab.startsWith('settings') && currentTab !== 'settings-staff' && (
         <AdminSettingsView />
       )}
     </AdminShell>

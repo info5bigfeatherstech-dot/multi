@@ -45,9 +45,11 @@ export type AdminTab =
   | 'leads' 
   | 'abandoned' 
   | 'marketing' 
+  | 'staff'
   | 'settings' 
   | 'settings-general' 
   | 'settings-shipping' 
+  | 'settings-staff'
   | 'settings-backup';
 
 interface AdminShellProps {
@@ -258,6 +260,18 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                     >
                       <Truck className="w-4 h-4" />
                       <span>Delivery &amp; Courier Hubs</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTabClick('settings-staff')}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                        currentTab === 'settings-staff' || currentTab === 'staff'
+                          ? 'bg-[#A44101] text-white shadow-xs'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Staff &amp; Role Matrix</span>
                     </button>
                     <button
                       type="button"
@@ -497,6 +511,34 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                     >
                       <Ticket className="w-4 h-4" />
                       <span>Marketing &amp; Coupons</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* CATEGORY 5: Team & Security */}
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-3 mb-1.5">
+                    Team &amp; Access
+                  </span>
+                  <div className="space-y-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleTabClick('staff')}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                        currentTab === 'staff'
+                          ? 'bg-[#A44101] text-white shadow-xs'
+                          : 'text-slate-700 hover:bg-slate-200/80 hover:text-navy'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Users className="w-4 h-4" />
+                        <span>Staff &amp; Permissions</span>
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                        currentTab === 'staff' ? 'bg-white/25 text-white' : 'bg-slate-200/90 text-slate-600'
+                      }`}>
+                        Roles
+                      </span>
                     </button>
                   </div>
                 </div>

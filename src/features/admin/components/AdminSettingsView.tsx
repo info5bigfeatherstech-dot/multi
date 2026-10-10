@@ -8,7 +8,8 @@ import {
   Users,
   UserPlus,
   Shield,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { mockAdminStore } from '../mockAdminStore';
 import { adminAuthApi } from '../../../api';
@@ -178,6 +179,20 @@ export const AdminSettingsView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.history.pushState(null, '', '/admin/staff');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#A44101]/30 bg-orange-50 hover:bg-orange-100 text-[#A44101] text-xs font-bold transition-all shadow-2xs cursor-pointer"
+              title="Open Granular Roles & Permissions Matrix"
+            >
+              <span>Full Permissions Matrix</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
             <button
               type="button"
               onClick={fetchStaff}

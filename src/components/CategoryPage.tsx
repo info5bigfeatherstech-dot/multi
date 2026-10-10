@@ -16,6 +16,10 @@ import {
   Package, 
   X, 
   SlidersHorizontal,
+  Flame,
+  Sparkles,
+  Award,
+  Percent,
   RotateCcw as ResetIcon
 } from 'lucide-react';
 import { 
@@ -48,23 +52,29 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const { addToCart } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Filter States
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string>(initialSubcategory || 'all');
-  const [sortBy, setSortBy] = useState<SortOption>('featured');
-  const [priceRange, setPriceRange] = useState<PriceRangeOption>('all');
-  const [customMinPrice, setCustomMinPrice] = useState<string>('');
-  const [customMaxPrice, setCustomMaxPrice] = useState<string>('');
+  // 1. Filter States matching user requirements
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(() => {
+    return initialSubcategory && initialSubcategory !== 'all' ? [initialSubcategory] : [];
+  });
+  const [priceMin, setPriceMin] = useState<string>('');
+  const [priceMax, setPriceMax] = useState<string>('');
+  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
+  const [selectedDiscounts, setSelectedDiscounts] = useState<number[]>([]);
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
-  const [fastDispatchOnly, setFastDispatchOnly] = useState<boolean>(false);
-  const [codOnly, setCodOnly] = useState<boolean>(false);
-  const [discountOffer, setDiscountOffer] = useState<DiscountOption>('all');
+  const [filterTodaysDeals, setFilterTodaysDeals] = useState<boolean>(false);
+  const [filterNewArrivals, setFilterNewArrivals] = useState<boolean>(false);
+  const [filterBestSellers, setFilterBestSellers] = useState<boolean>(false);
+  const [filterSale, setFilterSale] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<SortOption>('featured');
 
   // 2. Accordion Open/Closed States for Left Filter Cards
-  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(true);
-  const [isSortOpen, setIsSortOpen] = useState(true);
+  const [isSpecialDealsOpen, setIsSpecialDealsOpen] = useState(true);
   const [isPriceOpen, setIsPriceOpen] = useState(true);
-  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(true);
+  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(true);
+  const [isRatingOpen, setIsRatingOpen] = useState(true);
   const [isDiscountOpen, setIsDiscountOpen] = useState(true);
+  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(true);
+  const [isSortOpen, setIsSortOpen] = useState(true);
 
   // 3. Mobile Filter Drawer
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -72,22 +82,6 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   // Cart & Wishlist Interaction State
   const [wishlistIds, setWishlistIds] = useState<{ [key: string]: boolean }>({});
   const [addedIds, setAddedIds] = useState<{ [key: string]: boolean }>({});
-
-  // Reset filters when switching category
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setSearchQuery('');
-    setSelectedSubcategory(initialSubcategory || 'all');
-    setSortBy('featured');
-    setPriceRange('all');
-    setCustomMinPrice('');
-    setCustomMaxPrice('');
-    setInStockOnly(false);
-    setFastDispatchOnly(false);
-    setCodOnly(false);
-    setDiscountOffer('all');
-    setIsMobileFilterOpen(false);
-  }, [categoryId, initialSubcategory]);
 
   const metadata = useMemo(() => {
     return getCategoryMetadata(categoryId);
@@ -97,44 +91,158 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     return getProductsByCategoryId(categoryId);
   }, [categoryId]);
 
+  // Dynamic Catalog Price Bounds
+  const minCatalogPrice = useMemo(() => {
+    if (!rawProducts.length) return 0;
+    const minVal = Math.min(...rawProducts.map((p) => p.currentPrice));
+    return Math.floor(minVal / 10) * 10;
+  }, [rawProducts]);
+
+  const maxCatalogPrice = useMemo(() => {
+    if (!rawProducts.length) return 2000;
+    const maxVal = Math.max(...rawProducts.map((p) => p.currentPrice), 999);
+    return Math.ceil(maxVal / 10) * 10;
+  }, [rawProducts]);
+
+  // Reset filters when switching category
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSearchQuery('');
+    setSelectedSubcategories(initialSubcategory && initialSubcategory !== 'all' ? [initialSubcategory] : []);
+    setPriceMin('');
+    setPriceMax('');
+    setSelectedRatings([]);
+    setSelectedDiscounts([]);
+    setInStockOnly(false);
+    setFilterTodaysDeals(false);
+    setFilterNewArrivals(false);
+    setFilterBestSellers(false);
+    setFilterSale(false);
+    setSortBy('featured');
+    setIsMobileFilterOpen(false);
+  }, [categoryId, initialSubcategory]);
+
+  // Helper to match a product to a subcategory name
+  const matchesSubcategory = (p: ProductItem, sub: string) => {
+    const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
+    const subTerms = sub.toLowerCase().split(/[ &,/-]+/).filter(Boolean);
+    return subTerms.some((term) => text.includes(term));
+  };
+
+  // Pre-calculated filter counts for real-time badges
+  const filterCounts = useMemo(() => {
+    const subCounts: Record<string, number> = {};
+    if (metadata.subcategories) {
+      metadata.subcategories.forEach((sub) => {
+        subCounts[sub] = rawProducts.filter((p) => matchesSubcategory(p, sub)).length;
+      });
+    }
+
+    const ratingCounts: Record<number, number> = {
+      4: rawProducts.filter((p) => p.rating >= 4).length,
+      3: rawProducts.filter((p) => p.rating >= 3).length,
+      2: rawProducts.filter((p) => p.rating >= 2).length,
+      1: rawProducts.filter((p) => p.rating >= 1).length,
+    };
+
+    const discountCounts: Record<number, number> = {
+      50: rawProducts.filter((p) => p.discountPercentage >= 50).length,
+      30: rawProducts.filter((p) => p.discountPercentage >= 30).length,
+      20: rawProducts.filter((p) => p.discountPercentage >= 20).length,
+      10: rawProducts.filter((p) => p.discountPercentage >= 10).length,
+    };
+
+    const inStockCount = rawProducts.filter((p) => p.inStock !== false).length;
+    const todaysDealsCount = rawProducts.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag))).length;
+    const newArrivalsCount = rawProducts.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-')).length;
+    const bestSellersCount = rawProducts.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7).length;
+    const saleCount = rawProducts.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice).length;
+
+    return {
+      subCounts,
+      ratingCounts,
+      discountCounts,
+      inStockCount,
+      todaysDealsCount,
+      newArrivalsCount,
+      bestSellersCount,
+      saleCount,
+    };
+  }, [rawProducts, metadata.subcategories]);
+
   // Count active filters (for badge)
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (selectedSubcategory !== 'all') count++;
+    count += selectedSubcategories.length;
+    if (priceMin !== '' || priceMax !== '') count++;
+    count += selectedRatings.length;
+    count += selectedDiscounts.length;
+    if (inStockOnly) count++;
+    if (filterTodaysDeals) count++;
+    if (filterNewArrivals) count++;
+    if (filterBestSellers) count++;
+    if (filterSale) count++;
     if (sortBy !== 'featured') count++;
-    if (priceRange !== 'all' || customMinPrice || customMaxPrice) count++;
-    if (inStockOnly || fastDispatchOnly || codOnly) count++;
-    if (discountOffer !== 'all') count++;
     return count;
-  }, [selectedSubcategory, sortBy, priceRange, customMinPrice, customMaxPrice, inStockOnly, fastDispatchOnly, codOnly, discountOffer]);
+  }, [
+    selectedSubcategories,
+    priceMin,
+    priceMax,
+    selectedRatings,
+    selectedDiscounts,
+    inStockOnly,
+    filterTodaysDeals,
+    filterNewArrivals,
+    filterBestSellers,
+    filterSale,
+    sortBy,
+  ]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
-    setSelectedSubcategory('all');
-    setSortBy('featured');
-    setPriceRange('all');
-    setCustomMinPrice('');
-    setCustomMaxPrice('');
+    setSelectedSubcategories([]);
+    setPriceMin('');
+    setPriceMax('');
+    setSelectedRatings([]);
+    setSelectedDiscounts([]);
     setInStockOnly(false);
-    setFastDispatchOnly(false);
-    setCodOnly(false);
-    setDiscountOffer('all');
+    setFilterTodaysDeals(false);
+    setFilterNewArrivals(false);
+    setFilterBestSellers(false);
+    setFilterSale(false);
+    setSortBy('featured');
+  };
+
+  const toggleSubcategory = (sub: string) => {
+    setSelectedSubcategories((prev) =>
+      prev.includes(sub) ? prev.filter((s) => s !== sub) : [...prev, sub]
+    );
+  };
+
+  const toggleRating = (rating: number) => {
+    setSelectedRatings((prev) =>
+      prev.includes(rating) ? prev.filter((r) => r !== rating) : [...prev, rating]
+    );
+  };
+
+  const toggleDiscount = (discount: number) => {
+    setSelectedDiscounts((prev) =>
+      prev.includes(discount) ? prev.filter((d) => d !== discount) : [...prev, discount]
+    );
   };
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
     let list = [...rawProducts];
 
-    // Subcategory Filter
-    if (selectedSubcategory && selectedSubcategory !== 'all') {
-      const subTerms = selectedSubcategory.toLowerCase().split(/[ &,/]+/).filter(Boolean);
+    // 1. Subcategory Multi-select
+    if (selectedSubcategories.length > 0) {
       list = list.filter((p) => {
-        const text = `${p.title} ${p.category} ${p.tag || ''}`.toLowerCase();
-        return subTerms.some((term) => text.includes(term));
+        return selectedSubcategories.some((sub) => matchesSubcategory(p, sub));
       });
     }
 
-    // Search query filter
+    // 2. Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((p) => 
@@ -144,45 +252,52 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
       );
     }
 
-    // Price Range Filter
-    if (priceRange === 'under-99') {
-      list = list.filter((p) => p.currentPrice <= 99);
-    } else if (priceRange === '100-249') {
-      list = list.filter((p) => p.currentPrice >= 100 && p.currentPrice <= 249);
-    } else if (priceRange === '250-499') {
-      list = list.filter((p) => p.currentPrice >= 250 && p.currentPrice <= 499);
-    } else if (priceRange === '500-above') {
-      list = list.filter((p) => p.currentPrice >= 500);
+    // 3. Price Filter (Slider + Min/Max Box)
+    if (priceMin !== '' && !isNaN(Number(priceMin))) {
+      list = list.filter((p) => p.currentPrice >= Number(priceMin));
+    }
+    if (priceMax !== '' && !isNaN(Number(priceMax))) {
+      list = list.filter((p) => p.currentPrice <= Number(priceMax));
     }
 
-    // Custom Min/Max Price filter
-    if (customMinPrice && !isNaN(Number(customMinPrice))) {
-      list = list.filter((p) => p.currentPrice >= Number(customMinPrice));
-    }
-    if (customMaxPrice && !isNaN(Number(customMaxPrice))) {
-      list = list.filter((p) => p.currentPrice <= Number(customMaxPrice));
+    // 4. Customer Ratings Checkbox (4★ & Above, 3★ & Above, 2★ & Above, 1★ & Above)
+    if (selectedRatings.length > 0) {
+      const minRating = Math.min(...selectedRatings);
+      list = list.filter((p) => p.rating >= minRating);
     }
 
-    // Availability Filter
+    // 5. Discount Checkbox (10% & Above, 20% & Above, 30% & Above, 50% & Above)
+    if (selectedDiscounts.length > 0) {
+      const minDiscount = Math.min(...selectedDiscounts);
+      list = list.filter((p) => p.discountPercentage >= minDiscount);
+    }
+
+    // 6. Availability Checkbox (In Stock)
     if (inStockOnly) {
       list = list.filter((p) => p.inStock !== false);
     }
-    if (fastDispatchOnly) {
-      list = list.filter((p) => p.isTopDeal || p.inStock);
+
+    // 7. Today's Deals Checkbox (Yes)
+    if (filterTodaysDeals) {
+      list = list.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag)));
     }
 
-    // Discount Offers Filter
-    if (discountOffer === '70-above') {
-      list = list.filter((p) => p.discountPercentage >= 70);
-    } else if (discountOffer === '50-69') {
-      list = list.filter((p) => p.discountPercentage >= 50 && p.discountPercentage <= 69);
-    } else if (discountOffer === '30-49') {
-      list = list.filter((p) => p.discountPercentage >= 30 && p.discountPercentage <= 49);
-    } else if (discountOffer === 'under-30') {
-      list = list.filter((p) => p.discountPercentage < 30);
+    // 8. New Arrivals Checkbox (Yes)
+    if (filterNewArrivals) {
+      list = list.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-'));
     }
 
-    // Sort order
+    // 9. Best Sellers Checkbox (Yes)
+    if (filterBestSellers) {
+      list = list.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7);
+    }
+
+    // 10. Sale Checkbox (Yes)
+    if (filterSale) {
+      list = list.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice);
+    }
+
+    // 11. Sort order
     if (sortBy === 'price-low') {
       list.sort((a, b) => a.currentPrice - b.currentPrice);
     } else if (sortBy === 'price-high') {
@@ -196,7 +311,21 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     }
 
     return list;
-  }, [rawProducts, searchQuery, priceRange, customMinPrice, customMaxPrice, inStockOnly, fastDispatchOnly, discountOffer, sortBy]);
+  }, [
+    rawProducts,
+    selectedSubcategories,
+    searchQuery,
+    priceMin,
+    priceMax,
+    selectedRatings,
+    selectedDiscounts,
+    inStockOnly,
+    filterTodaysDeals,
+    filterNewArrivals,
+    filterBestSellers,
+    filterSale,
+    sortBy,
+  ]);
 
   const handleAddToCart = (product: ProductItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -227,10 +356,138 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     }));
   };
 
-  // Reusable Component for Filter Cards matching user requirements
+  // Reusable Component for Filter Cards matching exact user specifications
   const renderFilterCards = () => (
     <div className="space-y-3">
-      {/* 0. SUBCATEGORIES CARD */}
+
+      {/* 1. PRICE: SLIDER + MIN/MAX INPUT BOX (₹) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+        <button
+          type="button"
+          onClick={() => setIsPriceOpen(!isPriceOpen)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+          aria-expanded={isPriceOpen}
+        >
+          <div className="flex items-center gap-2.5">
+            <IndianRupee className="w-4 h-4 text-[#A44101] shrink-0" />
+            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+              PRICE (₹)
+            </span>
+            {(priceMin !== '' || priceMax !== '') && (
+              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+            )}
+          </div>
+          <ChevronDown 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+              isPriceOpen ? 'rotate-180' : ''
+            }`} 
+          />
+        </button>
+
+        {isPriceOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-3 border-t border-slate-100 animate-fadeIn">
+            {/* Live Slider Indicator */}
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-500">
+                ₹{priceMin !== '' ? priceMin : minCatalogPrice}
+              </span>
+              <span className="text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded-md font-black">
+                Max: ₹{priceMax !== '' ? priceMax : maxCatalogPrice}
+              </span>
+              <span className="text-slate-500">₹{maxCatalogPrice}</span>
+            </div>
+
+            {/* Range Slider */}
+            <div>
+              <input
+                type="range"
+                min={minCatalogPrice}
+                max={maxCatalogPrice}
+                step={10}
+                value={priceMax !== '' ? Number(priceMax) : maxCatalogPrice}
+                onChange={(e) => setPriceMax(e.target.value)}
+                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#A44101]"
+              />
+            </div>
+
+            {/* Min / Max Input Boxes with ₹ Symbol */}
+            <div className="pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                    Min Price (₹)
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-2.5 text-xs font-bold text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      placeholder={String(minCatalogPrice)}
+                      value={priceMin}
+                      onChange={(e) => setPriceMin(e.target.value)}
+                      className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-navy focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                    Max Price (₹)
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-2.5 text-xs font-bold text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      placeholder={String(maxCatalogPrice)}
+                      value={priceMax}
+                      onChange={(e) => setPriceMax(e.target.value)}
+                      className="w-full pl-6 pr-2 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-navy focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Price Range Chips */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {[
+                { label: 'Under ₹99', min: '', max: '99' },
+                { label: 'Under ₹249', min: '', max: '249' },
+                { label: 'Under ₹499', min: '', max: '499' },
+                { label: '₹500 & Above', min: '500', max: '' },
+              ].map((p, pIdx) => (
+                <button
+                  key={pIdx}
+                  type="button"
+                  onClick={() => {
+                    setPriceMin(p.min);
+                    setPriceMax(p.max);
+                  }}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-all ${
+                    priceMin === p.min && priceMax === p.max
+                      ? 'bg-[#A44101] text-white'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {(priceMin !== '' || priceMax !== '') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMin('');
+                    setPriceMax('');
+                  }}
+                  className="px-2 py-0.5 rounded-md text-[10px] font-bold text-red-600 hover:bg-red-50 cursor-pointer"
+                >
+                  Clear Price
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 2. SUBCATEGORY: CHECKBOX (SUBCATEGORY NAMES) */}
       {metadata.subcategories && metadata.subcategories.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
           <button
@@ -242,10 +499,12 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
             <div className="flex items-center gap-2.5">
               <Tag className="w-4 h-4 text-[#A44101] shrink-0" />
               <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
-                SUBCATEGORIES
+                SUBCATEGORY
               </span>
-              {selectedSubcategory !== 'all' && (
-                <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+              {selectedSubcategories.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#A44101] text-white text-[10px] font-black">
+                  {selectedSubcategories.length}
+                </span>
               )}
             </div>
             <ChevronDown 
@@ -256,42 +515,42 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
           </button>
 
           {isSubcategoryOpen && (
-            <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
-              <label
-                className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
-                  selectedSubcategory === 'all'
-                    ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
-                }`}
-              >
-                <span>All Subcategories</span>
-                <input
-                  type="radio"
-                  name="subcategory-filter"
-                  checked={selectedSubcategory === 'all'}
-                  onChange={() => setSelectedSubcategory('all')}
-                  className="accent-[#A44101] w-3.5 h-3.5 cursor-pointer"
-                />
-              </label>
+            <div className="px-4 pb-4 pt-1 space-y-1 border-t border-slate-100 animate-fadeIn max-h-60 overflow-y-auto">
+              <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-slate-100 text-[11px]">
+                <span className="text-slate-400 font-bold uppercase tracking-wider">Select Options</span>
+                {selectedSubcategories.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSubcategories([])}
+                    className="text-[#A44101] font-bold hover:underline cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+
               {metadata.subcategories.map((sub, sIdx) => {
-                const isSelected = selectedSubcategory.toLowerCase() === sub.toLowerCase();
+                const isChecked = selectedSubcategories.some((s) => s.toLowerCase() === sub.toLowerCase());
+                const count = filterCounts.subCounts[sub] || 0;
                 return (
                   <label
                     key={sIdx}
                     className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
-                      isSelected
+                      isChecked
                         ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
                         : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
                     }`}
                   >
-                    <span>{sub}</span>
-                    <input
-                      type="radio"
-                      name="subcategory-filter"
-                      checked={isSelected}
-                      onChange={() => setSelectedSubcategory(sub)}
-                      className="accent-[#A44101] w-3.5 h-3.5 cursor-pointer"
-                    />
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleSubcategory(sub)}
+                        className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                      />
+                      <span>{sub}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-medium">({count})</span>
                   </label>
                 );
               })}
@@ -300,7 +559,300 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
         </div>
       )}
 
-      {/* 1. SORT BY CARD */}
+      {/* 3. CUSTOMER RATINGS: CHECKBOX (4★ & Above, 3★ & Above, 2★ & Above, 1★ & Above) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+        <button
+          type="button"
+          onClick={() => setIsRatingOpen(!isRatingOpen)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+          aria-expanded={isRatingOpen}
+        >
+          <div className="flex items-center gap-2.5">
+            <Star className="w-4 h-4 text-[#A44101] shrink-0" />
+            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+              CUSTOMER RATINGS
+            </span>
+            {selectedRatings.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+            )}
+          </div>
+          <ChevronDown 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+              isRatingOpen ? 'rotate-180' : ''
+            }`} 
+          />
+        </button>
+
+        {isRatingOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
+            {[
+              { stars: 4, label: '4★ & Above' },
+              { stars: 3, label: '3★ & Above' },
+              { stars: 2, label: '2★ & Above' },
+              { stars: 1, label: '1★ & Above' },
+            ].map((opt) => {
+              const isChecked = selectedRatings.includes(opt.stars);
+              const count = filterCounts.ratingCounts[opt.stars] || 0;
+              return (
+                <label
+                  key={opt.stars}
+                  className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                    isChecked
+                      ? 'bg-amber-50 text-amber-900 font-bold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleRating(opt.stars)}
+                      className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                    />
+                    <div className="flex items-center gap-1">
+                      <span className="font-bold text-slate-800">{opt.label}</span>
+                      <div className="flex items-center ml-1">
+                        {[1, 2, 3, 4, 5].map((starIdx) => (
+                          <Star
+                            key={starIdx}
+                            className={`w-3 h-3 ${
+                              starIdx <= opt.stars
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-slate-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">({count})</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 4. DISCOUNT: CHECKBOX (10% & Above, 20% & Above, 30% & Above, 50% & Above) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+        <button
+          type="button"
+          onClick={() => setIsDiscountOpen(!isDiscountOpen)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+          aria-expanded={isDiscountOpen}
+        >
+          <div className="flex items-center gap-2.5">
+            <Percent className="w-4 h-4 text-[#A44101] shrink-0" />
+            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+              DISCOUNT
+            </span>
+            {selectedDiscounts.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+            )}
+          </div>
+          <ChevronDown 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+              isDiscountOpen ? 'rotate-180' : ''
+            }`} 
+          />
+        </button>
+
+        {isDiscountOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
+            {[
+              { percent: 50, label: '50% & Above' },
+              { percent: 30, label: '30% & Above' },
+              { percent: 20, label: '20% & Above' },
+              { percent: 10, label: '10% & Above' },
+            ].map((opt) => {
+              const isChecked = selectedDiscounts.includes(opt.percent);
+              const count = filterCounts.discountCounts[opt.percent] || 0;
+              return (
+                <label
+                  key={opt.percent}
+                  className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                    isChecked
+                      ? 'bg-emerald-50 text-emerald-900 font-bold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleDiscount(opt.percent)}
+                      className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                    />
+                    <span className="font-bold">{opt.label}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium">({count})</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 5. AVAILABILITY: CHECKBOX (In Stock) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+        <button
+          type="button"
+          onClick={() => setIsAvailabilityOpen(!isAvailabilityOpen)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+          aria-expanded={isAvailabilityOpen}
+        >
+          <div className="flex items-center gap-2.5">
+            <Package className="w-4 h-4 text-[#A44101] shrink-0" />
+            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+              AVAILABILITY
+            </span>
+            {inStockOnly && (
+              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+            )}
+          </div>
+          <ChevronDown 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+              isAvailabilityOpen ? 'rotate-180' : ''
+            }`} 
+          />
+        </button>
+
+        {isAvailabilityOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
+            <label className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+              inStockOnly ? 'bg-[#A44101]/10 text-[#A44101] font-bold' : 'text-slate-700 hover:bg-slate-50'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={inStockOnly}
+                  onChange={(e) => setInStockOnly(e.target.checked)}
+                  className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                />
+                <span>In Stock Only</span>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">
+                ({filterCounts.inStockCount})
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* 6. SPECIAL DEALS & COLLECTIONS: CHECKBOX (Today's Deals, New Arrivals, Best Sellers, Sale) */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+        <button
+          type="button"
+          onClick={() => setIsSpecialDealsOpen(!isSpecialDealsOpen)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+          aria-expanded={isSpecialDealsOpen}
+        >
+          <div className="flex items-center gap-2.5">
+            <Flame className="w-4 h-4 text-[#A44101] shrink-0" />
+            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+              COLLECTIONS &amp; DEALS
+            </span>
+            {(filterTodaysDeals || filterNewArrivals || filterBestSellers || filterSale) && (
+              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+            )}
+          </div>
+          <ChevronDown 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+              isSpecialDealsOpen ? 'rotate-180' : ''
+            }`} 
+          />
+        </button>
+
+        {isSpecialDealsOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
+            {/* Today's Deals Checkbox (Yes) */}
+            <label className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+              filterTodaysDeals ? 'bg-rose-50 text-rose-800 font-bold' : 'text-slate-700 hover:bg-slate-50'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={filterTodaysDeals}
+                  onChange={(e) => setFilterTodaysDeals(e.target.checked)}
+                  className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Today&apos;s Deals</span>
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">
+                ({filterCounts.todaysDealsCount})
+              </span>
+            </label>
+
+            {/* New Arrivals Checkbox (Yes) */}
+            <label className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+              filterNewArrivals ? 'bg-emerald-50 text-emerald-800 font-bold' : 'text-slate-700 hover:bg-slate-50'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={filterNewArrivals}
+                  onChange={(e) => setFilterNewArrivals(e.target.checked)}
+                  className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>New Arrivals</span>
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">
+                ({filterCounts.newArrivalsCount})
+              </span>
+            </label>
+
+            {/* Best Sellers Checkbox (Yes) */}
+            <label className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+              filterBestSellers ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={filterBestSellers}
+                  onChange={(e) => setFilterBestSellers(e.target.checked)}
+                  className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Best Sellers</span>
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">
+                ({filterCounts.bestSellersCount})
+              </span>
+            </label>
+
+            {/* Sale Checkbox (Yes) */}
+            <label className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+              filterSale ? 'bg-[#A44101]/10 text-[#A44101] font-bold' : 'text-slate-700 hover:bg-slate-50'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={filterSale}
+                  onChange={(e) => setFilterSale(e.target.checked)}
+                  className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
+                />
+                <div className="flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5 text-[#A44101]" />
+                  <span>Sale / On Sale</span>
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium">
+                ({filterCounts.saleCount})
+              </span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* 7. SORT BY CARD */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
         <button
           type="button"
@@ -359,214 +911,6 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
         )}
       </div>
 
-      {/* 2. PRICE RANGE CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
-        <button
-          type="button"
-          onClick={() => setIsPriceOpen(!isPriceOpen)}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
-          aria-expanded={isPriceOpen}
-        >
-          <div className="flex items-center gap-2.5">
-            <IndianRupee className="w-4 h-4 text-[#A44101] shrink-0" />
-            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
-              PRICE RANGE
-            </span>
-            {(priceRange !== 'all' || customMinPrice || customMaxPrice) && (
-              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
-            )}
-          </div>
-          <ChevronDown 
-            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-              isPriceOpen ? 'rotate-180' : ''
-            }`} 
-          />
-        </button>
-
-        {isPriceOpen && (
-          <div className="px-4 pb-4 pt-1 space-y-2 border-t border-slate-100 animate-fadeIn">
-            <div className="space-y-1.5">
-              {[
-                { id: 'all', label: 'All Prices' },
-                { id: 'under-99', label: 'Under ₹99 (Pocket Deals)' },
-                { id: '100-249', label: '₹100 to ₹249' },
-                { id: '250-499', label: '₹250 to ₹499' },
-                { id: '500-above', label: '₹500 & Above' },
-              ].map((opt) => {
-                const isSelected = priceRange === opt.id && !customMinPrice && !customMaxPrice;
-                return (
-                  <label
-                    key={opt.id}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
-                    }`}
-                  >
-                    <span>{opt.label}</span>
-                    <input
-                      type="radio"
-                      name="price-range"
-                      checked={isSelected}
-                      onChange={() => {
-                        setPriceRange(opt.id as PriceRangeOption);
-                        setCustomMinPrice('');
-                        setCustomMaxPrice('');
-                      }}
-                      className="accent-[#A44101] w-3.5 h-3.5 cursor-pointer"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* Custom Min / Max Price Inputs */}
-            <div className="pt-2 border-t border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 block mb-1.5 uppercase">
-                Custom Range (₹)
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={customMinPrice}
-                  onChange={(e) => {
-                    setCustomMinPrice(e.target.value);
-                    setPriceRange('all');
-                  }}
-                  className="w-1/2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-navy focus:outline-none focus:border-[#A44101]"
-                />
-                <span className="text-xs text-slate-400 font-bold">-</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={customMaxPrice}
-                  onChange={(e) => {
-                    setCustomMaxPrice(e.target.value);
-                    setPriceRange('all');
-                  }}
-                  className="w-1/2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-navy focus:outline-none focus:border-[#A44101]"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 3. AVAILABILITY CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
-        <button
-          type="button"
-          onClick={() => setIsAvailabilityOpen(!isAvailabilityOpen)}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
-          aria-expanded={isAvailabilityOpen}
-        >
-          <div className="flex items-center gap-2.5">
-            <Package className="w-4 h-4 text-[#A44101] shrink-0" />
-            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
-              AVAILABILITY
-            </span>
-            {(inStockOnly || fastDispatchOnly || codOnly) && (
-              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
-            )}
-          </div>
-          <ChevronDown 
-            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-              isAvailabilityOpen ? 'rotate-180' : ''
-            }`} 
-          />
-        </button>
-
-        {isAvailabilityOpen && (
-          <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
-            <label className="flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-50 text-slate-700">
-              <span>In Stock Only</span>
-              <input
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={(e) => setInStockOnly(e.target.checked)}
-                className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
-              />
-            </label>
-            <label className="flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-50 text-slate-700">
-              <span>Fast 24H Dispatch</span>
-              <input
-                type="checkbox"
-                checked={fastDispatchOnly}
-                onChange={(e) => setFastDispatchOnly(e.target.checked)}
-                className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
-              />
-            </label>
-            <label className="flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-50 text-slate-700">
-              <span>Cash on Delivery (COD)</span>
-              <input
-                type="checkbox"
-                checked={codOnly}
-                onChange={(e) => setCodOnly(e.target.checked)}
-                className="accent-[#A44101] w-4 h-4 rounded cursor-pointer"
-              />
-            </label>
-          </div>
-        )}
-      </div>
-
-      {/* 4. DISCOUNT OFFERS CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
-        <button
-          type="button"
-          onClick={() => setIsDiscountOpen(!isDiscountOpen)}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
-          aria-expanded={isDiscountOpen}
-        >
-          <div className="flex items-center gap-2.5">
-            <Tag className="w-4 h-4 text-[#A44101] shrink-0" />
-            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
-              DISCOUNT OFFERS
-            </span>
-            {discountOffer !== 'all' && (
-              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
-            )}
-          </div>
-          <ChevronDown 
-            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-              isDiscountOpen ? 'rotate-180' : ''
-            }`} 
-          />
-        </button>
-
-        {isDiscountOpen && (
-          <div className="px-4 pb-4 pt-1 space-y-1.5 border-t border-slate-100 animate-fadeIn">
-            {[
-              { id: 'all', label: 'All Discounts' },
-              { id: '70-above', label: '70% Off or More (Mega Deals)' },
-              { id: '50-69', label: '50% to 69% Off' },
-              { id: '30-49', label: '30% to 49% Off' },
-              { id: 'under-30', label: 'Under 30% Off' },
-            ].map((opt) => {
-              const isSelected = discountOffer === opt.id;
-              return (
-                <label
-                  key={opt.id}
-                  className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-[#A44101]/10 text-[#A44101] font-bold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-navy'
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  <input
-                    type="radio"
-                    name="discount-offer"
-                    checked={isSelected}
-                    onChange={() => setDiscountOffer(opt.id as DiscountOption)}
-                    className="accent-[#A44101] w-3.5 h-3.5 cursor-pointer"
-                  />
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
     </div>
   );
 
@@ -703,9 +1047,9 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setSelectedSubcategory('all')}
+                  onClick={() => setSelectedSubcategories([])}
                   className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all cursor-pointer ${
-                    selectedSubcategory === 'all'
+                    selectedSubcategories.length === 0
                       ? 'bg-navy text-white shadow-2xs'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
@@ -713,19 +1057,27 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                   All
                 </button>
                 {metadata.subcategories.map((sub, sIdx) => {
-                  const isSelected = selectedSubcategory.toLowerCase() === sub.toLowerCase();
+                  const isSelected = selectedSubcategories.some((s) => s.toLowerCase() === sub.toLowerCase());
+                  const count = filterCounts.subCounts[sub] || 0;
                   return (
                     <button
                       key={sIdx}
                       type="button"
-                      onClick={() => setSelectedSubcategory(sub)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                      onClick={() => toggleSubcategory(sub)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                         isSelected
                           ? 'bg-[#A44101] text-white shadow-2xs font-bold'
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-navy'
                       }`}
                     >
-                      {sub}
+                      <span>{sub}</span>
+                      {count > 0 && (
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {count}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -765,64 +1117,166 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                 <div className="flex flex-wrap items-center gap-2 pt-2.5 mt-2.5 border-t border-slate-100">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Applied:</span>
                   
-                  {selectedSubcategory !== 'all' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#A44101]/10 text-[#A44101] text-xs font-bold">
-                      <span>Subcategory: {selectedSubcategory}</span>
-                      <button type="button" onClick={() => setSelectedSubcategory('all')} className="hover:text-red-700">
+                  {/* Subcategories */}
+                  {selectedSubcategories.map((sub) => (
+                    <span key={sub} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#A44101]/10 text-[#A44101] text-xs font-bold">
+                      <span>{sub}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSubcategory(sub)}
+                        className="hover:text-red-700 cursor-pointer"
+                        title="Remove subcategory"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
-                  )}
+                  ))}
 
-                  {sortBy !== 'featured' && (
+                  {/* Price */}
+                  {(priceMin !== '' || priceMax !== '') && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-                      <span>Sort: {sortBy}</span>
-                      <button type="button" onClick={() => setSortBy('featured')} className="hover:text-[#A44101]">
+                      <span>₹{priceMin !== '' ? priceMin : minCatalogPrice} - ₹{priceMax !== '' ? priceMax : maxCatalogPrice}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setPriceMin(''); setPriceMax(''); }}
+                        className="hover:text-[#A44101] cursor-pointer"
+                        title="Remove price filter"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   )}
 
-                  {priceRange !== 'all' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-                      <span>Price: {priceRange}</span>
-                      <button type="button" onClick={() => setPriceRange('all')} className="hover:text-[#A44101]">
+                  {/* Customer Ratings */}
+                  {selectedRatings.map((rating) => (
+                    <span key={rating} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold border border-amber-200">
+                      <span>{rating}★ &amp; Above</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleRating(rating)}
+                        className="hover:text-amber-950 cursor-pointer"
+                        title="Remove rating filter"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
-                  )}
+                  ))}
 
-                  {(customMinPrice || customMaxPrice) && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-                      <span>₹{customMinPrice || '0'} - ₹{customMaxPrice || '∞'}</span>
-                      <button type="button" onClick={() => { setCustomMinPrice(''); setCustomMaxPrice(''); }} className="hover:text-[#A44101]">
+                  {/* Discounts */}
+                  {selectedDiscounts.map((disc) => (
+                    <span key={disc} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                      <span>{disc}% &amp; Above</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleDiscount(disc)}
+                        className="hover:text-emerald-950 cursor-pointer"
+                        title="Remove discount filter"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
-                  )}
+                  ))}
 
+                  {/* Availability */}
                   {inStockOnly && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
                       <span>In Stock</span>
-                      <button type="button" onClick={() => setInStockOnly(false)} className="hover:text-[#A44101]">
+                      <button
+                        type="button"
+                        onClick={() => setInStockOnly(false)}
+                        className="hover:text-[#A44101] cursor-pointer"
+                        title="Remove availability filter"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   )}
 
-                  {discountOffer !== 'all' && (
+                  {/* Today's Deals */}
+                  {filterTodaysDeals && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
+                      <span>Today&apos;s Deals</span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterTodaysDeals(false)}
+                        className="hover:text-rose-900 cursor-pointer"
+                        title="Remove today's deals filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {/* New Arrivals */}
+                  {filterNewArrivals && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                      <span>New Arrivals</span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterNewArrivals(false)}
+                        className="hover:text-emerald-900 cursor-pointer"
+                        title="Remove new arrivals filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {/* Best Sellers */}
+                  {filterBestSellers && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold border border-amber-200">
+                      <span>Best Sellers</span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterBestSellers(false)}
+                        className="hover:text-amber-950 cursor-pointer"
+                        title="Remove best sellers filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {/* Sale */}
+                  {filterSale && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#A44101]/10 text-[#A44101] text-xs font-bold border border-[#A44101]/20">
+                      <span>Sale</span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterSale(false)}
+                        className="hover:text-red-700 cursor-pointer"
+                        title="Remove sale filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {/* Sort */}
+                  {sortBy !== 'featured' && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
-                      <span>Discount: {discountOffer}</span>
-                      <button type="button" onClick={() => setDiscountOffer('all')} className="hover:text-[#A44101]">
+                      <span>Sort: {sortBy}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSortBy('featured')}
+                        className="hover:text-[#A44101] cursor-pointer"
+                        title="Reset sort"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>
                   )}
 
+                  {/* Search Query */}
                   {searchQuery && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
                       <span>&quot;{searchQuery}&quot;</span>
-                      <button type="button" onClick={() => setSearchQuery('')} className="hover:text-[#A44101]">
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="hover:text-[#A44101] cursor-pointer"
+                        title="Clear search"
+                      >
                         <X className="w-3 h-3" />
                       </button>
                     </span>

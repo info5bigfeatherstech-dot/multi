@@ -116,7 +116,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onGoToAdmin, o
 
               <div className="flex items-center gap-2.5 text-slate-400">
                 <Clock className="w-4 h-4 text-[#A44101] shrink-0" />
-                <span>Support Hours: Mon - Sat (9:00 AM - 8:00 PM)</span>
+                <span>Support Hours: Tue - Sun (1:00 PM - 10:00 PM)</span>
               </div>
 
               <div className="flex items-center gap-2.5 text-slate-400">
@@ -133,24 +133,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onGoToAdmin, o
               <span>Top Categories</span>
             </h3>
             <ul className="space-y-2 text-xs sm:text-[13px]">
-              <li key="u99-special">
-                <button 
-                  type="button"
-                  onClick={() => {
-                    document.querySelector('.section-under-99-store')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="w-full text-left text-[#A44101] font-bold hover:text-white transition-colors flex items-center justify-between group cursor-pointer"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#A44101] inline-block" />
-                    Under ₹99 Store
-                  </span>
-                  <span className="text-[9px] bg-[#A44101] text-white px-1.5 py-0.5 rounded font-black">
-                    DHAMAKA
-                  </span>
-                </button>
-              </li>
-              {STORE_CATEGORIES.slice(0, 6).map((cat) => (
+              {STORE_CATEGORIES.map((cat) => (
                 <li key={cat.id}>
                   <button 
                     type="button"

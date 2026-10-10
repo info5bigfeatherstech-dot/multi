@@ -1,8 +1,127 @@
 import { apiClient, normalizeApiError } from "./client";
 
 /* ============================================================
-   1. ADMIN AUTH & STAFF MANAGEMENT
+   1. ADMIN AUTH & STAFF MANAGEMENT (10 Full API Endpoints)
    ============================================================ */
+export const adminStaffApi = {
+  // 1. List Staff (GET /admin/staff) - paginated with search & role filter
+  listStaff: async (params?: { page?: number; limit?: number; search?: string; role?: string }) => {
+    try {
+      const res = await apiClient.get("/admin/staff", { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 2. Get Staff Details (GET /admin/staff/:id)
+  getStaffDetails: async (id: string) => {
+    try {
+      const res = await apiClient.get(`/admin/staff/${encodeURIComponent(id)}`);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 3. Create Staff (POST /admin/staff)
+  createStaff: async (payload: {
+    name: string;
+    email: string;
+    phone?: string;
+    role: string;
+    password?: string;
+    permissions?: Record<string, any>;
+  }) => {
+    try {
+      const res = await apiClient.post("/admin/staff", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 4. Update Staff (PUT /admin/staff/:id)
+  updateStaff: async (
+    id: string,
+    payload: {
+      name?: string;
+      phone?: string;
+      role?: string;
+      isActive?: boolean;
+      permissions?: Record<string, any>;
+      [key: string]: any;
+    }
+  ) => {
+    try {
+      const res = await apiClient.put(`/admin/staff/${encodeURIComponent(id)}`, payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 5. Delete / Deactivate Staff (DELETE /admin/staff/:id)
+  deleteStaff: async (id: string) => {
+    try {
+      const res = await apiClient.delete(`/admin/staff/${encodeURIComponent(id)}`);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 6. Initiate Staff Reset (POST /admin/staff/:id/initiate-reset)
+  initiateStaffReset: async (id: string) => {
+    try {
+      const res = await apiClient.post(`/admin/staff/${encodeURIComponent(id)}/initiate-reset`, {});
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 7. Verify Staff Reset (POST /admin/staff/:id/verify-reset)
+  verifyStaffReset: async (id: string, payload: { otp: string; newPassword: string }) => {
+    try {
+      const res = await apiClient.post(`/admin/staff/${encodeURIComponent(id)}/verify-reset`, payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 8. Get My Profile (GET /admin/staff/profile/me)
+  getMyProfile: async () => {
+    try {
+      const res = await apiClient.get("/admin/staff/profile/me");
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 9. Initiate Self Reset (POST /admin/staff/profile/me/initiate-password-reset)
+  initiateSelfReset: async () => {
+    try {
+      const res = await apiClient.post("/admin/staff/profile/me/initiate-password-reset", {});
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 10. Verify Self Reset (POST /admin/staff/profile/me/verify-password-reset)
+  verifySelfReset: async (payload: { otp: string; newPassword: string }) => {
+    try {
+      const res = await apiClient.post("/admin/staff/profile/me/verify-password-reset", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
 export const adminAuthApi = {
   login: async (credentials: { email: string; password: string }) => {
     try {
@@ -27,22 +146,15 @@ export const adminAuthApi = {
   logout: () => {
     localStorage.removeItem("admin_access_token");
   },
-  getStaffMembers: async () => {
+  getStaffMembers: async (params?: any) => {
     try {
-      const res = await apiClient.get("/admin/staff");
+      const res = await apiClient.get("/admin/staff", { params });
       return res.data?.data?.staff || res.data?.data || res.data?.staff || [];
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
-  createStaff: async (data: { name: string; email: string; role: string; phone?: string; password?: string }) => {
-    try {
-      const res = await apiClient.post("/admin/staff", data);
-      return res.data?.data || res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
-    }
-  },
+  createStaff: adminStaffApi.createStaff,
 };
 
 /* ============================================================
@@ -280,16 +392,48 @@ export const adminCouponsApi = {
 /* ============================================================
    6. PRODUCT LABELS / BADGES TAB
    ============================================================ */
+export interface ProductLabelItem {
+  _id?: string;
+  id?: string;
+  name: string;
+  slug: string;
+  pagePath?: string;
+  description?: string;
+  style?: string;
+  showInNav?: boolean;
+  showOnHomepage?: boolean;
+  homepageLimit?: number;
+  homepageSortOrder?: number;
+  storefronts?: string[];
+  productCount?: number;
+  isActive?: boolean;
+  isDefault?: boolean;
+  icon?: string;
+  badgeText?: string;
+  badgeStyle?: string;
+  color?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const adminLabelsApi = {
-  getAll: async () => {
+  getAll: async (params?: { activeOnly?: boolean; search?: string }) => {
     try {
-      const res = await apiClient.get("/admin/product-labels");
+      const res = await apiClient.get("/admin/product-labels", { params });
       return res.data?.data || res.data || [];
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
-  create: async (label: { name: string; slug: string; color?: string }) => {
+  getById: async (idOrSlug: string) => {
+    try {
+      const res = await apiClient.get(`/admin/product-labels/${encodeURIComponent(idOrSlug)}`);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  create: async (label: Partial<ProductLabelItem>) => {
     try {
       const res = await apiClient.post("/admin/product-labels", label);
       return res.data?.data || res.data;
@@ -297,13 +441,34 @@ export const adminLabelsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
-  assignToProducts: async (payload: { slugs: string[]; flagType: string; value: boolean }) => {
+  update: async (idOrSlug: string, label: Partial<ProductLabelItem>) => {
     try {
-      const res = await apiClient.post("/admin/products/assign-labels", payload);
-      return res.data;
+      const res = await apiClient.put(`/admin/product-labels/${encodeURIComponent(idOrSlug)}`, label);
+      return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
+  },
+  delete: async (idOrSlug: string) => {
+    try {
+      const res = await apiClient.delete(`/admin/product-labels/${encodeURIComponent(idOrSlug)}`);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  updateFlags: async (payload: { slugs: string[]; flagType: string; value: boolean }) => {
+    try {
+      const res = await apiClient.put("/admin/products/updateFlags", payload);
+      return res.data?.data || res.data;
+    } catch {
+      // Fallback
+      const res = await apiClient.post("/admin/products/assign-labels", payload);
+      return res.data?.data || res.data;
+    }
+  },
+  assignToProducts: async (payload: { slugs: string[]; flagType: string; value: boolean }) => {
+    return adminLabelsApi.updateFlags(payload);
   },
 };
 

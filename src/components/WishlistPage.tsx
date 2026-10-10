@@ -5,7 +5,6 @@ import {
   Trash2, 
   ShoppingCart, 
   Check, 
-  ArrowLeft, 
   Star, 
   Sparkles, 
   ShoppingBag
@@ -83,29 +82,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
     <div className="bg-white min-h-screen py-6 sm:py-10 animate-fadeIn">
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
-        {/* Breadcrumb & Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="text-navy hover:text-[#A44101] font-medium transition-colors cursor-pointer"
-            >
-              Home
-            </button>
-            <span>/</span>
-            <span className="text-slate-900 font-bold">My Wishlist</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={onBackToHome}
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-navy hover:text-[#A44101] transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Continue Shopping</span>
-          </button>
-        </div>
+        {/* Page Header Banner */}
 
         {/* Page Header Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200">

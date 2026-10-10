@@ -328,6 +328,42 @@ export interface AdminAnalyticsSummary {
   conversionRate: number;
 }
 
+export type StaffRole = 'admin' | 'product_manager' | 'order_manager' | 'marketing_manager';
+
+export interface PermissionAction {
+  read: boolean;
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+}
+
+export interface StaffPermissionsMatrix {
+  orders?: PermissionAction;
+  products?: PermissionAction;
+  returns?: PermissionAction;
+  marketing?: PermissionAction;
+  reviews?: PermissionAction;
+  analytics?: PermissionAction;
+  utilities?: PermissionAction;
+  staff?: PermissionAction;
+  [key: string]: PermissionAction | undefined;
+}
+
+export interface StaffMember {
+  _id?: string;
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: StaffRole | string;
+  isActive: boolean;
+  twoFactorEnabled?: boolean;
+  permissions?: StaffPermissionsMatrix;
+  lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface AdminStaffUser {
   id: string;
   name: string;

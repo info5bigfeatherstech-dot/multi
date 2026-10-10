@@ -224,7 +224,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
                 Phone Support
               </h3>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Available Mon - Sun from 9:00 AM to 9:00 PM IST.
+                Available Tue - Sun from 1:00 PM to 10:00 PM IST.
               </p>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#A44101]">

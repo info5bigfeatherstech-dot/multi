@@ -278,6 +278,23 @@ export const Header: React.FC<HeaderProps> = ({
       });
   }, []);
 
+  // Real-time Marketing Nav Labels
+  const [storefrontNavLabels] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('abb_admin_product_labels');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((l: any) => l.showInNav && l.isActive !== false);
+        }
+      }
+    } catch {}
+    return [
+      { name: "Today's Deal", slug: "today-arrival", badgeText: "HOT", icon: "flame" },
+      { name: "On Sale", slug: "on-sale", badgeText: "HOT", icon: "flame" },
+    ];
+  });
+
   // Real-time Customer Auth State
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(() => {
     return typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token')) : false;
@@ -751,16 +768,40 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 Featured Categories
               </button> */}
-              <button
-                type="button"
-                onClick={() => {
-                  (document.querySelector('.section-home-kitchen') || document.querySelector('.section-top-categories'))?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#A44101] hover:text-[#8C3701] hover:bg-[#A44101]/10 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Flame className="w-3.5 h-3.5 text-[#A44101] animate-pulse" />
-                <span>Top Deals</span>
-              </button>
+              {storefrontNavLabels.slice(0, 3).map((lbl) => {
+                const isFestive = lbl.badgeText === 'FESTIVE' || lbl.icon === 'sparkles' || (lbl as any).style?.includes('Festive');
+                return (
+                  <button
+                    key={lbl.slug || lbl.name}
+                    type="button"
+                    onClick={() => {
+                      const targetEl = document.querySelector('.section-home-kitchen') || document.querySelector('.section-top-categories');
+                      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer hover:scale-102 ${
+                      isFestive
+                        ? 'bg-black/80 border border-amber-500/80 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
+                        : 'bg-[#1c1917] border border-stone-800 hover:border-[#A44101]/60 shadow-2xs'
+                    }`}
+                  >
+                    {isFestive ? (
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 animate-pulse" />
+                    ) : (
+                      <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                    )}
+                    <span>{lbl.name}</span>
+                    {lbl.badgeText && (
+                      <span className={`text-white text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
+                        isFestive
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-2xs'
+                          : 'bg-gradient-to-r from-red-600 to-amber-600'
+                      }`}>
+                        {lbl.badgeText}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
 
               <a
                 href="https://wa.me/919320001717"
