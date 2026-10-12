@@ -19,140 +19,113 @@ export interface CategoryCardData {
 }
 
 export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
-  // 1. Home & Kitchen
+  // 1. Electronics & Gadgets
   {
-    id: "home-kitchen",
-    name: "HOME & KITCHEN",
-    imageUrl: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80",
+    id: "electronics-and-gadgets",
+    name: "ELECTRONICS & GADGETS",
+    imageUrl: "https://res.cloudinary.com/wo5f58fu/image/upload/v1790061569/categories/cards/electronics-and-gadgets-card-6ab20435a4ded8a3ec745887-1790061565303.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["home-kitchen"],
+    subcategories: CATEGORY_SUBCATEGORIES["electronics-and-gadgets"],
   },
-  // 2. Smart Life Gadgets
+  // 2. Gifts & Lifestyle
   {
-    id: "smart-life-gadget",
-    name: "SMART LIFE GADGETS",
-    imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80",
+    id: "gifts-and-lifestyle",
+    name: "GIFTS & LIFESTYLE",
+    imageUrl: "https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/products/2026/07/love-pearl-chain-necklace-v-2633-1-img-0-1784529134136.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["smart-life-gadget"],
+    subcategories: CATEGORY_SUBCATEGORIES["gifts-and-lifestyle"],
   },
-  // 3. Baby Items
+  // 3. Home & Living
   {
-    id: "baby-items",
-    name: "BABY ITEMS",
-    imageUrl: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80",
+    id: "home-and-living",
+    name: "HOME & LIVING",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873051/products/zip-color-naphthalene-balls-2929-1-i0-1788873050768.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["baby-items"],
+    subcategories: CATEGORY_SUBCATEGORIES["home-and-living"],
   },
-  // 4. Stationery
+  // 4. Home Decor
   {
-    id: "stationary",
-    name: "STATIONERY",
-    imageUrl: "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=800&q=80",
+    id: "home-decor",
+    name: "HOME DECOR",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873051/products/zip-color-naphthalene-balls-2929-1-i0-1788873050768.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["stationary"],
+    subcategories: CATEGORY_SUBCATEGORIES["home-decor"],
   },
-  // 5. Cleaning & Housekeeping
+  // 5. Jewellery & Accessories
   {
-    id: "cleaning-housekeeping",
-    name: "CLEANING & HOUSEKEEPING",
-    imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=800&q=80",
+    id: "jewellery-and-accessories",
+    name: "JEWELLERY & ACCESSORIES",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873024/products/zip-reusable-car-cleaning-gloves-2920-1-i0-1788873024777.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["cleaning-housekeeping"],
+    subcategories: CATEGORY_SUBCATEGORIES["jewellery-and-accessories"],
   },
-  // 6. Sports & Fitness
+  // 6. Kitchen & Dining
   {
-    id: "sports-fitness",
+    id: "kitchen-and-dining",
+    name: "KITCHEN & DINING",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873047/products/zip-toothbrush-protector-cap-cover-2928-1-i0-1788873047623.webp",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["kitchen-and-dining"],
+  },
+  // 7. Stationery, Office & School
+  {
+    id: "stationery-office-and-school",
+    name: "STATIONERY, OFFICE & SCHOOL",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873009/products/zip-touch-soap-dispenser-for-kitchen-2915-1-i0-1788873009205.webp",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["stationery-office-and-school"],
+  },
+  // 8. Travel & Outdoor
+  {
+    id: "travel-and-outdoor",
+    name: "TRAVEL & OUTDOOR",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873033/products/zip-toothbrush-case-pack-of-5-2923-1-i0-1788873033558.webp",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["travel-and-outdoor"],
+  },
+  // 9. Sports & Fitness
+  {
+    id: "sports-and-fitness",
     name: "SPORTS & FITNESS",
-    imageUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1778499343/categories/sports-and-fitness-69b7990226573d44aced3a4a-1778499341777.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["sports-fitness"],
+    subcategories: CATEGORY_SUBCATEGORIES["sports-and-fitness"],
   },
-  // 7. Car Accessories
+  // 10. Beauty & Personal Care
   {
-    id: "car-accessories",
-    name: "CAR ACCESSORIES",
-    imageUrl: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80",
+    id: "beauty-and-personal-care",
+    name: "BEAUTY & PERSONAL CARE",
+    imageUrl: "https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/categories/2026/06/beauty-and-personal-care-6a196ffad1c7c35896eaca75-1780309850852.webp",
     bgColor: "bg-slate-100",
     overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["car-accessories"],
+    subcategories: CATEGORY_SUBCATEGORIES["beauty-and-personal-care"],
   },
-  // 8. Explore All Categories
+  // 11. Mix Items
+  {
+    id: "mix-items",
+    name: "MIX ITEMS",
+    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1778502352/categories/mix-items-1778502351223.webp",
+    bgColor: "bg-slate-100",
+    overlayColor: "bg-slate-900/10",
+    subcategories: CATEGORY_SUBCATEGORIES["mix-items"],
+  },
+  // 12. Explore All
   {
     id: "explore-all",
     name: "EXPLORE ALL CATEGORIES",
-    imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "https://res.cloudinary.com/wo5f58fu/image/upload/v1790061569/categories/cards/electronics-and-gadgets-card-6ab20435a4ded8a3ec745887-1790061565303.webp",
     bgColor: "bg-[#A44101]/10",
     overlayColor: "bg-[#A44101]/15",
     isExploreAll: true,
-  },
-  // 9. Tours & Travels
-  {
-    id: "tours-travels",
-    name: "TOURS & TRAVELS",
-    imageUrl: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["tours-travels"],
-  },
-  // 10. Fashion World
-  {
-    id: "fashion-world",
-    name: "FASHION WORLD",
-    imageUrl: "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["fashion-world"],
-  },
-  // 11. Gifts
-  {
-    id: "gifts",
-    name: "GIFTS",
-    imageUrl: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["gifts"],
-  },
-  // 12. Beauty & Personal Care
-  {
-    id: "beauty-personal-care",
-    name: "BEAUTY & PERSONAL CARE",
-    imageUrl: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["beauty-personal-care"],
-  },
-  // 13. Home Improvement
-  {
-    id: "home-improvement",
-    name: "HOME IMPROVEMENT",
-    imageUrl: "https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["home-improvement"],
-  },
-  // 14. Corporate Gifting
-  {
-    id: "corporate-gifting",
-    name: "CORPORATE GIFTING",
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["corporate-gifting"],
-  },
-  // 15. Mix Item Deals
-  {
-    id: "mix-item",
-    name: "MIX ITEM DEALS",
-    imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=800&q=80",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
-    subcategories: CATEGORY_SUBCATEGORIES["mix-item"],
   },
 ];
 

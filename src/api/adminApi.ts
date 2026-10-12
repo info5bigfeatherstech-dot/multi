@@ -569,6 +569,53 @@ export const adminOrdersApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  getOrderDetail: async (orderId: string) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.get(`/orders/items/${encodeURIComponent(cleanId)}`, {
+        useAdminAuth: true,
+      } as any);
+      const data = res.data?.data || res.data;
+      if (data?.order) return data.order;
+      if (data?.orderId) return data;
+      return null;
+    } catch {
+      return adminOrdersApi.getBySearch(orderId);
+    }
+  },
+  editPendingAddress: async (orderId: string, addressPatch: any, alsoUpdateSavedAddress = false) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/items/${encodeURIComponent(cleanId)}/edit-pending-address`, {
+        addressPatch,
+        alsoUpdateSavedAddress,
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  previewPendingAddressEdit: async (orderId: string, addressPatch: any, alsoUpdateSavedAddress = false) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/items/${encodeURIComponent(cleanId)}/edit-pending-address/preview`, {
+        addressPatch,
+        alsoUpdateSavedAddress,
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  refreshAddressIntelligence: async (orderId: string) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.get(`/orders/admin/items/${encodeURIComponent(cleanId)}/address-intelligence?refresh=1`);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
 };
 
 /* ============================================================

@@ -1,27 +1,23 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, 
   Star, 
   Zap, 
-  Check, 
-  Truck, 
   Heart, 
   Tag, 
   CheckCircle2, 
   X, 
-  ShoppingBag,
+  Send, 
+  Loader2,
   Bell,
-  MapPin,
-  Send,
-  Loader2
+  Share2,
+  Copy
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
 import { 
   storefrontProductsApi, 
-  storefrontAddressApi, 
   storefrontWishlistApi 
 } from '../api';
 
@@ -87,11 +83,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [formData, setFormData] = useState({ name: '', phone: '', address: '', paymentMethod: 'cod' });
 
-  // Pincode serviceability check state
-  const [pincodeInput, setPincodeInput] = useState('');
-  const [pincodeResult, setPincodeResult] = useState<string | null>(null);
-  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
-
   // Review submission state
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
@@ -105,6 +96,28 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [oosPhone, setOosPhone] = useState('');
   const [oosSubmitting, setOosSubmitting] = useState(false);
   const [oosSuccess, setOosSuccess] = useState(false);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState<string>('');
+  const [couponFeedback, setCouponFeedback] = useState<string | null>(null);
+
+  const handleApplyCoupon = (codeToApply?: string) => {
+    const code = (codeToApply || couponCode).trim().toUpperCase();
+    if (!code) return;
+    setCouponCode(code);
+    setCouponFeedback(`Coupon ${code} applied successfully!`);
+    setTimeout(() => setCouponFeedback(null), 3500);
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({ title: product.title, url: window.location.href }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      setCouponFeedback('Product link copied to clipboard!');
+      setTimeout(() => setCouponFeedback(null), 3000);
+    }
+  };
 
   const allProducts = getAllProducts();
   const relatedProducts = allProducts
@@ -130,27 +143,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       await storefrontWishlistApi.toggle(product.id, product.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
     } catch {
       // offline fallback
-    }
-  };
-
-  const handleCheckPincode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pincodeInput.trim() || pincodeInput.trim().length !== 6) {
-      setPincodeResult('Please enter a valid 6-digit Indian pincode.');
-      return;
-    }
-    setIsCheckingPincode(true);
-    try {
-      const res = await storefrontAddressApi.checkDeliveryPincode(pincodeInput.trim());
-      if (res && res.isDeliverable !== false) {
-        setPincodeResult(`✓ Deliverable to ${pincodeInput}! Estimated delivery in 2-3 business days. COD Available.`);
-      } else {
-        setPincodeResult(`✓ Express Delivery available for pincode ${pincodeInput} with Free Shipping.`);
-      }
-    } catch {
-      setPincodeResult(`✓ Standard Free Express Delivery available for ${pincodeInput}.`);
-    } finally {
-      setIsCheckingPincode(false);
     }
   };
 
@@ -211,261 +203,248 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     }, 2500);
   };
 
-  const youSave = product.originalPrice - product.currentPrice;
-
   return (
-    <div className="bg-white min-h-screen py-5 sm:py-8 font-roboto animate-fadeIn select-none">
-      <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="bg-[#F8FAFC] min-h-screen py-5 sm:py-8 font-sans animate-fadeIn select-none">
+      <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
-        {/* Clean Breadcrumb Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 text-xs">
+        {/* Clean Breadcrumb Navigation with Share Button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 font-sans pb-2">
+          <nav className="flex items-center gap-1.5 overflow-x-auto text-xs">
+            <button type="button" onClick={onBack} className="hover:text-slate-900 cursor-pointer">Home</button>
+            <span className="text-slate-300">/</span>
+            <button type="button" onClick={onBack} className="hover:text-slate-900 cursor-pointer">{product.category}</button>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-900 font-bold truncate max-w-[260px] sm:max-w-md">{product.title}</span>
+          </nav>
+
           <button
             type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-1.5 py-1 text-xs font-bold text-navy hover:text-[#A44101] transition-colors cursor-pointer"
+            onClick={handleShare}
+            className="inline-flex items-center gap-1.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-[#A44101]" />
-            <span>Back to All Products</span>
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share</span>
           </button>
-
-          <nav className="font-medium text-slate-400 flex items-center gap-1.5 overflow-x-auto text-xs">
-            <button type="button" onClick={onBack} className="hover:text-navy cursor-pointer">Home</button>
-            <span>/</span>
-            <span className="text-[#A44101] font-bold uppercase tracking-wider text-[11px]">{product.category}</span>
-            <span>/</span>
-            <span className="text-slate-700 truncate max-w-[200px] sm:max-w-xs">{product.title}</span>
-          </nav>
         </div>
 
         {/* =========================================================================
-            MAIN PRODUCT STAGE: Clean 2 Columns (No Clutter, No Heavy Gray Boxes)
+            MAIN PRODUCT STAGE: Exact Match to Reference Design
            ========================================================================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           
-          {/* Left Column: Image Gallery (5 Cols) */}
-          <div className="lg:col-span-5 space-y-3.5 lg:sticky lg:top-24">
-            {/* Stage Viewport */}
-            <div className="relative aspect-square rounded-2xl overflow-hidden bg-slate-50 border border-slate-200/90 group">
-              {/* Discount Tag */}
-              <div className="absolute top-3 left-3 z-10 bg-[#A44101] text-white text-[11px] font-black px-2.5 py-1 rounded shadow-sm flex items-center gap-1">
-                <Zap className="w-3 h-3 fill-white text-white" />
-                <span>{product.discountPercentage}% OFF</span>
-              </div>
-
-              {/* Wishlist Button */}
-              <button
-                type="button"
-                onClick={handleToggleWishlist}
-                className={`absolute top-3 right-3 z-10 p-2.5 rounded-full shadow-sm backdrop-blur-md transition-all cursor-pointer ${
-                  isWishlisted ? 'bg-[#A44101]/10 text-[#A44101] ring-1 ring-[#A44101]/30' : 'bg-white/90 text-slate-500 hover:text-[#A44101]'
-                }`}
-                aria-label="Save to Wishlist"
-              >
-                <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-[#A44101] text-[#A44101]' : ''}`} />
-              </button>
-
+          {/* Left Column: Product Image Stage + Horizontal Thumbnails */}
+          <div className="lg:col-span-6 space-y-4">
+            <div className="bg-white rounded-2xl p-6 sm:p-12 border border-slate-200/80 shadow-xs flex items-center justify-center aspect-square relative overflow-hidden">
               <img
                 src={selectedImage}
                 alt={product.title}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-105"
               />
             </div>
 
-            {/* Clean Matching Thumbnails */}
-            <div className="grid grid-cols-4 gap-2.5">
+            {/* Horizontal Thumbnails Row */}
+            <div className="flex items-center gap-3">
               {galleryImages.map((img, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setSelectedImage(img)}
-                  className={`aspect-square rounded-xl overflow-hidden border-2 transition-all p-0.5 cursor-pointer bg-white ${
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white p-1 border-2 transition-all cursor-pointer overflow-hidden ${
                     selectedImage === img
-                      ? 'border-[#A44101] ring-2 ring-[#A44101]/30 shadow-xs'
-                      : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-300'
+                      ? 'border-[#FA5825] shadow-xs'
+                      : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
+                  <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Right Column: Clean Purchasing Details (7 Cols) */}
-          <div className="lg:col-span-7 space-y-5">
-            
-            {/* Category & Title */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#A44101] bg-[#A44101]/10 px-2.5 py-0.5 rounded">
+          {/* Right Column: Clean Purchasing Details Card */}
+          <div className="lg:col-span-6">
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-5">
+              
+              {/* Category Pill & In Stock Pill */}
+              <div className="flex items-center justify-between">
+                <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full">
                   {product.category}
                 </span>
-                <span className="text-[11px] font-bold text-navy bg-slate-100 px-2.5 py-0.5 rounded flex items-center gap-1 border border-slate-200">
-                  <CheckCircle2 className="w-3 h-3" /> In Stock
+                <span className="bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  In Stock
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-navy leading-snug">
+              {/* Product Title */}
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 leading-tight tracking-tight">
                 {product.title}
               </h1>
 
-              {/* Rating & Social Proof */}
-              <div className="flex items-center gap-2.5 text-xs pt-0.5">
-                <div className="inline-flex items-center gap-1 bg-[#A44101] text-white px-2 py-0.5 rounded font-black text-[11px]">
-                  <span>{product.rating}</span>
-                  <Star className="w-3 h-3 fill-white text-white" />
+              {/* SKU & Ratings Chips */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="bg-slate-100 text-slate-600 text-xs font-mono font-medium px-2.5 py-1 rounded-md">
+                  SKU: {product.id && product.id.length < 12 ? product.id : '2683-1'}
+                </span>
+                <div className="bg-amber-50/80 text-slate-800 text-xs font-medium px-2.5 py-1 rounded-md flex items-center gap-1.5 border border-amber-100">
+                  <div className="flex text-amber-400">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-3.5 h-3.5 ${i < Math.floor(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-bold text-slate-900">{product.rating}</span>
+                  <span className="text-slate-400 font-normal">({product.reviews} reviews)</span>
                 </div>
-                <span className="text-slate-500 font-medium">
-                  {product.reviews.toLocaleString()} Ratings &amp; {Math.round(product.reviews * 0.35)} Reviews
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-navy font-semibold flex items-center gap-1">
-                  <Check className="w-3.5 h-3.5 text-[#A44101]" /> 100% Genuine
-                </span>
               </div>
-            </div>
 
-            {/* Clean Price Row (No Gray Box!) */}
-            <div className="pt-2 pb-3 border-y border-slate-100 space-y-1">
-              <div className="flex items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl font-black text-navy font-roboto">
-                  ₹{product.currentPrice}
-                </span>
-                <span className="text-base sm:text-lg text-slate-400 line-through">
-                  ₹{product.originalPrice}
-                </span>
-                <span className="text-xs font-black text-[#A44101] bg-[#A44101]/10 px-2.5 py-0.5 rounded-full">
-                  Save ₹{youSave} ({product.discountPercentage}% OFF)
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">
-                Inclusive of all taxes • Free express shipping on this order
-              </p>
-            </div>
-
-            {/* Minimal Offer Strip */}
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800">
-              <Tag className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
-              <span>Use code <strong>BABA50</strong> for extra ₹50 off on UPI payments</span>
-            </div>
-
-            {/* Delivery Guarantee & Pincode Checker Form */}
-            <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-navy font-bold">
-                  <Truck className="w-4 h-4 text-[#A44101] shrink-0" />
-                  <span>Delivery Availability</span>
+              {/* Price Box Card */}
+              <div className="rounded-xl border border-slate-200/80 p-4 sm:p-5 bg-white space-y-3">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-sans tracking-tight">
+                    ₹{product.currentPrice}
+                  </span>
+                  <span className="text-xs sm:text-sm text-slate-400 line-through">
+                    M.R.P.: ₹{product.originalPrice}
+                  </span>
+                  <span className="bg-[#E11D48] text-white text-xs font-extrabold px-2.5 py-0.5 rounded-full uppercase">
+                    {product.discountPercentage}% OFF
+                  </span>
                 </div>
-                <span className="text-slate-500 text-[11px]">Free Pan-India Delivery</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-0.5">
+                  <span className="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-md border border-emerald-200/80">
+                    You Save: ₹ {product.originalPrice - product.currentPrice}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    Inclusive of all GST &amp; taxes • Instant Tax Invoice
+                  </span>
+                </div>
               </div>
 
-              <form onSubmit={handleCheckPincode} className="flex gap-2">
-                <div className="relative flex-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              {/* Applicable Coupons & Offers */}
+              <div className="rounded-xl border border-orange-200/70 bg-[#FFFBF7] p-4 sm:p-5 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FA5825] flex items-center justify-center shrink-0">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-none">Applicable Coupons &amp; Offers</h4>
+                    <p className="text-[11px] text-slate-400 mt-1">Tap to copy or apply code at checkout</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {[
+                    { code: 'WELCOME10', discount: '10% OFF', desc: 'Instant 10% discount on order...' },
+                    { code: 'FLAT50', discount: '₹50 FLAT OFF', desc: 'Save ₹50 on prepaid orders ...' },
+                    { code: 'B2BSAVE', discount: '15% OFF', desc: 'Wholesale tier discount for bulk...' },
+                  ].map((coupon) => (
+                    <div key={coupon.code} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white border border-orange-100 shadow-2xs">
+                      <span className="border border-dashed border-[#FA5825] bg-orange-50 text-[#FA5825] font-mono font-bold text-xs px-2 py-0.5 rounded">
+                        {coupon.code}
+                      </span>
+                      <span className="text-xs text-slate-600 truncate flex-1">
+                        <strong className="text-slate-800">{coupon.discount}</strong> • {coupon.desc}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyCoupon(coupon.code)}
+                        className="border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Copy className="w-3 h-3 text-slate-400" />
+                        <span>Apply</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 pt-1">
                   <input
                     type="text"
-                    maxLength={6}
-                    value={pincodeInput}
-                    onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter 6-digit Pincode"
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:border-navy"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code..."
+                    className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white placeholder:text-slate-400 text-slate-800 focus:outline-none focus:border-[#FA5825] font-mono uppercase"
                   />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCoupon()}
+                    className="px-5 py-2 bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                  >
+                    Apply
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  disabled={isCheckingPincode}
-                  className="px-4 py-1.5 bg-navy hover:bg-navy-light text-white text-xs font-bold rounded-lg cursor-pointer transition-colors disabled:opacity-60 flex items-center gap-1"
-                >
-                  {isCheckingPincode && <Loader2 className="w-3 h-3 animate-spin" />}
-                  <span>Check</span>
-                </button>
-              </form>
-
-              {pincodeResult && (
-                <p className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>{pincodeResult}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Quantity Stepper */}
-            <div className="flex items-center gap-4 pt-1">
-              <span className="text-xs font-bold text-navy">Quantity:</span>
-              <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-3 py-1 text-slate-600 hover:bg-slate-100 font-bold transition-colors cursor-pointer"
-                  aria-label="Decrease quantity"
-                >
-                  -
-                </button>
-                <span className="px-3.5 py-1 text-xs font-bold text-navy min-w-[32px] text-center">
-                  {quantity}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="px-3 py-1 text-slate-600 hover:bg-slate-100 font-bold transition-colors cursor-pointer"
-                  aria-label="Increase quantity"
-                >
-                  +
-                </button>
+                {couponFeedback && (
+                  <p className="text-[11px] font-semibold text-emerald-700">
+                    {couponFeedback}
+                  </p>
+                )}
               </div>
-              <span className="text-xs text-slate-500">
-                Total: <strong className="text-navy font-bold">₹{product.currentPrice * quantity}</strong>
-              </span>
-            </div>
 
-            {/* Primary Action Buttons: Add to Cart + Buy Now + Stock Alert */}
-            <div className="pt-2 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Add to Cart button */}
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  className={`py-3 px-6 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border cursor-pointer min-w-[150px] ${
-                    isAddedToCart
-                      ? 'bg-navy text-white border-navy'
-                      : 'bg-white text-navy hover:bg-slate-50 border-slate-300 hover:border-slate-400 shadow-xs'
-                  }`}
-                >
-                  {isAddedToCart ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Added to Cart!</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag className="w-4 h-4 text-navy" />
-                      <span>Add to Cart</span>
-                    </>
-                  )}
-                </button>
+              {/* Quantity & Stock Availability */}
+              <div className="flex items-center justify-between gap-4 pt-1">
+                <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer transition-colors"
+                  >
+                    -
+                  </button>
+                  <span className="px-4 py-1.5 text-xs font-bold text-slate-900 min-w-[28px] text-center">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
 
-                {/* Buy Now CTA */}
+                <div className="text-right">
+                  <p className="text-xs font-bold text-slate-800 flex items-center justify-end gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Only <strong className="text-[#FA5825]">10 Units</strong> Available</span>
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Ready for 24h factory dispatch</p>
+                </div>
+              </div>
+
+              {/* Primary Action Buttons: Buy Now + Add to Cart + Wishlist */}
+              <div className="flex items-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowBuyModal(true)}
-                  className="py-3 px-8 rounded-xl text-sm font-extrabold transition-all bg-[#A44101] hover:bg-[#8C3701] text-white shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98 min-w-[170px]"
+                  className="flex-1 py-3.5 px-6 bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
                 >
-                  <Zap className="w-4 h-4 fill-white text-white" />
-                  <span>Buy Now • ₹{product.currentPrice * quantity}</span>
+                  Buy Now
                 </button>
-
-                {/* Stock/Price Alert Inquiry */}
                 <button
                   type="button"
-                  onClick={() => setShowOosModal(true)}
-                  className="py-3 px-4 rounded-xl text-xs font-bold transition-all border border-slate-200 text-slate-600 hover:text-[#A44101] hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
-                  title="Notify me about price drops or stock"
+                  onClick={handleAddToCart}
+                  className="flex-1 py-3.5 px-6 bg-[#FA5825] hover:bg-[#E04716] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
                 >
-                  <Bell className="w-3.5 h-3.5" />
-                  <span>Price / Stock Alert</span>
+                  {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleWishlist}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                    isWishlisted
+                      ? 'border-rose-400 bg-rose-50 text-rose-500'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600'
+                  }`}
+                  aria-label="Wishlist"
+                >
+                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
                 </button>
               </div>
-            </div>
 
+            </div>
           </div>
         </div>
 

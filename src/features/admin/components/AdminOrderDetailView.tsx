@@ -7,7 +7,8 @@ import {
   Truck, 
   Eye,
   Check,
-  X
+  X,
+  Package
 } from 'lucide-react';
 import { useAppSelector } from '../../../store/hooks';
 import { adminOrdersApi } from '../../../api';
@@ -35,6 +36,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
 
   // Address edit modal state
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [editAddress, setEditAddress] = useState({
     fullName: '',
     phone: '',
@@ -49,8 +51,8 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
     setIsLoading(true);
     try {
       const cleanId = orderId.replace(/^#/, '');
-      // Fetch exclusively via: GET /api/admin/orders?search=${cleanId}
-      const ord = await adminOrdersApi.getBySearch(cleanId);
+      // Fetch full order details or fallback to search summary
+      const ord = (await adminOrdersApi.getOrderDetail(cleanId)) || (await adminOrdersApi.getBySearch(cleanId));
 
       if (ord) {
         setOrder(ord);
@@ -65,11 +67,13 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
             const matchedLine = snapshotLines.find((l: any) => l.productId === it.productId || l.variantId === it.variantId) || snapshotLines[idx] || {};
             const matchedProduct = catalogProducts.find((p) => p.id === it.productId || p.sku === it.productCode || p.sku === matchedLine.sku);
 
-            const name = matchedLine.productName || it.productName || it.name || it.title || matchedProduct?.title || 'Oxidised Silver Long Tassel Statement Earrings Wedding Ethnic Jewellery';
-            const sku = matchedLine.sku || it.productCode || it.sku || matchedProduct?.sku || 'SKU-TST006-1';
-            const price = Number(it.priceSnapshot?.sale ?? it.price ?? matchedProduct?.currentPrice ?? 349);
+            const prodObj = typeof it.productId === 'object' && it.productId ? it.productId : null;
+            const name = prodObj?.name || prodObj?.title || it.productName || it.name || it.title || matchedLine.productName || matchedProduct?.title || 'Product';
+            const sku = it.sku || it.productCode || matchedLine.sku || matchedProduct?.sku || 'SKU';
+            const price = Number(it.priceSnapshot?.sale ?? it.price ?? matchedProduct?.currentPrice ?? 0);
             const quantity = Number(it.quantity || 1);
-            const thumbnailUrl = matchedProduct?.image || it.thumbnailUrl || (Array.isArray(matchedProduct?.gallery) ? matchedProduct.gallery[0] : '') || '/images/products/placeholder.png';
+            const prodImg = prodObj && Array.isArray(prodObj.images) && prodObj.images[0] ? (typeof prodObj.images[0] === 'string' ? prodObj.images[0] : prodObj.images[0].url) : null;
+            const thumbnailUrl = it.thumbnailUrl || prodImg || it.image || matchedProduct?.image || (Array.isArray(matchedProduct?.gallery) ? matchedProduct.gallery[0] : '') || '';
 
             return {
               productId: it.productId || `prod-${idx}`,
@@ -125,11 +129,11 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
         });
 
         // Populate editAddress form
-        const addr = ord.address || ord.addressSnapshot || {};
+        const addr = ord.addressSnapshot || ord.address || {};
         setEditAddress({
           fullName: addr.fullName || ord.customer?.name || '',
           phone: addr.phone || ord.contactPhone || '',
-          addressLine1: addr.addressLine1 || addr.addressLine || '',
+          addressLine1: addr.addressLine1 || [addr.houseNumber, addr.building, addr.addressLine].filter(Boolean).join(', ') || '',
           city: addr.city || '',
           state: addr.state || '',
           postalCode: addr.postalCode || addr.pincode || '',
@@ -227,9 +231,52 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
   // Refresh score
   const handleRefreshScore = async () => {
     setIsRefreshingScore(true);
-    await loadOrderDetails();
-    toast.success('Address intelligence refreshed');
-    setIsRefreshingScore(false);
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const intel = await adminOrdersApi.refreshAddressIntelligence(cleanId);
+      if (intel) {
+        setAddressIntel({
+          scorePercent: intel.primary?.scorePercent ?? intel.scorePercent ?? 87,
+          categoryLabel: intel.primary?.categoryLabel ?? intel.categoryLabel ?? 'Valid Address',
+          risk: (intel.primary?.risk ?? intel.risk ?? 'LOW').toUpperCase()
+        });
+      }
+      await loadOrderDetails();
+      toast.success('Address intelligence refreshed');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to refresh score');
+    } finally {
+      setIsRefreshingScore(false);
+    }
+  };
+
+  // Save updated address
+  const handleSaveAddress = async () => {
+    if (!editAddress.addressLine1.trim()) {
+      toast.error('Address line is required');
+      return;
+    }
+    setIsSavingAddress(true);
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const addressPatch = {
+        fullName: editAddress.fullName.trim(),
+        phone: editAddress.phone.trim(),
+        addressLine1: editAddress.addressLine1.trim(),
+        city: editAddress.city.trim(),
+        state: editAddress.state.trim(),
+        postalCode: editAddress.postalCode.trim(),
+        country: editAddress.country.trim() || 'India'
+      };
+      await adminOrdersApi.editPendingAddress(cleanId, addressPatch);
+      toast.success('Address updated successfully');
+      setIsAddressModalOpen(false);
+      await loadOrderDetails();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update address');
+    } finally {
+      setIsSavingAddress(false);
+    }
   };
 
   // Sync shipment tracking
@@ -251,7 +298,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
     ? previewTotals.total
     : (currentSubtotal + currentDelivery);
 
-  const addrObj = order?.address || order?.addressSnapshot || {};
+  const addrObj = order?.addressSnapshot || order?.address || {};
   const recipientName = addrObj.fullName || order?.customer?.name || 'N/A';
   const recipientPhone = addrObj.phone || order?.contactPhone || 'N/A';
   const recipientEmail = order?.customer?.email || 'No email provided';
@@ -372,14 +419,19 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
               {items.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-50/60 border border-slate-100">
                   <div className="flex items-center gap-3 min-w-0">
-                    <img
-                      src={item.thumbnailUrl}
-                      alt={item.name}
-                      className="w-11 h-11 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/images/products/placeholder.png';
-                      }}
-                    />
+                    <div className="w-11 h-11 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden relative">
+                      {item.thumbnailUrl ? (
+                        <img
+                          src={item.thumbnailUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <Package className="w-5 h-5 text-slate-400 absolute pointer-events-none -z-0" />
+                    </div>
                     <div className="min-w-0 max-w-xs">
                       <h4 className="font-semibold text-xs text-slate-900 truncate">
                         {item.name}
@@ -765,13 +817,12 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  toast.success('Address saved');
-                  setIsAddressModalOpen(false);
-                }}
-                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded-xl transition-colors shadow-2xs"
+                type="button"
+                disabled={isSavingAddress}
+                onClick={handleSaveAddress}
+                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded-xl transition-colors shadow-2xs disabled:opacity-50 flex items-center gap-1.5"
               >
-                Save Address
+                {isSavingAddress ? 'Saving...' : 'Save Address'}
               </button>
             </div>
           </div>

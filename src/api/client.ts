@@ -61,9 +61,13 @@ export async function ensureAdminToken(): Promise<string | null> {
 
 // Automatic Token & Storefront Interceptor: Injects Customer Token or Admin Token and x-storefront header
 apiClient.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig & { useAdminAuth?: boolean }) => {
     const url = config.url || "";
-    const isAdminRoute = url.includes("/admin") || url.includes("/categories/admin");
+    const isAdminRoute =
+      Boolean((config as any)?.useAdminAuth) ||
+      url.includes("/admin") ||
+      url.includes("/categories/admin") ||
+      (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
 
     let token: string | null = null;
     if (isAdminRoute) {
@@ -93,9 +97,13 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalConfig = error.config as (InternalAxiosRequestConfig & { _retryAdminAuth?: boolean }) | undefined;
+    const originalConfig = error.config as (InternalAxiosRequestConfig & { _retryAdminAuth?: boolean; useAdminAuth?: boolean }) | undefined;
     const url = originalConfig?.url || "";
-    const isAdminRoute = url.includes("/admin") || url.includes("/categories/admin");
+    const isAdminRoute =
+      Boolean((originalConfig as any)?.useAdminAuth) ||
+      url.includes("/admin") ||
+      url.includes("/categories/admin") ||
+      (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
     const status = error.response?.status;
 
     // Handle Admin Auth issues (401 UNAUTHORIZED or 403 FORBIDDEN)

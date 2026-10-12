@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { 
   Sparkles, 
@@ -12,9 +12,10 @@ import {
   Truck,
   ArrowRight
 } from 'lucide-react';
-import { NEW_ARRIVALS_PRODUCTS, ProductItem } from '../data/storeData';
+import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { apiClient } from '../api';
 
 interface NewArrivalsSectionProps {
   onProductClick?: (product: ProductItem) => void;
@@ -30,6 +31,71 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
   const [addedItemIds, setAddedItemIds] = useState<{ [id: string]: boolean }>({});
   const [wishlistIds, setWishlistIds] = useState<{ [id: string]: boolean }>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient.get('/products/all?limit=20')
+      .then((res: any) => {
+        if (!isMounted) return;
+        const list = res.data?.products || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+        if (Array.isArray(list) && list.length > 0) {
+          const valid: ProductItem[] = [];
+          list.forEach((p: any) => {
+            const img = p.variants?.[0]?.images?.[0]?.url ||
+              (typeof p.variants?.[0]?.images?.[0] === 'string' ? p.variants?.[0]?.images?.[0] : null) ||
+              p.cardImage?.url ||
+              (Array.isArray(p.images) && p.images[0]?.url) ||
+              (typeof p.thumbnail === 'string' && p.thumbnail.startsWith('http') ? p.thumbnail : null);
+
+            if (!img) return;
+
+            const currentPrice = Number(
+              p.minPrice || 
+              p.variants?.[0]?.finalPrice || 
+              p.variants?.[0]?.price?.sale || 
+              p.price || 
+              99
+            );
+            const originalPrice = Number(
+              p.variants?.[0]?.price?.base || 
+              p.originalPrice || 
+              Math.round(currentPrice * 1.6)
+            );
+            const discountPercentage = Number(
+              p.maxDiscountPercentage || 
+              p.variants?.[0]?.discountPercentage || 
+              Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+            );
+
+            valid.push({
+              id: p._id || p.id,
+              title: p.title || p.name || 'Product',
+              category: p.category?.name || 'New Arrival',
+              currentPrice,
+              originalPrice,
+              discountPercentage,
+              image: img,
+              rating: 4.9,
+              reviews: 145,
+              inStock: true,
+              tag: 'NEW ARRIVAL',
+            });
+          });
+
+          if (valid.length > 0) {
+            setProducts(valid.slice(0, 10));
+          }
+        }
+      })
+      .catch(() => {
+        /* ignore error */
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleAddToCart = (product: ProductItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -135,12 +201,12 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
           </div>
         </div>
 
-        {/* 5 Products Grid / Horizontal Scroll */}
+        {/* Products Grid / Horizontal Scroll */}
         <div 
           ref={scrollContainerRef}
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory"
         >
-          {NEW_ARRIVALS_PRODUCTS.slice(0, 5).map((product, idx) => {
+          {products.slice(0, 5).map((product, idx) => {
             const isAdded = addedItemIds[product.id];
             const isWishlisted = wishlistIds[product.id];
             const savings = product.originalPrice - product.currentPrice;
@@ -161,6 +227,9 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                     src={product.image}
                     alt={product.title}
                     loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
                     className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-500"
                   />
 

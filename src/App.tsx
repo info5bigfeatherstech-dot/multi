@@ -5,7 +5,6 @@ import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { CategoriesSection } from './components/CategoriesSection';
 import { NewArrivalsSection } from './components/NewArrivalsSection';
-import { EverydayEssentialsSection } from './components/EverydayEssentialsSection';
 import { CategoryShowcaseSections } from './components/CategoryShowcaseSections';
 import { ProductDetailPage } from './components/ProductDetailPage';
 import { CategoryPage } from './components/CategoryPage';
@@ -393,12 +392,10 @@ export const App: React.FC = () => {
                 onExploreAll={() => handleSelectCategory('explore-all')}
               />
 
-              {/* 5. Dedicated Section per Category with Everyday Essentials */}
+              {/* 5. Dedicated Section per Category showing the 11 categories */}
               <CategoryShowcaseSections
                 onProductClick={handleSelectProduct}
                 onCategoryClick={handleSelectCategory}
-                insertElement={<EverydayEssentialsSection />}
-                insertAfterIndex={2}
               />
             </>
           )}
