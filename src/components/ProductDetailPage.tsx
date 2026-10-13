@@ -444,6 +444,26 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </button>
               </div>
 
+              {/* Wholesale / Bulk Order Callout */}
+              <div className="mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-slate-700">
+                  <span className="font-bold text-[#A44101]">Wholesale / Bulk Order?</span>
+                  <span className="text-slate-500 hidden sm:inline">Minimum bulk value: ₹3,000</span>
+                </div>
+                <a
+                  href="/bulk-orders"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.history.pushState(null, '', '/bulk-orders');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }}
+                  className="font-bold text-[#A44101] hover:underline shrink-0 flex items-center gap-1"
+                >
+                  <span>Send Bulk Inquiry</span>
+                  <span>&rarr;</span>
+                </a>
+              </div>
+
             </div>
           </div>
         </div>

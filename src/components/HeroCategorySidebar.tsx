@@ -361,12 +361,17 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
       )}
 
       {/* 3. Flyout panel for subcategories on hover (Desktop) */}
-      {hoveredCat && hoveredCat.subcategories && hoveredCat.subcategories.length > 0 && (
-        <div 
-          className="absolute left-full top-0 ml-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 z-50 flex flex-col justify-between animate-fadeIn"
-          onMouseEnter={() => setHoveredCat(hoveredCat)}
-          onMouseLeave={() => setHoveredCat(null)}
-        >
+      {hoveredCat && hoveredCat.subcategories && hoveredCat.subcategories.length > 0 && (() => {
+        const hoveredIdx = categories.findIndex((c) => c.id === hoveredCat.id);
+        const isLowerHalf = hoveredIdx >= 5;
+        return (
+          <div 
+            className={`absolute left-full ${
+              isLowerHalf ? 'bottom-0' : 'top-0'
+            } ml-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-4 z-50 flex flex-col justify-between animate-fadeIn before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:content-['']`}
+            onMouseEnter={() => setHoveredCat(hoveredCat)}
+            onMouseLeave={() => setHoveredCat(null)}
+          >
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2.5">
               <span className="text-xs font-bold text-navy uppercase tracking-wider">
@@ -402,7 +407,8 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
             </button>
           </div>
         </div>
-      )}
+      );
+    })()}
 
       {/* 4. Footer: View All Categories */}
       <div className="bg-slate-50/90 border-t border-slate-100 px-3.5 py-1.5 shrink-0 rounded-b-2xl">

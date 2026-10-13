@@ -180,12 +180,12 @@ export const QuickCategoryModal: React.FC<QuickCategoryModalProps> = ({ category
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
-      <div className="bg-white rounded-[24px] shadow-2xl border border-slate-100 w-full max-w-[500px] overflow-hidden animate-scaleIn transition-all">
+      <div className="bg-white rounded-[24px] shadow-2xl border border-slate-100 w-full max-w-[500px] overflow-hidden animate-scaleIn transform-gpu">
         
         {/* Header */}
         <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-start justify-between">

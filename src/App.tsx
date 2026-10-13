@@ -17,9 +17,10 @@ import { CartProvider } from './context/CartContext';
 import { ProductItem, getProductById } from './data/storeData';
 import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
+import { BulkOrdersPage } from './components/BulkOrdersPage';
 import { AuthModal } from './components/AuthModal';
 
-type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact';
+type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders';
 
 export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -32,6 +33,9 @@ export const App: React.FC = () => {
     const hash = window.location.hash.toLowerCase();
     if (path === '/admin' || path.startsWith('/admin') || hash === '#admin' || hash.startsWith('#admin')) {
       return 'admin';
+    }
+    if (path.startsWith('/bulk-orders') || path.startsWith('/wholesale') || path.startsWith('/bulk') || hash === '#bulk-orders' || hash === '#wholesale') {
+      return 'bulk-orders';
     }
     if (path.startsWith('/contact') || path.startsWith('/support') || hash === '#contact') return 'contact';
     if (path.startsWith('/wishlist') || hash === '#wishlist') return 'wishlist';
@@ -106,6 +110,9 @@ export const App: React.FC = () => {
         } else if (rawHash === '#admin' || rawHash.startsWith('#admin')) {
           path = '/admin/dashboard';
           window.history.replaceState(null, '', '/admin/dashboard');
+        } else if (rawHash === '#bulk-orders' || rawHash === '#wholesale' || rawHash === '#bulk') {
+          path = '/bulk-orders';
+          window.history.replaceState(null, '', '/bulk-orders');
         } else if (rawHash === '#contact' || rawHash === '#support') {
           path = '/contact';
           window.history.replaceState(null, '', '/contact');
@@ -116,6 +123,10 @@ export const App: React.FC = () => {
 
       if (path === '/admin' || path.startsWith('/admin')) {
         setCurrentView('admin');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (path === '/bulk-orders' || path === '/wholesale' || path === '/bulk') {
+        setCurrentView('bulk-orders');
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path.startsWith('/product/')) {
@@ -295,6 +306,13 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleGoToBulkOrders = () => {
+    setCurrentView('bulk-orders');
+    setSelectedProduct(null);
+    window.history.pushState(null, '', '/bulk-orders');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleGoToAdmin = () => {
     setCurrentView('admin');
     setSelectedProduct(null);
@@ -322,6 +340,7 @@ export const App: React.FC = () => {
           onSelectCategory={handleSelectCategory}
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
+          onGoToBulkOrders={handleGoToBulkOrders}
           onOpenAuthModal={() => {
             setPostAuthRedirect(null);
             setAuthModalMessage(undefined);
@@ -331,7 +350,13 @@ export const App: React.FC = () => {
 
         {/* Main Content Area (White background under the header) */}
         <main className="main-content flex-1 bg-white relative">
-          {currentView === 'contact' ? (
+          {currentView === 'bulk-orders' ? (
+            /* Dedicated Bulk Orders & Wholesale Enquiries Page */
+            <BulkOrdersPage
+              onBackToHome={handleBackToStore}
+              onGoToCategory={handleSelectCategory}
+            />
+          ) : currentView === 'contact' ? (
             /* Dedicated Customer Support & Contact Us Page */
             <ContactPage onBackToHome={handleBackToStore} />
           ) : currentView === 'wishlist' ? (
@@ -406,6 +431,7 @@ export const App: React.FC = () => {
           onSelectCategory={handleSelectCategory}
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
+          onGoToBulkOrders={handleGoToBulkOrders}
         />
 
         {/* Slide-in Cart Drawer */}

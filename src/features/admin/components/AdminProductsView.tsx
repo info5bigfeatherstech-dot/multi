@@ -44,6 +44,7 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
 
   // Modal States
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<AdminProduct | null>(null);
   const [stockAdjustProduct, setStockAdjustProduct] = useState<AdminProduct | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -63,11 +64,18 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
           if (Array.isArray(rawProds) && rawProds.length > 0) {
             const extractImageUrl = (item: any): string => {
               if (!item) return '';
-              if (typeof item === 'string') return item;
-              if (typeof item === 'object') {
-                return item.url || item.secure_url || item.src || item.imageUrl || '';
+              let url = '';
+              if (typeof item === 'string') {
+                url = item.trim();
+              } else if (typeof item === 'object') {
+                url = item.url || item.secure_url || item.src || item.imageUrl || item.path || item.uri || '';
               }
-              return '';
+              if (!url) return '';
+              if (url.startsWith('/uploads') || url.startsWith('uploads/')) {
+                const clean = url.startsWith('/') ? url : `/${url}`;
+                return `http://localhost:8081${clean}`;
+              }
+              return url;
             };
 
             const mappedProds: AdminProduct[] = rawProds.map((p: any) => {
@@ -124,40 +132,77 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
 
               const lowStockThreshold = firstVariant.inventory?.lowStockThreshold ?? p.lowStockThreshold ?? 10;
 
-              // Extract Image
+              // Comprehensive Image Extraction from API
               let resolvedImage = '';
+              // 1. Variant images array
               if (Array.isArray(firstVariant.images) && firstVariant.images.length > 0) {
                 resolvedImage = extractImageUrl(firstVariant.images[0]);
               }
+              // 2. Variant single image or thumbnail
+              if (!resolvedImage && firstVariant.image) {
+                resolvedImage = extractImageUrl(firstVariant.image);
+              }
+              if (!resolvedImage && firstVariant.thumbnail) {
+                resolvedImage = extractImageUrl(firstVariant.thumbnail);
+              }
+              // 3. Any other variants
               if (!resolvedImage && Array.isArray(p.variants)) {
                 for (const v of p.variants) {
                   if (Array.isArray(v.images) && v.images.length > 0) {
                     resolvedImage = extractImageUrl(v.images[0]);
                     if (resolvedImage) break;
                   }
+                  if (v.image) {
+                    resolvedImage = extractImageUrl(v.image);
+                    if (resolvedImage) break;
+                  }
+                  if (v.thumbnail) {
+                    resolvedImage = extractImageUrl(v.thumbnail);
+                    if (resolvedImage) break;
+                  }
                 }
               }
-              if (!resolvedImage && p.seo?.og_image) {
-                resolvedImage = extractImageUrl(p.seo.og_image);
+              // 4. Root product images (cardImage, thumbnail, image, imageUrl, images, seo, category)
+              if (!resolvedImage && p.cardImage) {
+                resolvedImage = extractImageUrl(p.cardImage);
+              }
+              if (!resolvedImage && p.thumbnail) {
+                resolvedImage = extractImageUrl(p.thumbnail);
               }
               if (!resolvedImage && p.image) {
                 resolvedImage = extractImageUrl(p.image);
               }
+              if (!resolvedImage && p.imageUrl) {
+                resolvedImage = extractImageUrl(p.imageUrl);
+              }
               if (!resolvedImage && Array.isArray(p.images) && p.images.length > 0) {
                 resolvedImage = extractImageUrl(p.images[0]);
               }
+              if (!resolvedImage && p.seo?.og_image) {
+                resolvedImage = extractImageUrl(p.seo.og_image);
+              }
+              if (!resolvedImage && p.category?.image) {
+                resolvedImage = extractImageUrl(p.category.image);
+              }
+              // 5. Reliable fallback
               if (!resolvedImage) {
-                resolvedImage = '/images/products/placeholder.png';
+                resolvedImage = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80';
               }
 
               const allVariantImages = Array.isArray(p.variants)
-                ? p.variants.flatMap((v: any) => Array.isArray(v.images) ? v.images : [])
+                ? p.variants.flatMap((v: any) => Array.isArray(v.images) ? v.images : (v.image ? [v.image] : []))
                 : [];
               const rawGallery = Array.isArray(p.images) && p.images.length > 0
                 ? p.images
                 : (allVariantImages.length > 0 ? allVariantImages : []);
-              const gallery = rawGallery.map((g: any) => extractImageUrl(g)).filter(Boolean);
-              if (gallery.length === 0 && resolvedImage && resolvedImage !== '/images/products/placeholder.png') {
+              const gallery: string[] = Array.from(
+                new Set(
+                  rawGallery
+                    .map((g: any) => extractImageUrl(g))
+                    .filter((u: string) => Boolean(u) && !u.includes('placeholder'))
+                )
+              );
+              if (gallery.length === 0 && resolvedImage && !resolvedImage.includes('placeholder')) {
                 gallery.push(resolvedImage);
               }
 
@@ -255,7 +300,7 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
             onEditProduct={(p) => setEditingProduct(p)}
             onArchiveProduct={(p) => setProductToDelete(p)}
             onStockAdjust={(p) => setStockAdjustProduct(p)}
-            onOpenAddProduct={() => setActiveTab('add')}
+            onOpenAddProduct={() => setIsAddProductModalOpen(true)}
             onOpenBulkUpload={() => setIsBulkUploadModalOpen(true)}
             onOpenQuickCategory={handleOpenAddCategory}
           />
@@ -302,8 +347,18 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
       {/* 1. Product Edit Modal */}
       {editingProduct && (
         <ProductEditModal
+          mode="edit"
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
+        />
+      )}
+
+      {/* 1b. Product Add Modal */}
+      {isAddProductModalOpen && (
+        <ProductEditModal
+          mode="add"
+          onClose={() => setIsAddProductModalOpen(false)}
+          onSuccess={() => setIsAddProductModalOpen(false)}
         />
       )}
 

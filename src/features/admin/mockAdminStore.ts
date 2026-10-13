@@ -87,9 +87,12 @@ export interface AdminLead {
   phone: string;
   email: string;
   interestCategory: string;
-  source: 'Organic' | 'WhatsApp' | 'Instagram' | 'Checkout Dropoff' | 'Support Form';
+  source: 'Organic' | 'WhatsApp' | 'Instagram' | 'Checkout Dropoff' | 'Support Form' | 'Bulk Inquiry';
   createdAt: string;
   status: 'New' | 'Contacted' | 'Converted';
+  businessName?: string;
+  location?: string;
+  inquiryDetails?: string;
 }
 
 export interface AdminCoupon {
@@ -1056,6 +1059,22 @@ class MockAdminStoreEngine {
     } catch {
       return INITIAL_SEED_LEADS;
     }
+  }
+
+  public addLead(leadData: Omit<AdminLead, 'id' | 'createdAt'> & { id?: string; createdAt?: string }): AdminLead {
+    const leads = this.getLeads();
+    const newLead: AdminLead = {
+      id: leadData.id || `lead-${Date.now()}`,
+      createdAt: leadData.createdAt || new Date().toISOString(),
+      ...leadData,
+    };
+    leads.unshift(newLead);
+    try {
+      localStorage.setItem(STORAGE_KEYS.LEADS, JSON.stringify(leads));
+    } catch (e) {
+      console.warn('Failed to save lead', e);
+    }
+    return newLead;
   }
 
   public getCoupons(): AdminCoupon[] {

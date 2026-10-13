@@ -17,9 +17,15 @@ interface FooterProps {
   onSelectCategory?: (categoryId: string) => void;
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
+  onGoToBulkOrders?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onGoToAdmin, onGoToContact }) => {
+export const Footer: React.FC<FooterProps> = ({
+  onSelectCategory,
+  onGoToAdmin,
+  onGoToContact,
+  onGoToBulkOrders,
+}) => {
   return (
     <footer className="site-footer bg-navy text-slate-300 pt-14 pb-8 border-t border-navy-light/40" role="contentinfo">
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -218,18 +224,18 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onGoToAdmin, o
               </li>
               <li>
                 <a
-                  href="/contact"
+                  href="/bulk-orders"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (onGoToContact) onGoToContact();
+                    if (onGoToBulkOrders) onGoToBulkOrders();
                     else {
-                      window.history.pushState(null, '', '/contact');
+                      window.history.pushState(null, '', '/bulk-orders');
                       window.dispatchEvent(new PopStateEvent('popstate'));
                     }
                   }}
                   className="hover:text-[#A44101] transition-colors cursor-pointer"
                 >
-                  Bulk &amp; Corporate Inquiries
+                  Bulk Orders &amp; Wholesale
                 </a>
               </li>
             </ul>

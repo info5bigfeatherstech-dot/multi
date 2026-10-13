@@ -56,7 +56,10 @@ export default {
         mutedGray: '#64748B',
       },
       fontFamily: {
-        roboto: ['Roboto', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        jakarta: ['"Plus Jakarta Sans"', 'sans-serif'],
+        inter: ['Inter', 'sans-serif'],
+        roboto: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
       },
       borderRadius: {
         'theme-sm': '10px',

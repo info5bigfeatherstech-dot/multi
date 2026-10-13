@@ -325,17 +325,31 @@ export const AdminGrowthView: React.FC<AdminGrowthViewProps> = ({
                 {leads.map((lead) => (
                   <tr key={lead.id} className="hover:bg-slate-50/60">
                     <td className="py-3.5 px-4 font-bold text-navy">
-                      {lead.name}
+                      <div>{lead.name}</div>
+                      {lead.businessName && (
+                        <div className="text-[11px] font-normal text-slate-500">
+                          🏪 {lead.businessName}{lead.location ? ` (${lead.location})` : ''}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
-                      <div>{lead.phone}</div>
+                      <div className="font-semibold text-slate-800">{lead.phone}</div>
                       <div className="text-[11px] text-slate-400">{lead.email}</div>
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-700">
-                      {lead.interestCategory}
+                      <div>{lead.interestCategory}</div>
+                      {lead.inquiryDetails && (
+                        <div className="text-[11px] text-slate-500 italic mt-0.5">
+                          "{lead.inquiryDetails}"
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        lead.source === 'Bulk Inquiry'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
                         {lead.source}
                       </span>
                     </td>

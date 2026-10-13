@@ -27,7 +27,8 @@ import {
   Headphones,
   Briefcase,
   Tag,
-  Award
+  Award,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
@@ -197,6 +198,7 @@ export interface HeaderProps {
   onSelectCategory?: (categoryId: string, subcategory?: string) => void;
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
+  onGoToBulkOrders?: () => void;
   onOpenAuthModal?: () => void;
 }
 
@@ -207,6 +209,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectCategory,
   onGoToAdmin,
   onGoToContact,
+  onGoToBulkOrders,
   onOpenAuthModal,
 }) => {
   const { openCart, totalCount, subtotal } = useCart();
@@ -821,14 +824,21 @@ export const Header: React.FC<HeaderProps> = ({
                 );
               })}
 
-              <a
-                href="https://wa.me/919320001717"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors"
+              <button
+                type="button"
+                onClick={() => {
+                  if (onGoToBulkOrders) onGoToBulkOrders();
+                  else {
+                    window.history.pushState(null, '', '/bulk-orders');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Bulk Orders & Wholesale Enquiries (Min. ₹3,000)"
               >
-                Bulk Orders
-              </a>
+                <Building2 className="w-3.5 h-3.5 text-[#A44101]" />
+                <span>Bulk Orders</span>
+              </button>
             </div>
             <button
               type="button"
@@ -1035,6 +1045,22 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <Headphones className="w-4 h-4 text-[#A44101]" />
                       <span>Customer Support &amp; Help Desk</span>
+                    </a>
+                    <a
+                      href="/bulk-orders"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onGoToBulkOrders) onGoToBulkOrders();
+                        else {
+                          window.history.pushState(null, '', '/bulk-orders');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 text-navy font-semibold cursor-pointer"
+                    >
+                      <Building2 className="w-4 h-4 text-[#A44101]" />
+                      <span>Bulk Orders &amp; Wholesale</span>
                     </a>
                     <a
                       href="/admin/dashboard"

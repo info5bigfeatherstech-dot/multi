@@ -156,7 +156,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
             <div className="flex items-center gap-3">
               <h2 
                 id="new-arrivals-heading"
-                className="text-2xl sm:text-3xl font-extrabold text-navy tracking-tight font-roboto"
+                className="text-2xl sm:text-3xl font-medium text-navy tracking-tight font-roboto"
               >
                 New Arrivals
               </h2>
