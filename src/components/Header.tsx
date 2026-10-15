@@ -295,8 +295,8 @@ export const Header: React.FC<HeaderProps> = ({
       }
     } catch {}
     return [
-      { name: "Today's Deal", slug: "today-arrival", badgeText: "HOT", icon: "flame" },
-      { name: "On Sale", slug: "on-sale", badgeText: "HOT", icon: "flame" },
+      { name: "Today's Deal", slug: "today-arrival", pagePath: "/today-deals", badgeText: "HOT", icon: "flame" },
+      { name: "On Sale", slug: "on-sale", pagePath: "/on-sale", badgeText: "HOT", icon: "flame" },
     ];
   });
 
@@ -775,16 +775,14 @@ export const Header: React.FC<HeaderProps> = ({
               </button> */}
               {storefrontNavLabels.slice(0, 3).map((lbl) => {
                 const isFestive = lbl.badgeText === 'FESTIVE' || lbl.icon === 'sparkles' || (lbl as any).style?.includes('Festive');
-                const isDaySpecial = lbl.icon === 'flame' || lbl.badgeText === 'DAY SPECIAL' || lbl.badgeText === 'SUNDAY' || lbl.badgeText === 'WEEKEND';
-                const isNational = lbl.icon === 'award' || lbl.badgeText === 'SPECIAL';
 
                 const renderIcon = () => {
-                  if (lbl.icon === 'sparkles' || isFestive) return <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20 animate-pulse" />;
-                  if (lbl.icon === 'heart') return <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />;
-                  if (lbl.icon === 'gift') return <Gift className="w-3.5 h-3.5 text-rose-400" />;
-                  if (lbl.icon === 'award') return <Award className="w-3.5 h-3.5 text-orange-400" />;
-                  if (lbl.icon === 'tag') return <Tag className="w-3.5 h-3.5 text-slate-400" />;
-                  return <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />;
+                  if (lbl.icon === 'sparkles' || isFestive) return <Sparkles className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101]/20 shrink-0" />;
+                  if (lbl.icon === 'heart') return <Heart className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'gift') return <Gift className="w-3.5 h-3.5 text-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'award') return <Award className="w-3.5 h-3.5 text-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'tag') return <Tag className="w-3.5 h-3.5 text-[#A44101] shrink-0" />;
+                  return <Flame className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />;
                 };
 
                 return (
@@ -792,31 +790,17 @@ export const Header: React.FC<HeaderProps> = ({
                     key={lbl.slug || lbl.name}
                     type="button"
                     onClick={() => {
-                      const targetEl = document.querySelector('.section-home-kitchen') || document.querySelector('.section-top-categories');
-                      if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+                      const targetPath = lbl.pagePath || (lbl.slug ? `/tagProducts/${lbl.slug}` : '/today-deals');
+                      window.history.pushState(null, '', targetPath);
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`px-3 py-1 rounded-full text-xs font-bold text-white transition-all flex items-center gap-1.5 cursor-pointer hover:scale-102 ${
-                      isFestive
-                        ? 'bg-black/80 border border-amber-500/80 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
-                        : isDaySpecial
-                        ? 'bg-stone-900 border border-red-500/70 shadow-[0_0_10px_rgba(239,68,68,0.3)]'
-                        : isNational
-                        ? 'bg-stone-900 border border-orange-500/70 shadow-[0_0_10px_rgba(249,115,22,0.3)]'
-                        : 'bg-[#1c1917] border border-stone-800 hover:border-[#A44101]/60 shadow-2xs'
-                    }`}
+                    className="group relative px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer bg-[#A44101]/8 hover:bg-[#A44101]/14 border border-[#A44101]/30 hover:border-[#A44101]/50 text-navy shadow-2xs hover:shadow-xs active:scale-98"
                   >
                     {renderIcon()}
-                    <span>{lbl.name}</span>
+                    <span className="font-bold tracking-tight whitespace-nowrap text-navy">{lbl.name}</span>
                     {lbl.badgeText && (
-                      <span className={`text-white text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
-                        isFestive
-                          ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-2xs'
-                          : isDaySpecial
-                          ? 'bg-gradient-to-r from-red-600 to-orange-500'
-                          : isNational
-                          ? 'bg-gradient-to-r from-orange-600 via-amber-500 to-emerald-600'
-                          : 'bg-gradient-to-r from-red-600 to-amber-600'
-                      }`}>
+                      <span className="text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-[#A44101] shadow-2xs leading-none shrink-0">
                         {lbl.badgeText}
                       </span>
                     )}
@@ -920,7 +904,40 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               {/* Drawer Content */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                {/* Mobile Quick Deal Pages */}
+                <div className="space-y-1.5 pb-3 border-b border-slate-100">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-mutedGray px-1 mb-2">
+                    Special Deal Pages
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {storefrontNavLabels.map((lbl) => (
+                      <button
+                        key={lbl.slug || lbl.name}
+                        type="button"
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          const targetPath = lbl.pagePath || (lbl.slug ? `/tagProducts/${lbl.slug}` : '/today-deals');
+                          window.history.pushState(null, '', targetPath);
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-[#A44101]/25 bg-[#A44101]/6 text-navy font-bold text-xs hover:bg-[#A44101]/12 transition-all cursor-pointer text-left"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Flame className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />
+                          <span className="truncate">{lbl.name}</span>
+                        </div>
+                        {lbl.badgeText && (
+                          <span className="text-white text-[8px] font-black px-1 py-0.5 rounded bg-[#A44101] shrink-0">
+                            {lbl.badgeText}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-2.5 px-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-mutedGray">

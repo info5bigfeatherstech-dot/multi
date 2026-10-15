@@ -16,6 +16,7 @@ import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
 import { apiClient } from '../api';
+import { toast } from 'react-hot-toast';
 
 interface NewArrivalsSectionProps {
   onProductClick?: (product: ProductItem) => void;
@@ -70,6 +71,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
 
             valid.push({
               id: p._id || p.id,
+              slug: p.slug,
               title: p.title || p.name || 'Product',
               category: p.category?.name || 'New Arrival',
               currentPrice,
@@ -112,10 +114,26 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
       requireAuth({ message: 'Please log in or register to save items to your wishlist' });
       return;
     }
+    const isAdding = !wishlistIds[productId];
     setWishlistIds((prev) => ({
       ...prev,
       [productId]: !prev[productId],
     }));
+    const prod = products.find((p) => p.id === productId);
+    const prodTitle = prod?.title && prod.title.length > 32 
+      ? `${prod.title.slice(0, 32)}...` 
+      : (prod?.title || 'Product');
+    if (isAdding) {
+      toast.success(`${prodTitle} added to wishlist!`, {
+        id: `wishlist-${productId}`,
+        icon: '❤️',
+      });
+    } else {
+      toast(`${prodTitle} removed from wishlist`, {
+        id: `wishlist-${productId}`,
+        icon: '🤍',
+      });
+    }
   };
 
   const handleScroll = (direction: 'left' | 'right') => {

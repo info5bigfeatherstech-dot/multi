@@ -13,12 +13,14 @@ import {
   Zap
 } from 'lucide-react';
 import { ALL_PRODUCTS_CATALOG, ProductItem } from '../data/storeData';
+import { useCart } from '../context/CartContext';
 
 interface EveryProductSectionProps {
   onProductClick?: (product: ProductItem) => void;
 }
 
 export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProductClick }) => {
+  const { addToCart } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<'featured' | 'discount' | 'price-asc' | 'price-desc'>('featured');
@@ -27,12 +29,20 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
 
   const categories = ['All', 'Home & Kitchen', 'Electronics', 'Fashion', 'Toys'];
 
-  // Handle temporary "Added to Cart" state feedback
-  const handleAddToCart = (id: string) => {
-    setAddedItemIds((prev) => ({ ...prev, [id]: true }));
+  // Handle "Added to Cart" state feedback and cart dispatch
+  const handleAddToCart = (product: ProductItem) => {
+    addToCart(product, 1);
+    setAddedItemIds((prev) => ({ ...prev, [product.id]: true }));
     setTimeout(() => {
-      setAddedItemIds((prev) => ({ ...prev, [id]: false }));
+      setAddedItemIds((prev) => ({ ...prev, [product.id]: false }));
     }, 2000);
+  };
+
+  const handleBuyNow = (product: ProductItem) => {
+    addToCart(product, 1, { silent: true });
+    window.history.pushState(null, '', '/checkout');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Filter and sort products
@@ -233,7 +243,7 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleAddToCart(product.id);
+                            handleAddToCart(product);
                           }}
                           className={`py-2 px-2 rounded-theme text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                             isAdded
@@ -259,7 +269,7 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onProductClick?.(product);
+                            handleBuyNow(product);
                           }}
                           className="py-2 px-2 rounded-theme text-xs font-bold bg-navy hover:bg-navy-light text-white text-center flex items-center justify-center transition-colors shadow-xs cursor-pointer"
                         >

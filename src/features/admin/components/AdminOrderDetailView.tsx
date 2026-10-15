@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ArrowLeft, 
   Trash2, 
@@ -722,9 +723,14 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
       </div>
 
       {/* 4. Edit Address Modal */}
-      {isAddressModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-xl animate-in fade-in zoom-in-95">
+      {isAddressModalOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 overflow-y-auto animate-fadeIn"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddressModalOpen(false);
+          }}
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl animate-scaleIn">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <h3 className="font-bold text-slate-900 text-sm">Edit Delivery Address</h3>
               <button
@@ -826,7 +832,8 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

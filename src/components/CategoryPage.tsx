@@ -31,6 +31,7 @@ import {
 import { storefrontProductsApi } from '../api';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { toast } from 'react-hot-toast';
 
 interface CategoryPageProps {
   categoryId: string;
@@ -496,10 +497,26 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
       requireAuth({ message: 'Please log in or register to save items to your wishlist' });
       return;
     }
+    const isAdding = !wishlistIds[productId];
     setWishlistIds((prev) => ({
       ...prev,
       [productId]: !prev[productId],
     }));
+    const prod = rawProducts.find((p: ProductItem) => p.id === productId) || getAllProducts().find((p: ProductItem) => p.id === productId);
+    const prodTitle = prod?.title && prod.title.length > 32 
+      ? `${prod.title.slice(0, 32)}...` 
+      : (prod?.title || 'Product');
+    if (isAdding) {
+      toast.success(`${prodTitle} added to wishlist!`, {
+        id: `wishlist-${productId}`,
+        icon: '❤️',
+      });
+    } else {
+      toast(`${prodTitle} removed from wishlist`, {
+        id: `wishlist-${productId}`,
+        icon: '🤍',
+      });
+    }
   };
 
   // Reusable Component for Filter Cards matching exact user specifications

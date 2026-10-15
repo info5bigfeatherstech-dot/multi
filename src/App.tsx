@@ -19,8 +19,9 @@ import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
 import { BulkOrdersPage } from './components/BulkOrdersPage';
 import { AuthModal } from './components/AuthModal';
+import { DealsPage } from './components/DealsPage';
 
-type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders';
+type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals';
 
 export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -37,6 +38,9 @@ export const App: React.FC = () => {
     if (path.startsWith('/bulk-orders') || path.startsWith('/wholesale') || path.startsWith('/bulk') || hash === '#bulk-orders' || hash === '#wholesale') {
       return 'bulk-orders';
     }
+    if (path.startsWith('/today-deals') || path.startsWith('/todays-deal') || path.startsWith('/today-arrival') || path.startsWith('/on-sale') || path.startsWith('/sale') || path.toLowerCase().startsWith('/tagproducts/')) {
+      return 'deals';
+    }
     if (path.startsWith('/contact') || path.startsWith('/support') || hash === '#contact') return 'contact';
     if (path.startsWith('/wishlist') || hash === '#wishlist') return 'wishlist';
     if (path.startsWith('/profile') || path.startsWith('/orders') || hash === '#profile' || hash === '#orders') {
@@ -48,6 +52,15 @@ export const App: React.FC = () => {
     if (path.startsWith('/product') || hash.startsWith('#product-')) return 'product';
     if (path.startsWith('/category') || hash.startsWith('#category-')) return 'category';
     return 'home';
+  });
+
+  const [dealsType, setDealsType] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'today-deals';
+    const path = window.location.pathname.toLowerCase();
+    if (path.includes('sale')) return 'on-sale';
+    if (path.includes('today') || path.includes('arrival')) return 'today-deals';
+    if (path.startsWith('/tagproducts/')) return window.location.pathname.replace(/^\/tagproducts\//i, '');
+    return 'today-deals';
   });
 
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(() => {
@@ -127,6 +140,26 @@ export const App: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path === '/bulk-orders' || path === '/wholesale' || path === '/bulk') {
         setCurrentView('bulk-orders');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (
+        path === '/today-deals' ||
+        path === '/todays-deal' ||
+        path === '/today-arrival' ||
+        path === '/todays-deals' ||
+        path === '/on-sale' ||
+        path === '/sale' ||
+        path.startsWith('/tagproducts/') ||
+        path.startsWith('/tagProducts/')
+      ) {
+        let type = 'today-deals';
+        if (path.includes('sale')) type = 'on-sale';
+        else if (path.includes('today') || path.includes('arrival')) type = 'today-deals';
+        else if (path.toLowerCase().startsWith('/tagproducts/')) {
+          type = window.location.pathname.replace(/^\/tagproducts\//i, '');
+        }
+        setDealsType(type);
+        setCurrentView('deals');
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path.startsWith('/product/')) {
@@ -391,6 +424,15 @@ export const App: React.FC = () => {
               product={selectedProduct}
               onBack={handleBackToStore}
               onSelectProduct={handleSelectProduct}
+              onGoToCheckout={handleGoToCheckout}
+            />
+          ) : currentView === 'deals' ? (
+            /* Dedicated Deals & On Sale Page */
+            <DealsPage
+              dealType={dealsType}
+              onSelectProduct={handleSelectProduct}
+              onBackToHome={handleBackToStore}
+              onGoToCheckout={handleGoToCheckout}
             />
           ) : currentView === 'category' ? (
             /* Dedicated Category Page */

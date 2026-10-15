@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ArrowLeft,
   Building2,
   Phone,
   MapPin,
@@ -201,36 +200,6 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
 
   return (
     <div className="bg-slate-50 min-h-screen text-charcoal pb-16">
-      {/* 1. Header Navigation Bar / Breadcrumbs */}
-      <div className="bg-white border-b border-slate-200/80 sticky top-0 z-20 backdrop-blur-md bg-white/95">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-navy hover:text-[#A44101] transition-colors p-1.5 -ml-1.5 rounded-lg hover:bg-slate-100 cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Store</span>
-            </button>
-            <span className="text-slate-300">/</span>
-            <span className="text-xs sm:text-sm font-semibold text-slate-500">
-              Bulk Orders &amp; Wholesale Enquiries
-            </span>
-          </div>
-
-          <a
-            href={getWhatsAppMessageUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-full transition-colors"
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden sm:inline">WhatsApp Wholesale Desk:</span>
-            <span>+91 {WHOLESALE_PHONE}</span>
-          </a>
-        </div>
-      </div>
 
       {/* 2. Hero Section */}
       <section className="bg-gradient-to-br from-navy via-[#0d2242] to-navy text-white relative overflow-hidden py-10 sm:py-14 border-b border-slate-800">
@@ -246,12 +215,12 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
             </div>
 
             {/* Main Header Title */}
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
+            <h1 className="text-2xl sm:text-4xl lg:text-4xl font-medium tracking-tight text-white leading-tight">
               Bulk Orders &amp; Wholesale Enquiries
             </h1>
 
             {/* Intro text exactly per user prompt */}
-            <p className="mt-4 text-sm sm:text-base text-slate-200 leading-relaxed font-normal">
+            <p className="mt-4 text-sm sm:text-sm text-slate-200 leading-relaxed font-normal">
               Looking to purchase products in bulk for your shop, business, or resale? Apna Bharat Bazaar offers a wide range of products at competitive wholesale prices.
             </p>
             <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
@@ -264,10 +233,10 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
                 <BadgePercent className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-wider font-extrabold text-amber-100">
+                <div className="text-[11px] uppercase tracking-wider font-medium text-amber-100">
                   Exclusive B2B Starting Tier
                 </div>
-                <div className="text-lg sm:text-xl font-black tracking-tight">
+                <div className="text-lg sm:text-xl font-medium tracking-tight">
                   Minimum Bulk Order Value: ₹3,000
                 </div>
               </div>

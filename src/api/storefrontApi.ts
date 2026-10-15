@@ -151,6 +151,16 @@ export const storefrontProductsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  getRelated: async (slug: string) => {
+    try {
+      const res = await apiClient.get(`/products/${encodeURIComponent(slug)}/related`);
+      const raw = res.data?.related || res.data?.data || res.data?.products || (Array.isArray(res.data) ? res.data : []);
+      return Array.isArray(raw) ? raw : [];
+    } catch (err) {
+      console.warn(`Failed to fetch related products for ${slug}:`, err);
+      return [];
+    }
+  },
   getCategories: async () => {
     try {
       let res;

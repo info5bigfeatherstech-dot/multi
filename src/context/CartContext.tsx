@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { storefrontCartApi } from '../api';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
 
@@ -28,7 +29,7 @@ interface CartContextType {
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
-  addToCart: (product: AddProductInput, qty?: number) => void;
+  addToCart: (product: AddProductInput, qty?: number, options?: { silent?: boolean }) => void;
   removeFromCart: (id: string) => void;
   updateQty: (id: string, delta: number) => void;
   clearCart: () => void;
@@ -108,7 +109,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const closeCart = () => setIsCartOpen(false);
   const toggleCart = () => setIsCartOpen((prev) => !prev);
 
-  const addToCart = (product: AddProductInput, qty = 1) => {
+  const addToCart = (product: AddProductInput, qty = 1, options?: { silent?: boolean }) => {
     // Require authentication before adding to cart
     if (!isAuthenticated()) {
       requireAuth({ message: 'Please log in or register to add items to your cart' });
@@ -142,8 +143,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Call storefrontCartApi in background
     storefrontCartApi.addItem(product.id, qty).catch(() => {});
 
-    // Automatically slide drawer open when item is added!
-    setIsCartOpen(true);
+    // Show toaster notification without opening the drawer
+    if (!options?.silent) {
+      const displayTitle = product.title 
+        ? (product.title.length > 36 ? `${product.title.slice(0, 36)}...` : product.title)
+        : 'Product';
+      toast.success(`${displayTitle} added to cart!`, {
+        id: `cart-add-${product.id}`,
+      });
+    }
   };
 
   const removeFromCart = (id: string) => {

@@ -100,6 +100,7 @@ export interface TrustItem {
 
 export interface ProductItem {
   id: string;
+  slug?: string;
   title: string;
   category: string;
   currentPrice: number;

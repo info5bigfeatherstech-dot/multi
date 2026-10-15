@@ -18,12 +18,15 @@ import {
 import { UNDER_99_PRODUCTS, ProductItem } from '../data/storeData';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { useCart } from '../context/CartContext';
+import { toast } from 'react-hot-toast';
 
 interface Under99SectionProps {
   onProductClick?: (product: ProductItem) => void;
 }
 
 export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }) => {
+  const { addToCart } = useCart();
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number>(99);
   const [addedItemIds, setAddedItemIds] = useState<{ [key: string]: boolean }>({});
   const [wishlistIds, setWishlistIds] = useState<{ [key: string]: boolean }>({});
@@ -59,13 +62,30 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
       requireAuth({ message: 'Please log in or register to save items to your wishlist' });
       return;
     }
+    const isAdding = !wishlistIds[id];
     setWishlistIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    const prod = UNDER_99_PRODUCTS.find((p) => p.id === id);
+    const prodTitle = prod?.title && prod.title.length > 32 
+      ? `${prod.title.slice(0, 32)}...` 
+      : (prod?.title || 'Product');
+    if (isAdding) {
+      toast.success(`${prodTitle} added to wishlist!`, {
+        id: `wishlist-${id}`,
+        icon: '❤️',
+      });
+    } else {
+      toast(`${prodTitle} removed from wishlist`, {
+        id: `wishlist-${id}`,
+        icon: '🤍',
+      });
+    }
   };
 
   const handleQuickBuy = (product: ProductItem) => {
-    setQuickBuyProduct(product);
-    setOrderSuccess(false);
-    setPincodeLocation('');
+    addToCart(product, 1, { silent: true });
+    window.history.pushState(null, '', '/checkout');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePincodeChange = async (pin: string) => {

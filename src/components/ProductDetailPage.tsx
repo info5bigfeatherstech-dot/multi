@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Star, 
@@ -10,21 +10,77 @@ import {
   Send, 
   Loader2,
   Bell,
-  Share2,
   Copy
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { toast } from 'react-hot-toast';
 import { 
+  apiClient,
   storefrontProductsApi, 
   storefrontWishlistApi 
 } from '../api';
+
+const mapBackendProductToItem = (p: any): ProductItem => {
+  const img =
+    p.variants?.[0]?.images?.[0]?.url ||
+    (typeof p.variants?.[0]?.images?.[0] === 'string' ? p.variants?.[0]?.images?.[0] : null) ||
+    p.cardImage?.url ||
+    (Array.isArray(p.images) && p.images[0]?.url) ||
+    (typeof p.thumbnail === 'string' && p.thumbnail.startsWith('http') ? p.thumbnail : null) ||
+    p.image ||
+    '/images/products/placeholder.png';
+
+  const currentPrice = Number(
+    p.minPrice ||
+    p.variants?.[0]?.finalPrice ||
+    p.variants?.[0]?.price?.current ||
+    p.variants?.[0]?.price?.sale ||
+    p.price ||
+    99
+  );
+
+  const originalPrice = Number(
+    p.variants?.[0]?.price?.base ||
+    p.originalPrice ||
+    Math.round(currentPrice * 1.6)
+  );
+
+  const discountPercentage = Number(
+    p.maxDiscountPercentage ||
+    p.variants?.[0]?.discountPercentage ||
+    Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+  );
+
+  const catName = p.category
+    ? typeof p.category === 'string'
+      ? p.category
+      : p.category.name || p.category.slug || ''
+    : 'General';
+
+  return {
+    id: p._id || p.id || p.slug,
+    slug: p.slug,
+    title: p.title || p.name || 'Product',
+    category: catName || 'General',
+    currentPrice,
+    originalPrice,
+    discountPercentage,
+    image: img,
+    rating: typeof p.rating === 'number' ? p.rating : (p.rating?.value || 4.8),
+    reviews: p.soldInfo?.count || p.reviews || 84,
+    inStock: p.inStock !== undefined ? p.inStock : true,
+    isTopDeal: discountPercentage >= 40,
+    tag: discountPercentage >= 50 ? 'MEGA DEAL' : undefined,
+  };
+};
 
 interface ProductDetailPageProps {
   product: ProductItem;
   onBack: () => void;
   onSelectProduct: (product: ProductItem) => void;
+  onGoToCheckout?: () => void;
 }
 
 // Generate contextual, matching angles based on product category & image
@@ -70,6 +126,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   product,
   onBack,
   onSelectProduct,
+  onGoToCheckout,
 }) => {
   const { addToCart } = useCart();
   const galleryImages = getCategoryGallery(product);
@@ -82,6 +139,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [showBuyModal, setShowBuyModal] = useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [formData, setFormData] = useState({ name: '', phone: '', address: '', paymentMethod: 'cod' });
+
+  const handleBuyNow = () => {
+    addToCart(product, quantity, { silent: true });
+    if (onGoToCheckout) {
+      onGoToCheckout();
+    } else {
+      window.history.pushState(null, '', '/checkout');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Review submission state
   const [reviewRating, setReviewRating] = useState(5);
@@ -109,20 +177,97 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setTimeout(() => setCouponFeedback(null), 3500);
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({ title: product.title, url: window.location.href }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      setCouponFeedback('Product link copied to clipboard!');
-      setTimeout(() => setCouponFeedback(null), 3000);
-    }
-  };
 
-  const allProducts = getAllProducts();
-  const relatedProducts = allProducts
-    .filter((p) => p.id !== product.id && (p.category === product.category || p.currentPrice <= 299))
-    .slice(0, 4);
+
+  // Related products state & API fetch
+  const [relatedProducts, setRelatedProducts] = useState<ProductItem[]>([]);
+  const [isLoadingRelated, setIsLoadingRelated] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingRelated(true);
+
+    const fetchRelatedProducts = async () => {
+      try {
+        // 1. Identify product slug
+        let slug = product.slug;
+        if (!slug && product.id && isNaN(Number(product.id)) && !/^[0-9a-fA-F]{24}$/.test(product.id)) {
+          slug = product.id;
+        }
+
+        let rawRelated: any[] = [];
+        if (slug) {
+          rawRelated = await storefrontProductsApi.getRelated(slug);
+        }
+
+        // If not found by slug, and title exists, try slug derived from title
+        if ((!rawRelated || rawRelated.length === 0) && product.title) {
+          const titleSlug = product.title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+          if (titleSlug && titleSlug !== slug) {
+            rawRelated = await storefrontProductsApi.getRelated(titleSlug);
+          }
+        }
+
+        if (isMounted) {
+          if (Array.isArray(rawRelated) && rawRelated.length > 0) {
+            const mapped = rawRelated
+              .map(mapBackendProductToItem)
+              .filter((p) => p.id !== product.id && p.slug !== product.slug);
+            if (mapped.length > 0) {
+              setRelatedProducts(mapped.slice(0, 4));
+              setIsLoadingRelated(false);
+              return;
+            }
+          }
+
+          // Fallback: Query store products from API
+          try {
+            const res = await apiClient.get('/products/all?limit=16');
+            const list = res.data?.products || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            if (Array.isArray(list) && list.length > 0) {
+              const mapped = list
+                .map(mapBackendProductToItem)
+                .filter((p) => p.id !== product.id && p.slug !== product.slug);
+              if (mapped.length > 0) {
+                setRelatedProducts(mapped.slice(0, 4));
+                setIsLoadingRelated(false);
+                return;
+              }
+            }
+          } catch {
+            // Ignore API fallback error
+          }
+
+          // Local catalog fallback
+          const all = getAllProducts();
+          const fallback = all
+            .filter((p) => p.id !== product.id && (p.category === product.category || p.currentPrice <= 299))
+            .slice(0, 4);
+          setRelatedProducts(fallback);
+          setIsLoadingRelated(false);
+        }
+      } catch (err) {
+        console.warn('Error loading related products:', err);
+        if (isMounted) {
+          const all = getAllProducts();
+          const fallback = all
+            .filter((p) => p.id !== product.id && (p.category === product.category || p.currentPrice <= 299))
+            .slice(0, 4);
+          setRelatedProducts(fallback);
+          setIsLoadingRelated(false);
+        }
+      }
+    };
+
+    fetchRelatedProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [product]);
 
   const handleAddToCart = () => {
     addToCart(product, quantity);
@@ -139,6 +284,20 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     }
     const nextState = !isWishlisted;
     setIsWishlisted(nextState);
+    const prodTitle = product.title && product.title.length > 32 
+      ? `${product.title.slice(0, 32)}...` 
+      : (product.title || 'Product');
+    if (nextState) {
+      toast.success(`${prodTitle} added to wishlist!`, {
+        id: `wishlist-${product.id}`,
+        icon: '❤️',
+      });
+    } else {
+      toast(`${prodTitle} removed from wishlist`, {
+        id: `wishlist-${product.id}`,
+        icon: '🤍',
+      });
+    }
     try {
       await storefrontWishlistApi.toggle(product.id, product.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
     } catch {
@@ -207,25 +366,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     <div className="bg-[#F8FAFC] min-h-screen py-5 sm:py-8 font-sans animate-fadeIn select-none">
       <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
-        {/* Clean Breadcrumb Navigation with Share Button */}
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 font-sans pb-2">
-          <nav className="flex items-center gap-1.5 overflow-x-auto text-xs">
-            <button type="button" onClick={onBack} className="hover:text-slate-900 cursor-pointer">Home</button>
-            <span className="text-slate-300">/</span>
-            <button type="button" onClick={onBack} className="hover:text-slate-900 cursor-pointer">{product.category}</button>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-900 font-bold truncate max-w-[260px] sm:max-w-md">{product.title}</span>
-          </nav>
-
-          <button
-            type="button"
-            onClick={handleShare}
-            className="inline-flex items-center gap-1.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span>Share</span>
-          </button>
-        </div>
+        {/* =========================================================================
+            MAIN PRODUCT STAGE: Exact Match to Reference Design
+           ========================================================================= */}
 
         {/* =========================================================================
             MAIN PRODUCT STAGE: Exact Match to Reference Design
@@ -251,7 +394,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   onClick={() => setSelectedImage(img)}
                   className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white p-1 border-2 transition-all cursor-pointer overflow-hidden ${
                     selectedImage === img
-                      ? 'border-[#FA5825] shadow-xs'
+                      ? 'border-[#A44101] shadow-xs'
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -324,9 +467,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
 
               {/* Applicable Coupons & Offers */}
-              <div className="rounded-xl border border-orange-200/70 bg-[#FFFBF7] p-4 sm:p-5 space-y-3">
+              <div className="rounded-xl border border-amber-200/70 bg-[#FFFDF9] p-4 sm:p-5 space-y-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-orange-100 text-[#FA5825] flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-[#A44101]/10 text-[#A44101] flex items-center justify-center shrink-0">
                     <Tag className="w-4 h-4" />
                   </div>
                   <div>
@@ -341,8 +484,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     { code: 'FLAT50', discount: '₹50 FLAT OFF', desc: 'Save ₹50 on prepaid orders ...' },
                     { code: 'B2BSAVE', discount: '15% OFF', desc: 'Wholesale tier discount for bulk...' },
                   ].map((coupon) => (
-                    <div key={coupon.code} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white border border-orange-100 shadow-2xs">
-                      <span className="border border-dashed border-[#FA5825] bg-orange-50 text-[#FA5825] font-mono font-bold text-xs px-2 py-0.5 rounded">
+                    <div key={coupon.code} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white border border-amber-100 shadow-2xs">
+                      <span className="border border-dashed border-[#A44101] bg-[#A44101]/10 text-[#A44101] font-mono font-bold text-xs px-2 py-0.5 rounded">
                         {coupon.code}
                       </span>
                       <span className="text-xs text-slate-600 truncate flex-1">
@@ -366,12 +509,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     placeholder="Enter coupon code..."
-                    className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white placeholder:text-slate-400 text-slate-800 focus:outline-none focus:border-[#FA5825] font-mono uppercase"
+                    className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white placeholder:text-slate-400 text-slate-800 focus:outline-none focus:border-[#A44101] font-mono uppercase"
                   />
                   <button
                     type="button"
                     onClick={() => handleApplyCoupon()}
-                    className="px-5 py-2 bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                    className="px-5 py-2 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
                   >
                     Apply
                   </button>
@@ -408,7 +551,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-800 flex items-center justify-end gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Only <strong className="text-[#FA5825]">10 Units</strong> Available</span>
+                    <span>Only <strong className="text-[#A44101]">10 Units</strong> Available</span>
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">Ready for 24h factory dispatch</p>
                 </div>
@@ -418,7 +561,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowBuyModal(true)}
+                  onClick={handleBuyNow}
                   className="flex-1 py-3.5 px-6 bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
                 >
                   Buy Now
@@ -426,7 +569,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="flex-1 py-3.5 px-6 bg-[#FA5825] hover:bg-[#E04716] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
+                  className="flex-1 py-3.5 px-6 bg-[#A44101] hover:bg-[#8C3701] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
                 >
                   {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
                 </button>
@@ -642,27 +785,40 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         </div>
 
         {/* Related Steal Deals */}
-        {relatedProducts.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-slate-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl sm:text-2xl font-bold text-navy">
-                You May Also Like: <span className="text-navy">Related Deals</span>
-              </h2>
-              <button
-                type="button"
-                onClick={onBack}
-                className="text-xs font-bold text-navy hover:text-[#A44101] cursor-pointer"
-              >
-                View Catalog →
-              </button>
-            </div>
+        <div className="space-y-4 pt-4 border-t border-slate-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl sm:text-2xl font-bold text-navy">
+              You May Also Like: <span className="text-navy">Related Deals</span>
+            </h2>
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-xs font-bold text-navy hover:text-[#A44101] cursor-pointer"
+            >
+              View Catalog →
+            </button>
+          </div>
 
+          {isLoadingRelated ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs animate-pulse space-y-3">
+                  <div className="aspect-[4/3] rounded-lg bg-slate-100" />
+                  <div className="h-3.5 bg-slate-100 rounded w-3/4" />
+                  <div className="h-4 bg-slate-100 rounded w-1/3" />
+                </div>
+              ))}
+            </div>
+          ) : relatedProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {relatedProducts.map((relProduct) => (
                 <div
                   key={relProduct.id}
-                  onClick={() => onSelectProduct(relProduct)}
-                  className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs hover:border-[#A44101] transition-all cursor-pointer group flex flex-col justify-between"
+                  onClick={() => {
+                    onSelectProduct(relProduct);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs hover:border-[#A44101] hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
                 >
                   <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 mb-2.5">
                     <span className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] font-black px-1.5 py-0.5 rounded">
@@ -691,8 +847,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="py-6 text-center text-xs text-slate-400">
+              No additional related deals found for this item.
+            </div>
+          )}
+        </div>
 
       </div>
 

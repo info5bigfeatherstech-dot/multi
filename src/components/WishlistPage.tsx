@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heart, 
@@ -6,12 +6,20 @@ import {
   ShoppingCart, 
   Check, 
   Star, 
-  Sparkles, 
-  ShoppingBag
+  ShoppingBag,
+  LayoutGrid,
+  List,
+  ArrowRight,
+  Truck,
+  ShieldCheck,
+  RotateCcw,
+  ArrowUpDown,
+  Search
 } from 'lucide-react';
 import { getAllProducts, ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { toast } from 'react-hot-toast';
 
 interface WishlistPageProps {
   onSelectProduct?: (product: ProductItem) => void;
@@ -26,11 +34,16 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
 }) => {
   const { addToCart } = useCart();
   const allProducts = getAllProducts();
+  
   // Pre-populate with 4 popular products
   const initialWishlist = allProducts.slice(0, 4);
   const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(initialWishlist);
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
   const [allMoved, setAllMoved] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'featured' | 'price-low' | 'price-high' | 'discount'>('featured');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Auth guard: redirect to home if not logged in
   useEffect(() => {
@@ -43,7 +56,15 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
 
   const handleRemove = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setWishlistItems((prev) => prev.filter((item) => item.id !== id));
+    const item = wishlistItems.find((it) => it.id === id);
+    const itemTitle = item?.title && item.title.length > 32 
+      ? `${item.title.slice(0, 32)}...` 
+      : (item?.title || 'Item');
+    setWishlistItems((prev) => prev.filter((it) => it.id !== id));
+    toast(`${itemTitle} removed from wishlist`, {
+      id: `wishlist-remove-${id}`,
+      icon: '🤍',
+    });
   };
 
   const handleAddToCart = (product: ProductItem, e?: React.MouseEvent) => {
@@ -52,271 +73,661 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
     setAddedItems((prev) => ({ ...prev, [product.id]: true }));
     setTimeout(() => {
       setAddedItems((prev) => ({ ...prev, [product.id]: false }));
-    }, 2500);
+    }, 2200);
+  };
+
+  const handleBuyNow = (product: ProductItem, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to proceed to checkout' });
+      return;
+    }
+    addToCart(product, 1, { silent: true });
+    if (onGoToCheckout) {
+      onGoToCheckout();
+    } else {
+      window.history.pushState(null, '', '/checkout');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleMoveAllToCart = () => {
+    if (!wishlistItems.length) return;
     const newAdded: { [id: string]: boolean } = {};
     wishlistItems.forEach((item) => {
-      addToCart(item);
+      addToCart(item, 1, { silent: true });
       newAdded[item.id] = true;
     });
     setAddedItems(newAdded);
     setAllMoved(true);
+    toast.success(`Moved all ${wishlistItems.length} items to cart!`, {
+      icon: '🛒',
+    });
     setTimeout(() => {
       setAllMoved(false);
     }, 3000);
   };
 
+  const handleProceedToCheckout = () => {
+    if (!isAuthenticated()) {
+      requireAuth({ message: 'Please log in or register to proceed to checkout' });
+      return;
+    }
+    wishlistItems.forEach((item) => {
+      addToCart(item, 1, { silent: true });
+    });
+    if (onGoToCheckout) {
+      onGoToCheckout();
+    } else {
+      window.history.pushState(null, '', '/checkout');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const handleClearWishlist = () => {
     if (window.confirm('Are you sure you want to clear your wishlist?')) {
       setWishlistItems([]);
+      toast('Wishlist cleared', { icon: '🗑️' });
     }
   };
+
+  // Derive unique categories from saved items
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    wishlistItems.forEach((item) => {
+      if (item.category) set.add(item.category);
+    });
+    return ['All', ...Array.from(set)];
+  }, [wishlistItems]);
+
+  // Filter and sort items
+  const filteredItems = useMemo(() => {
+    let list = [...wishlistItems];
+
+    if (selectedCategory !== 'All') {
+      list = list.filter((item) => item.category === selectedCategory);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((item) => item.title.toLowerCase().includes(q) || item.category.toLowerCase().includes(q));
+    }
+
+    if (sortBy === 'price-low') {
+      list.sort((a, b) => a.currentPrice - b.currentPrice);
+    } else if (sortBy === 'price-high') {
+      list.sort((a, b) => b.currentPrice - a.currentPrice);
+    } else if (sortBy === 'discount') {
+      list.sort((a, b) => b.discountPercentage - a.discountPercentage);
+    }
+
+    return list;
+  }, [wishlistItems, selectedCategory, searchQuery, sortBy]);
 
   const totalOriginalPrice = wishlistItems.reduce((acc, item) => acc + item.originalPrice, 0);
   const totalCurrentPrice = wishlistItems.reduce((acc, item) => acc + item.currentPrice, 0);
   const totalSavings = totalOriginalPrice - totalCurrentPrice;
+  const freeShippingThreshold = 499;
+  const progressPercent = Math.min(100, Math.round((totalCurrentPrice / freeShippingThreshold) * 100));
+  const isFreeShipping = totalCurrentPrice >= freeShippingThreshold;
 
   return (
-    <div className="bg-white min-h-screen py-6 sm:py-10 animate-fadeIn">
-      <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="bg-white min-h-screen py-5 sm:py-8 font-sans">
+      <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
-        {/* Page Header Banner */}
+        {/* =========================================================================
+            1. CLEAN E-COMMERCE PAGE HEADER (Breadcrumb + Simple Title + Theme Actions)
+           ========================================================================= */}
+        <div>
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+            <button 
+              type="button" 
+              onClick={onBackToHome} 
+              className="hover:text-navy cursor-pointer transition-colors"
+            >
+              Home
+            </button>
+            <span className="text-slate-300">/</span>
+            <span className="text-navy font-bold">My Wishlist</span>
+          </nav>
 
-        {/* Page Header Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#A44101]/10 border border-[#A44101]/20 flex items-center justify-center text-[#A44101] shadow-xs">
-              <Heart className="w-6 h-6 fill-[#A44101]" />
+          {/* Clean Store Header Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#A44101]/10 border border-[#A44101]/20 flex items-center justify-center text-[#A44101] shrink-0">
+                <Heart className="w-5 h-5 fill-[#A44101]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-bold text-navy tracking-tight">
+                    My Wishlist
+                  </h1>
+                  <span className="text-xs font-bold text-[#A44101] bg-[#A44101]/10 px-2.5 py-0.5 rounded-full border border-[#A44101]/20">
+                    {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Saved items to revisit and purchase anytime. Prices &amp; discounts are saved live.
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-navy">
-                My Saved Wishlist
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved for later purchase
-              </p>
-            </div>
+
+            {wishlistItems.length > 0 && (
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleClearWishlist}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#A44101] hover:bg-slate-50 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear Wishlist</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMoveAllToCart}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#A44101] hover:bg-[#8C3701] text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer active:scale-98"
+                >
+                  {allMoved ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                  <span>{allMoved ? 'All Added!' : 'Move All to Cart'}</span>
+                </button>
+              </div>
+            )}
           </div>
-
-          {wishlistItems.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleClearWishlist}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#A44101] hover:bg-[#A44101]/10 border border-slate-200 hover:border-[#A44101]/30 transition-colors cursor-pointer"
-              >
-                Clear All
-              </button>
-              <button
-                type="button"
-                onClick={handleMoveAllToCart}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-navy hover:bg-navy-light text-white shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                {allMoved ? <Check className="w-4 h-4 text-white" /> : <ShoppingCart className="w-4 h-4" />}
-                <span>{allMoved ? 'All Added to Cart!' : 'Move All to Cart'}</span>
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Wishlist Main Content */}
         {wishlistItems.length === 0 ? (
-          /* Empty State */
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16 px-4 bg-slate-50 rounded-3xl border border-slate-200 max-w-lg mx-auto"
-          >
-            <div className="w-20 h-20 rounded-full bg-[#A44101]/10 border border-[#A44101]/20 flex items-center justify-center mx-auto mb-4 text-[#A44101]">
-              <Heart className="w-10 h-10" />
+          /* Clean Empty State */
+          <div className="text-center py-16 px-4 bg-slate-50/70 rounded-2xl border border-slate-200 max-w-lg mx-auto">
+            <div className="w-16 h-16 rounded-full bg-[#A44101]/10 border border-[#A44101]/20 flex items-center justify-center mx-auto mb-4 text-[#A44101]">
+              <Heart className="w-8 h-8" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-navy">Your Wishlist is Empty</h2>
+            <h2 className="text-xl font-bold text-navy">Your Wishlist is Empty</h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-2 max-w-sm mx-auto">
-              Explore our trending categories and save items you love to revisit and purchase anytime!
+              You haven't saved any items yet. Explore our products and tap the heart icon to save your favorites!
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="mt-6">
               <button
                 type="button"
                 onClick={onBackToHome}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-sm"
+                className="px-6 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-xs"
               >
-                Start Shopping Now
+                Continue Shopping
               </button>
             </div>
-          </motion.div>
+          </div>
         ) : (
-          /* Items Grid with Summary Sidebar */
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* Products Grid (3 Columns on Large) */}
-            <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-              <AnimatePresence>
-                {wishlistItems.map((product) => {
-                  const isAdded = !!addedItems[product.id];
-
-                  return (
-                    <motion.div
-                      key={product.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={() => onSelectProduct?.(product)}
-                      className="bg-white rounded-2xl border border-slate-200 shadow-soft hover:shadow-soft-hover transition-all duration-300 flex flex-col justify-between overflow-hidden group cursor-pointer relative"
-                    >
-                      {/* Delete from Wishlist Top-Right Button */}
+            {/* =========================================================================
+                2. LEFT COLUMN: Filter Bar + Showcase Items (List or Grid)
+               ========================================================================= */}
+            <div className="lg:col-span-8 space-y-4">
+              
+              {/* Filter / Sort / View Switcher Bar */}
+              <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                
+                {/* Category Chips with #A44101 active theme */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                  {categories.map((cat) => {
+                    const isSelected = selectedCategory === cat;
+                    const count = cat === 'All' 
+                      ? wishlistItems.length 
+                      : wishlistItems.filter((i) => i.category === cat).length;
+                    return (
                       <button
+                        key={cat}
                         type="button"
-                        onClick={(e) => handleRemove(product.id, e)}
-                        className="absolute top-2.5 right-2.5 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-[#A44101]/10 text-slate-500 hover:text-[#A44101] shadow-sm border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                        title="Remove from Wishlist"
-                        aria-label={`Remove ${product.title} from wishlist`}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 border ${
+                          isSelected
+                            ? 'bg-[#A44101] text-white border-[#A44101] shadow-2xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {cat} <span className={isSelected ? 'text-amber-100' : 'text-slate-400'}>({count})</span>
                       </button>
+                    );
+                  })}
+                </div>
 
-                      {/* Image Thumbnail */}
-                      <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-                        <img
-                          src={product.image}
-                          alt={product.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
-                        />
-                        <span className="absolute bottom-2 left-2 bg-[#A44101] text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">
-                          {product.discountPercentage}% OFF
-                        </span>
-                      </div>
+                {/* Right: Quick Search, Sort & View Mode */}
+                <div className="flex items-center justify-between md:justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/80">
+                  
+                  {/* Search within wishlist */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search items..."
+                      className="pl-8 pr-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#A44101] w-32 sm:w-40"
+                    />
+                  </div>
 
-                      {/* Content */}
-                      <div className="p-4 flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center justify-between text-[11px] mb-1">
-                            <span className="font-bold text-[#A44101] uppercase tracking-wider text-[10px]">
-                              {product.category}
+                  {/* Sort */}
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="bg-transparent font-semibold focus:outline-none cursor-pointer pr-1"
+                    >
+                      <option value="featured">Featured</option>
+                      <option value="price-low">Price: Low to High</option>
+                      <option value="price-high">Price: High to Low</option>
+                      <option value="discount">Discount</option>
+                    </select>
+                  </div>
+
+                  {/* Layout View Switcher */}
+                  <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                        viewMode === 'list'
+                          ? 'bg-[#A44101] text-white'
+                          : 'text-slate-400 hover:text-slate-700'
+                      }`}
+                      title="Showcase List View"
+                      aria-label="List View"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                        viewMode === 'grid'
+                          ? 'bg-[#A44101] text-white'
+                          : 'text-slate-400 hover:text-slate-700'
+                      }`}
+                      title="Grid Cards View"
+                      aria-label="Grid View"
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ===================================================================
+                  SHOWCASE MODE A: CLEAN HORIZONTAL PRODUCT ROWS (List View)
+                 =================================================================== */}
+              {viewMode === 'list' ? (
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {filteredItems.map((product) => {
+                      const isAdded = !!addedItems[product.id];
+
+                      return (
+                        <motion.div
+                          key={product.id}
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.15 }}
+                          className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs p-3.5 sm:p-4 flex flex-col sm:flex-row items-center sm:items-stretch gap-4 relative group"
+                        >
+                          {/* Left Image Thumbnail */}
+                          <div 
+                            onClick={() => onSelectProduct?.(product)}
+                            className="relative w-full sm:w-36 h-36 sm:h-auto rounded-lg bg-slate-50 border border-slate-100 overflow-hidden shrink-0 cursor-pointer flex items-center justify-center aspect-square"
+                          >
+                            <img
+                              src={product.image}
+                              alt={product.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                            <span className="absolute top-1.5 left-1.5 bg-[#A44101] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
+                              {product.discountPercentage}% OFF
                             </span>
-                            <div className="flex items-center gap-1 text-navy font-bold text-xs">
-                              <Star className="w-3.5 h-3.5 fill-[#A44101] text-[#A44101]" />
-                              <span>{product.rating}</span>
-                              <span className="text-slate-400 font-normal">({product.reviews})</span>
+                          </div>
+
+                          {/* Middle Details */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between w-full">
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="text-[10px] font-bold text-[#A44101] uppercase tracking-wider">
+                                  {product.category}
+                                </span>
+                                <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-1.5 py-0.2 rounded text-[11px] font-bold text-amber-900">
+                                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                  <span>{product.rating}</span>
+                                  <span className="text-slate-400 font-normal">({product.reviews})</span>
+                                </div>
+                              </div>
+
+                              <h3 
+                                onClick={() => onSelectProduct?.(product)}
+                                className="text-sm font-bold text-navy hover:text-[#A44101] transition-colors cursor-pointer line-clamp-2 leading-snug"
+                              >
+                                {product.title}
+                              </h3>
+
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  <span>In Stock • Ready for 24h dispatch</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Mobile Price */}
+                            <div className="sm:hidden flex items-baseline justify-between pt-2 border-t border-slate-100 mt-2">
+                              <div>
+                                <span className="text-base font-bold text-navy">₹{product.currentPrice}</span>
+                                <span className="text-xs text-slate-400 line-through ml-1.5">₹{product.originalPrice}</span>
+                              </div>
+                              <span className="text-xs font-bold text-[#A44101]">Save ₹{product.originalPrice - product.currentPrice}</span>
                             </div>
                           </div>
 
-                          <h3 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-[#A44101] transition-colors">
-                            {product.title}
-                          </h3>
-                        </div>
-
-                        {/* Price & Actions */}
-                        <div className="pt-3 mt-3 border-t border-slate-100">
-                          <div className="flex items-baseline justify-between mb-3">
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="text-lg font-black text-navy">
+                          {/* Right: Pricing & Action Buttons */}
+                          <div className="w-full sm:w-44 flex sm:flex-col justify-between items-center sm:items-end pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l border-slate-100 sm:pl-4 shrink-0">
+                            
+                            <div className="hidden sm:block text-right">
+                              <div className="text-lg font-black text-navy">
                                 ₹{product.currentPrice}
-                              </span>
-                              <span className="text-xs text-slate-400 line-through">
-                                ₹{product.originalPrice}
-                              </span>
+                              </div>
+                              <div className="flex items-center justify-end gap-1.5 text-xs text-slate-400 mt-0.5">
+                                <span className="line-through">₹{product.originalPrice}</span>
+                                <span className="font-bold text-[#A44101] text-[10px] bg-[#A44101]/10 px-1 py-0.2 rounded">
+                                  Save ₹{product.originalPrice - product.currentPrice}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded">
-                              Save ₹{product.originalPrice - product.currentPrice}
+
+                            <div className="w-full space-y-2 mt-auto">
+                              <button
+                                type="button"
+                                onClick={(e) => handleBuyNow(product, e)}
+                                className="w-full py-2 px-3 rounded-xl bg-navy hover:bg-[#1E293B] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
+                              >
+                                <span>Buy Now</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleAddToCart(product, e)}
+                                  className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border ${
+                                    isAdded
+                                      ? 'bg-[#A44101] text-white border-[#A44101]'
+                                      : 'bg-white hover:bg-slate-50 text-navy border-slate-300 hover:border-navy shadow-xs'
+                                  }`}
+                                >
+                                  {isAdded ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-white" />
+                                      <span>Added</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShoppingCart className="w-3.5 h-3.5 text-navy" />
+                                      <span>Add Cart</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleRemove(product.id, e)}
+                                  className="p-2 rounded-xl text-slate-400 hover:text-[#A44101] hover:bg-[#A44101]/10 border border-slate-200 transition-colors cursor-pointer shrink-0"
+                                  title="Remove item from wishlist"
+                                  aria-label="Remove item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                /* ===================================================================
+                    SHOWCASE MODE B: CLEAN PRODUCT CARDS (Grid View)
+                   =================================================================== */
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <AnimatePresence>
+                    {filteredItems.map((product) => {
+                      const isAdded = !!addedItems[product.id];
+
+                      return (
+                        <motion.div
+                          key={product.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
+                          className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 shadow-2xs hover:shadow-xs flex flex-col justify-between overflow-hidden group relative"
+                        >
+                          {/* Image Stage */}
+                          <div 
+                            onClick={() => onSelectProduct?.(product)}
+                            className="relative aspect-square bg-slate-50 overflow-hidden cursor-pointer flex items-center justify-center"
+                          >
+                            <img
+                              src={product.image}
+                              alt={product.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                            <span className="absolute top-2 left-2 bg-[#A44101] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
+                              {product.discountPercentage}% OFF
                             </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={(e) => handleAddToCart(product, e)}
-                              className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                                isAdded
-                                  ? 'bg-[#A44101] text-white border-[#A44101]'
-                                  : 'bg-white hover:bg-slate-100 text-navy border-slate-300 hover:border-navy shadow-xs'
-                              }`}
-                            >
-                              {isAdded ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-white" />
-                                  <span>Added!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <ShoppingCart className="w-3.5 h-3.5 text-navy" />
-                                  <span>Add Cart</span>
-                                </>
-                              )}
-                            </button>
 
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isAuthenticated()) {
-                                  requireAuth({ message: 'Please log in or register to proceed to checkout' });
-                                  return;
-                                }
-                                onGoToCheckout?.();
-                              }}
-                              className="py-2 px-2 rounded-xl text-xs font-bold bg-navy hover:bg-navy-light text-white text-center flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                              onClick={(e) => handleRemove(product.id, e)}
+                              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 hover:bg-[#A44101]/10 text-slate-400 hover:text-[#A44101] shadow-xs border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                              title="Remove item"
                             >
-                              Buy Now
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+
+                          {/* Content */}
+                          <div className="p-3.5 flex-1 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between text-[11px] mb-1">
+                                <span className="font-bold text-[#A44101] uppercase tracking-wider text-[10px]">
+                                  {product.category}
+                                </span>
+                                <div className="flex items-center gap-1 text-slate-800 font-bold text-xs">
+                                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                  <span>{product.rating}</span>
+                                </div>
+                              </div>
+
+                              <h3 
+                                onClick={() => onSelectProduct?.(product)}
+                                className="text-xs sm:text-sm font-bold text-navy line-clamp-2 leading-snug group-hover:text-[#A44101] transition-colors cursor-pointer"
+                              >
+                                {product.title}
+                              </h3>
+                            </div>
+
+                            <div className="pt-3 mt-3 border-t border-slate-100">
+                              <div className="flex items-baseline justify-between mb-2.5">
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="text-base font-bold text-navy">
+                                    ₹{product.currentPrice}
+                                  </span>
+                                  <span className="text-xs text-slate-400 line-through">
+                                    ₹{product.originalPrice}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1 py-0.2 rounded">
+                                  Save ₹{product.originalPrice - product.currentPrice}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleAddToCart(product, e)}
+                                  className={`py-2 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                                    isAdded
+                                      ? 'bg-[#A44101] text-white border-[#A44101]'
+                                      : 'bg-white hover:bg-slate-50 text-navy border-slate-300 hover:border-navy shadow-xs'
+                                  }`}
+                                >
+                                  {isAdded ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-white" />
+                                      <span>Added</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShoppingCart className="w-3.5 h-3.5 text-navy" />
+                                      <span>Add Cart</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleBuyNow(product, e)}
+                                  className="py-2 px-2 rounded-xl text-xs font-bold bg-navy hover:bg-[#1E293B] text-white text-center flex items-center justify-center transition-colors shadow-xs cursor-pointer active:scale-98"
+                                >
+                                  Buy Now
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              )}
+
             </div>
 
-            {/* Wishlist Summary Sidebar */}
-            <div className="lg:col-span-1 bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
-              <h2 className="text-base font-bold text-navy flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#A44101]" />
-                <span>Wishlist Summary</span>
-              </h2>
+            {/* =========================================================================
+                3. RIGHT COLUMN: Order Summary Sidebar (Using Store Theme #A44101 & #0F172A)
+               ========================================================================= */}
+            <div className="lg:col-span-4 sticky top-28 space-y-4">
+              
+              <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <h2 className="text-base font-bold text-navy">
+                    Order Summary
+                  </h2>
+                  <span className="text-xs font-bold text-[#A44101]">
+                    {wishlistItems.length} products
+                  </span>
+                </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between text-slate-500">
-                  <span>Saved Items</span>
-                  <span className="font-bold text-navy">{wishlistItems.length} products</span>
+                {/* Free Shipping Progress */}
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className={`w-4 h-4 ${isFreeShipping ? 'text-emerald-600' : 'text-[#A44101]'}`} />
+                      <span className="font-bold text-slate-800">
+                        {isFreeShipping ? 'Free Delivery Unlocked!' : 'Pan-India Delivery'}
+                      </span>
+                    </div>
+                    <span className="font-bold text-xs text-navy">
+                      ₹{totalCurrentPrice} / ₹{freeShippingThreshold}
+                    </span>
+                  </div>
+
+                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        isFreeShipping ? 'bg-emerald-500' : 'bg-[#A44101]'
+                      }`}
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    {isFreeShipping ? (
+                      <span className="text-emerald-700 font-semibold">Eligible for Free Standard Delivery</span>
+                    ) : (
+                      <>Add <strong className="text-navy font-bold">₹{freeShippingThreshold - totalCurrentPrice}</strong> more for Free Shipping</>
+                    )}
+                  </p>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Total MRP Value</span>
-                  <span className="line-through">₹{totalOriginalPrice}</span>
+
+                {/* Price Breakdown */}
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Total MRP Value</span>
+                    <span className="line-through">₹{totalOriginalPrice.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-[#A44101] font-bold">
+                    <span>Total Savings</span>
+                    <span>- ₹{totalSavings.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Estimated Shipping</span>
+                    <span className="font-bold text-slate-700">
+                      {isFreeShipping ? <span className="text-emerald-600">FREE</span> : '₹49'}
+                    </span>
+                  </div>
+                  
+                  <div className="pt-2.5 border-t border-slate-100 flex justify-between items-baseline text-navy">
+                    <div>
+                      <span className="text-sm font-bold block">Total Cart Value</span>
+                      <span className="text-[10px] text-slate-400">Includes all taxes</span>
+                    </div>
+                    <span className="text-2xl font-black text-[#A44101]">
+                      ₹{totalCurrentPrice.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[#A44101] font-bold">
-                  <span>Total Savings</span>
-                  <span>- ₹{totalSavings}</span>
+
+                {/* Primary Checkout CTA */}
+                <div className="pt-2 space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleProceedToCheckout}
+                    className="w-full py-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer active:scale-98"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Proceed to 3-Step Checkout</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleMoveAllToCart}
+                    className="w-full py-2.5 rounded-xl bg-navy hover:bg-[#1E293B] text-white font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>Move All Items to Cart</span>
+                  </button>
                 </div>
-                <div className="pt-2 border-t border-slate-200 flex justify-between text-sm font-bold text-navy">
-                  <span>Effective Value</span>
-                  <span>₹{totalCurrentPrice}</span>
+
+                {/* Trust Badges */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-around text-[11px] text-slate-500">
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>100% Genuine</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <RotateCcw className="w-4 h-4 text-[#A44101] shrink-0" />
+                    <span>7-Day Returns</span>
+                  </div>
                 </div>
+
               </div>
 
-              <div className="pt-2 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isAuthenticated()) {
-                      requireAuth({ message: 'Please log in or register to proceed to checkout' });
-                      return;
-                    }
-                    onGoToCheckout?.();
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>Proceed to Checkout</span>
-                </button>
-                <p className="text-[10px] text-center text-slate-500">
-                  Free Pan-India Delivery on orders above ₹499
-                </p>
-              </div>
             </div>
 
           </div>

@@ -251,6 +251,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
 
             mapped.push({
               id: p._id || p.id,
+              slug: p.slug,
               title: p.title || p.name || 'Product',
               category: catName || 'General',
               currentPrice,
@@ -674,7 +675,10 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onProductClick?.(product);
+                              onAddToCart(product);
+                              window.history.pushState(null, '', '/checkout');
+                              window.dispatchEvent(new PopStateEvent('popstate'));
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
                             className="py-1.5 px-1.5 sm:px-2 rounded-theme text-[11px] sm:text-xs font-extrabold bg-[#A44101] hover:bg-[#8C3701] text-white text-center flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-98"
                           >
