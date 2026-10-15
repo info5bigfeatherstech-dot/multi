@@ -1,6 +1,11 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 
+export interface ProductVariantAttribute {
+  key: string;
+  value: string;
+}
+
 export interface ProductVariant {
   id: string;
   name: string;
@@ -9,6 +14,22 @@ export interface ProductVariant {
   stock: number;
   color?: string;
   size?: string;
+  titleOverride?: string;
+  basePrice?: number;
+  moq?: number;
+  weight?: number;
+  dimensions?: {
+    length: number;
+    width: number;
+    height: number;
+  };
+  isActive?: boolean;
+  ecomVisibility?: boolean;
+  trackInventory?: boolean;
+  description?: string;
+  lowStockAlert?: number;
+  images?: Array<string | { url: string; altText?: string; order?: number }>;
+  attributes?: ProductVariantAttribute[];
 }
 
 export interface TierPrice {
@@ -66,7 +87,8 @@ export interface AdminProduct {
   badges?: string[];
   variants?: ProductVariant[];
   tierPricing?: TierPrice[];
-  attributes?: Record<string, string>;
+  attributes?: Record<string, string> | Array<{ key: string; value: string }>;
+  specifications?: Array<{ name: string; value: string }>;
   description?: string;
   dateAdded: string;
   createdAt?: string;

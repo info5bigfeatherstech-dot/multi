@@ -371,6 +371,7 @@ export const App: React.FC = () => {
           onGoToCheckout={handleGoToCheckout}
           onGoToHome={handleBackToStore}
           onSelectCategory={handleSelectCategory}
+          onSelectProduct={handleSelectProduct}
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
           onGoToBulkOrders={handleGoToBulkOrders}
@@ -421,6 +422,7 @@ export const App: React.FC = () => {
           ) : currentView === 'product' && selectedProduct ? (
             /* Dedicated Product Detail Page */
             <ProductDetailPage
+              key={selectedProduct.id || selectedProduct.slug || selectedProduct.title}
               product={selectedProduct}
               onBack={handleBackToStore}
               onSelectProduct={handleSelectProduct}

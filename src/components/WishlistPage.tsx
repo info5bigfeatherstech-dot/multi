@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heart, 
@@ -7,14 +7,10 @@ import {
   Check, 
   Star, 
   ShoppingBag,
-  LayoutGrid,
-  List,
   ArrowRight,
   Truck,
   ShieldCheck,
-  RotateCcw,
-  ArrowUpDown,
-  Search
+  RotateCcw
 } from 'lucide-react';
 import { getAllProducts, ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
@@ -40,10 +36,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(initialWishlist);
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
   const [allMoved, setAllMoved] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [sortBy, setSortBy] = useState<'featured' | 'price-low' | 'price-high' | 'discount'>('featured');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const viewMode = 'list';
 
   // Auth guard: redirect to home if not logged in
   useEffect(() => {
@@ -133,38 +126,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
     }
   };
 
-  // Derive unique categories from saved items
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    wishlistItems.forEach((item) => {
-      if (item.category) set.add(item.category);
-    });
-    return ['All', ...Array.from(set)];
-  }, [wishlistItems]);
-
-  // Filter and sort items
-  const filteredItems = useMemo(() => {
-    let list = [...wishlistItems];
-
-    if (selectedCategory !== 'All') {
-      list = list.filter((item) => item.category === selectedCategory);
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter((item) => item.title.toLowerCase().includes(q) || item.category.toLowerCase().includes(q));
-    }
-
-    if (sortBy === 'price-low') {
-      list.sort((a, b) => a.currentPrice - b.currentPrice);
-    } else if (sortBy === 'price-high') {
-      list.sort((a, b) => b.currentPrice - a.currentPrice);
-    } else if (sortBy === 'discount') {
-      list.sort((a, b) => b.discountPercentage - a.discountPercentage);
-    }
-
-    return list;
-  }, [wishlistItems, selectedCategory, searchQuery, sortBy]);
+  const filteredItems = wishlistItems;
 
   const totalOriginalPrice = wishlistItems.reduce((acc, item) => acc + item.originalPrice, 0);
   const totalCurrentPrice = wishlistItems.reduce((acc, item) => acc + item.currentPrice, 0);
@@ -263,98 +225,9 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             {/* =========================================================================
-                2. LEFT COLUMN: Filter Bar + Showcase Items (List or Grid)
+                2. LEFT COLUMN: Showcase Items
                ========================================================================= */}
             <div className="lg:col-span-8 space-y-4">
-              
-              {/* Filter / Sort / View Switcher Bar */}
-              <div className="bg-slate-50 rounded-xl border border-slate-200 p-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                
-                {/* Category Chips with #A44101 active theme */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                  {categories.map((cat) => {
-                    const isSelected = selectedCategory === cat;
-                    const count = cat === 'All' 
-                      ? wishlistItems.length 
-                      : wishlistItems.filter((i) => i.category === cat).length;
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 border ${
-                          isSelected
-                            ? 'bg-[#A44101] text-white border-[#A44101] shadow-2xs'
-                            : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        {cat} <span className={isSelected ? 'text-amber-100' : 'text-slate-400'}>({count})</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Right: Quick Search, Sort & View Mode */}
-                <div className="flex items-center justify-between md:justify-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/80">
-                  
-                  {/* Search within wishlist */}
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search items..."
-                      className="pl-8 pr-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-[#A44101] w-32 sm:w-40"
-                    />
-                  </div>
-
-                  {/* Sort */}
-                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700">
-                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-transparent font-semibold focus:outline-none cursor-pointer pr-1"
-                    >
-                      <option value="featured">Featured</option>
-                      <option value="price-low">Price: Low to High</option>
-                      <option value="price-high">Price: High to Low</option>
-                      <option value="discount">Discount</option>
-                    </select>
-                  </div>
-
-                  {/* Layout View Switcher */}
-                  <div className="flex items-center bg-white p-0.5 rounded-lg border border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('list')}
-                      className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                        viewMode === 'list'
-                          ? 'bg-[#A44101] text-white'
-                          : 'text-slate-400 hover:text-slate-700'
-                      }`}
-                      title="Showcase List View"
-                      aria-label="List View"
-                    >
-                      <List className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('grid')}
-                      className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                        viewMode === 'grid'
-                          ? 'bg-[#A44101] text-white'
-                          : 'text-slate-400 hover:text-slate-700'
-                      }`}
-                      title="Grid Cards View"
-                      aria-label="Grid View"
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
 
               {/* ===================================================================
                   SHOWCASE MODE A: CLEAN HORIZONTAL PRODUCT ROWS (List View)

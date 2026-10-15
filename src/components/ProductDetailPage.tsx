@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Star, 
@@ -10,7 +10,11 @@ import {
   Send, 
   Loader2,
   Bell,
-  Copy
+  Copy,
+  ShoppingCart,
+  Check,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
@@ -30,7 +34,9 @@ const mapBackendProductToItem = (p: any): ProductItem => {
     (Array.isArray(p.images) && p.images[0]?.url) ||
     (typeof p.thumbnail === 'string' && p.thumbnail.startsWith('http') ? p.thumbnail : null) ||
     p.image ||
-    '/images/products/placeholder.png';
+    p.category?.cardImage?.url ||
+    p.category?.image?.url ||
+    'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80';
 
   const currentPrice = Number(
     p.minPrice ||
@@ -69,10 +75,10 @@ const mapBackendProductToItem = (p: any): ProductItem => {
     discountPercentage,
     image: img,
     rating: typeof p.rating === 'number' ? p.rating : (p.rating?.value || 4.8),
-    reviews: p.soldInfo?.count || p.reviews || 84,
+    reviews: p.rating?.count || p.soldInfo?.count || 142,
     inStock: p.inStock !== undefined ? p.inStock : true,
     isTopDeal: discountPercentage >= 40,
-    tag: discountPercentage >= 50 ? 'MEGA DEAL' : undefined,
+    tag: p.appliedTags?.[0] || (discountPercentage >= 50 ? 'MEGA DEAL' : undefined),
   };
 };
 
@@ -83,45 +89,6 @@ interface ProductDetailPageProps {
   onGoToCheckout?: () => void;
 }
 
-// Generate contextual, matching angles based on product category & image
-const getCategoryGallery = (prod: ProductItem) => {
-  const cat = prod.category?.toLowerCase() || '';
-
-  if (cat.includes('gadget') || cat.includes('electronic') || cat.includes('smart')) {
-    return [
-      prod.image,
-      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-    ];
-  }
-
-  if (cat.includes('fashion') || cat.includes('shirt') || cat.includes('apparel')) {
-    return [
-      prod.image,
-      'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&w=800&q=80',
-    ];
-  }
-
-  if (cat.includes('kitchen') || cat.includes('cookware') || cat.includes('home')) {
-    return [
-      prod.image,
-      'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1585515320310-259814833e62?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=800&q=80',
-    ];
-  }
-
-  return [
-    prod.image,
-    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=800&q=80',
-  ];
-};
-
 export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   product,
   onBack,
@@ -129,9 +96,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   onGoToCheckout,
 }) => {
   const { addToCart } = useCart();
-  const galleryImages = getCategoryGallery(product);
-
+  const [productImages, setProductImages] = useState<string[]>([product.image]);
   const [selectedImage, setSelectedImage] = useState<string>(product.image);
+  const [backendDetail, setBackendDetail] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [isAddedToCart, setIsAddedToCart] = useState<boolean>(false);
   const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
@@ -177,11 +144,102 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setTimeout(() => setCouponFeedback(null), 3500);
   };
 
+  // Synchronize product state and fetch full backend product data when product changes
+  useEffect(() => {
+    setSelectedImage(product.image);
+    setProductImages([product.image]);
+    setQuantity(1);
+    setIsAddedToCart(false);
+
+    let isCurrent = true;
+    const loadProductDetails = async () => {
+      try {
+        let slug = product.slug;
+        if (!slug && product.id && isNaN(Number(product.id)) && !/^[0-9a-fA-F]{24}$/.test(product.id)) {
+          slug = product.id;
+        }
+        if (!slug && product.title) {
+          slug = product.title
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+        }
+        if (!slug) return;
+
+        const res = await storefrontProductsApi.getBySlug(slug);
+        const detail = res?.data || res;
+        if (!isCurrent || !detail) return;
+
+        setBackendDetail(detail);
+
+        // Collect all real images from backend variants and images array
+        const collectedImgs: string[] = [];
+        if (Array.isArray(detail.variants)) {
+          for (const v of detail.variants) {
+            if (Array.isArray(v.images)) {
+              for (const im of v.images) {
+                const u = typeof im === 'string' ? im : im?.url;
+                if (u && !collectedImgs.includes(u)) collectedImgs.push(u);
+              }
+            }
+          }
+        }
+        if (Array.isArray(detail.images)) {
+          for (const im of detail.images) {
+            const u = typeof im === 'string' ? im : im?.url;
+            if (u && !collectedImgs.includes(u)) collectedImgs.push(u);
+          }
+        }
+        if (detail.cardImage?.url && !collectedImgs.includes(detail.cardImage.url)) {
+          collectedImgs.push(detail.cardImage.url);
+        }
+
+        if (collectedImgs.length > 0) {
+          setProductImages(collectedImgs);
+          setSelectedImage(collectedImgs[0]);
+        }
+      } catch (err) {
+        console.warn('Failed to load detailed product images:', err);
+      }
+    };
+
+    loadProductDetails();
+    return () => {
+      isCurrent = false;
+    };
+  }, [product.id, product.slug, product.image, product.title]);
+
 
 
   // Related products state & API fetch
   const [relatedProducts, setRelatedProducts] = useState<ProductItem[]>([]);
   const [isLoadingRelated, setIsLoadingRelated] = useState<boolean>(true);
+  const [addedRelatedIds, setAddedRelatedIds] = useState<{ [key: string]: boolean }>({});
+  const relatedScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollRelated = (direction: 'left' | 'right') => {
+    if (!relatedScrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = relatedScrollRef.current;
+    const firstCard = relatedScrollRef.current.querySelector('article');
+    const cardStep = firstCard ? (firstCard as HTMLElement).offsetWidth + 16 : 280;
+    const maxScroll = scrollWidth - clientWidth;
+
+    if (maxScroll <= 0) return;
+
+    if (direction === 'right') {
+      if (scrollLeft >= maxScroll - 15) {
+        relatedScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        relatedScrollRef.current.scrollBy({ left: cardStep, behavior: 'smooth' });
+      }
+    } else {
+      if (scrollLeft <= 15) {
+        relatedScrollRef.current.scrollTo({ left: maxScroll, behavior: 'smooth' });
+      } else {
+        relatedScrollRef.current.scrollBy({ left: -cardStep, behavior: 'smooth' });
+      }
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -217,7 +275,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               .map(mapBackendProductToItem)
               .filter((p) => p.id !== product.id && p.slug !== product.slug);
             if (mapped.length > 0) {
-              setRelatedProducts(mapped.slice(0, 4));
+              setRelatedProducts(mapped.slice(0, 16));
               setIsLoadingRelated(false);
               return;
             }
@@ -232,7 +290,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 .map(mapBackendProductToItem)
                 .filter((p) => p.id !== product.id && p.slug !== product.slug);
               if (mapped.length > 0) {
-                setRelatedProducts(mapped.slice(0, 4));
+                setRelatedProducts(mapped.slice(0, 16));
                 setIsLoadingRelated(false);
                 return;
               }
@@ -245,7 +303,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           const all = getAllProducts();
           const fallback = all
             .filter((p) => p.id !== product.id && (p.category === product.category || p.currentPrice <= 299))
-            .slice(0, 4);
+            .slice(0, 8);
           setRelatedProducts(fallback);
           setIsLoadingRelated(false);
         }
@@ -385,23 +443,25 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               />
             </div>
 
-            {/* Horizontal Thumbnails Row */}
-            <div className="flex items-center gap-3">
-              {galleryImages.map((img, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setSelectedImage(img)}
-                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white p-1 border-2 transition-all cursor-pointer overflow-hidden ${
-                    selectedImage === img
-                      ? 'border-[#A44101] shadow-xs'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
-                </button>
-              ))}
-            </div>
+            {/* Horizontal Thumbnails Row - Real Product Images */}
+            {productImages.length > 1 && (
+              <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
+                {productImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedImage(img)}
+                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white p-1 border-2 transition-all cursor-pointer overflow-hidden shrink-0 ${
+                      selectedImage === img
+                        ? 'border-[#A44101] shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Column: Clean Purchasing Details Card */}
@@ -427,7 +487,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               {/* SKU & Ratings Chips */}
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="bg-slate-100 text-slate-600 text-xs font-mono font-medium px-2.5 py-1 rounded-md">
-                  SKU: {product.id && product.id.length < 12 ? product.id : '2683-1'}
+                  SKU: {backendDetail?.variants?.[0]?.sku || backendDetail?.variants?.[0]?.productCode || (product.id && product.id.length < 12 ? product.id : 'PRD-' + (product.slug || '01').slice(0, 8))}
                 </span>
                 <div className="bg-amber-50/80 text-slate-800 text-xs font-medium px-2.5 py-1 rounded-md flex items-center gap-1.5 border border-amber-100">
                   <div className="flex text-amber-400">
@@ -644,7 +704,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </div>
 
           {activeTab === 'highlights' && (
-            <div className="py-5 space-y-3">
+            <div className="py-5 space-y-4">
+              {backendDetail?.description && (
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100 whitespace-pre-line">
+                  {backendDetail.description}
+                </p>
+              )}
               <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
                 <li className="flex items-start gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-[#A44101] shrink-0 mt-0.5" />
@@ -784,25 +849,53 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           )}
         </div>
 
-        {/* Related Steal Deals */}
+        {/* Related Steal Deals - Single Line Carousel with Left/Right Arrows */}
         <div className="space-y-4 pt-4 border-t border-slate-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl sm:text-2xl font-bold text-navy">
               You May Also Like: <span className="text-navy">Related Deals</span>
             </h2>
-            <button
-              type="button"
-              onClick={onBack}
-              className="text-xs font-bold text-navy hover:text-[#A44101] cursor-pointer"
-            >
-              View Catalog →
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Arrow navigation buttons */}
+              {relatedProducts.length > 4 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => scrollRelated('left')}
+                    className="w-8 h-8 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-xs flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
+                    aria-label="Previous related products"
+                    title="Previous product"
+                  >
+                    <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollRelated('right')}
+                    className="w-8 h-8 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-xs flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
+                    aria-label="Next related products"
+                    title="Next product"
+                  >
+                    <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onBack}
+                className="text-xs font-bold text-navy hover:text-[#A44101] cursor-pointer"
+              >
+                View Catalog →
+              </button>
+            </div>
           </div>
 
           {isLoadingRelated ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="flex overflow-hidden gap-3 sm:gap-4 py-2">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs animate-pulse space-y-3">
+                <div 
+                  key={i} 
+                  className="w-[calc((100%-12px)/2)] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] shrink-0 bg-white rounded-theme border border-slate-200 p-3 shadow-soft animate-pulse space-y-3"
+                >
                   <div className="aspect-[4/3] rounded-lg bg-slate-100" />
                   <div className="h-3.5 bg-slate-100 rounded w-3/4" />
                   <div className="h-4 bg-slate-100 rounded w-1/3" />
@@ -810,42 +903,168 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               ))}
             </div>
           ) : relatedProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {relatedProducts.map((relProduct) => (
-                <div
-                  key={relProduct.id}
-                  onClick={() => {
-                    onSelectProduct(relProduct);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="bg-white rounded-xl border border-slate-200 p-3 shadow-xs hover:border-[#A44101] hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+            <div className="relative group/slider">
+              {/* Floating Left Arrow */}
+              {relatedProducts.length > 4 && (
+                <button
+                  type="button"
+                  onClick={() => scrollRelated('left')}
+                  className="hidden sm:flex absolute -left-3 lg:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                  aria-label="Scroll left"
+                  title="Previous products"
                 >
-                  <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-slate-100 mb-2.5">
-                    <span className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] font-black px-1.5 py-0.5 rounded">
-                      {relProduct.discountPercentage}% OFF
-                    </span>
-                    <img
-                      src={relProduct.image}
-                      alt={relProduct.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
+                  <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              )}
 
-                  <div>
-                    <h3 className="text-xs font-bold text-navy line-clamp-2 leading-snug group-hover:text-[#A44101]">
-                      {relProduct.title}
-                    </h3>
-                    <div className="flex items-baseline gap-2 mt-2">
-                      <span className="text-base font-black text-navy">
-                        ₹{relProduct.currentPrice}
-                      </span>
-                      <span className="text-xs text-slate-400 line-through">
-                        ₹{relProduct.originalPrice}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {/* Single row scroll track - strictly one line */}
+              <div
+                ref={relatedScrollRef}
+                className="w-full flex overflow-x-auto scroll-smooth gap-3 sm:gap-4 py-2 px-0.5 scrollbar-none select-none"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {relatedProducts.map((relProduct) => {
+                  const isAdded = !!addedRelatedIds[relProduct.id];
+
+                  return (
+                    <article
+                      key={relProduct.id}
+                      onClick={() => {
+                        onSelectProduct(relProduct);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="w-[calc((100%-12px)/2)] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] min-w-[210px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-300 flex flex-col justify-between overflow-hidden group cursor-pointer"
+                    >
+                      {/* Product Visual */}
+                      <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                        {/* Discount Sticker */}
+                        <div className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                          <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white text-white" />
+                          <span>{relProduct.discountPercentage}% OFF</span>
+                        </div>
+
+                        {/* Tag */}
+                        {relProduct.tag && (
+                          <div className="absolute top-2 right-2 z-10 bg-navy text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded shadow-sm">
+                            {relProduct.tag}
+                          </div>
+                        )}
+
+                        <img
+                          src={relProduct.image}
+                          alt={relProduct.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80';
+                          }}
+                        />
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] sm:text-[11px] mb-1">
+                            <span className="font-extrabold text-[#A44101] uppercase tracking-wider text-[9px] sm:text-[10px]">
+                              {relProduct.category}
+                            </span>
+                            <div className="flex items-center gap-1 text-navy font-bold">
+                              <Star className="w-3 h-3 fill-[#A44101] text-[#A44101]" />
+                              <span>{relProduct.rating}</span>
+                              <span className="text-slate-400 font-normal">({relProduct.reviews})</span>
+                            </div>
+                          </div>
+
+                          <h3 className="text-xs sm:text-sm font-bold text-charcoal line-clamp-2 leading-snug group-hover:text-[#A44101] transition-colors">
+                            {relProduct.title}
+                          </h3>
+                        </div>
+
+                        {/* Price & Action */}
+                        <div className="pt-2.5 mt-2.5 border-t border-slate-100">
+                          <div className="flex items-baseline justify-between mb-2">
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-base sm:text-lg font-black text-navy">
+                                ₹{relProduct.currentPrice}
+                              </span>
+                              <span className="text-xs text-slate-400 line-through">
+                                ₹{relProduct.originalPrice}
+                              </span>
+                            </div>
+                            <span className="text-[9px] sm:text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded">
+                              Save ₹{relProduct.originalPrice - relProduct.currentPrice}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(relProduct);
+                                setAddedRelatedIds((prev) => ({ ...prev, [relProduct.id]: true }));
+                                setTimeout(() => {
+                                  setAddedRelatedIds((prev) => ({ ...prev, [relProduct.id]: false }));
+                                }, 2000);
+                              }}
+                              className={`py-1.5 px-1.5 sm:px-2 rounded-theme text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                                isAdded
+                                  ? 'bg-navy text-white border-navy'
+                                  : 'bg-white hover:bg-slate-50 text-navy border-slate-300 hover:border-[#A44101] shadow-xs'
+                              }`}
+                              aria-label={`Add ${relProduct.title} to cart`}
+                            >
+                              {isAdded ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-white" />
+                                  <span className="text-white">Added</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShoppingCart className="w-3.5 h-3.5 text-navy" />
+                                  <span className="text-navy font-bold">Cart</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(relProduct);
+                                if (onGoToCheckout) {
+                                  onGoToCheckout();
+                                } else {
+                                  window.history.pushState(null, '', '/checkout');
+                                  window.dispatchEvent(new PopStateEvent('popstate'));
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                              }}
+                              className="py-1.5 px-1.5 sm:px-2 rounded-theme text-[11px] sm:text-xs font-extrabold bg-[#A44101] hover:bg-[#8C3701] text-white text-center flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-98"
+                            >
+                              Buy Now
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {/* Floating Right Arrow */}
+              {relatedProducts.length > 4 && (
+                <button
+                  type="button"
+                  onClick={() => scrollRelated('right')}
+                  className="hidden sm:flex absolute -right-3 lg:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                  aria-label="Scroll right"
+                  title="Next products"
+                >
+                  <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              )}
             </div>
           ) : (
             <div className="py-6 text-center text-xs text-slate-400">

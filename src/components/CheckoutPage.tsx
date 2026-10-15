@@ -503,9 +503,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       address: newAddr.fullAddressString,
       city: newAddr.city,
       pincode: newAddr.pincode,
-      isDefault: addresses.length === 0,
+      isDefault: true,
     };
-    setAddresses((prev) => [formatted, ...prev]);
+    setAddresses((prev) => {
+      const next = [formatted, ...prev.map((a) => ({ ...a, isDefault: false }))];
+      try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch {}
+      return next;
+    });
     setSelectedAddressId(tempId);
     setIsAddressModalOpen(false);
 
@@ -524,7 +528,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         state: newAddr.state || 'Delhi',
         pincode: newAddr.pincode,
         type: newAddr.type === 'Work' ? 'Work' : 'Home',
-        isDefault: addresses.length === 0,
+        isDefault: true,
       });
 
       const realId = String(
@@ -1414,35 +1418,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {addresses.map((addr) => {
-                          const isSelected = selectedAddressId === addr.id;
+                        {(() => {
+                          const defaultAddr = addresses.find((a) => a.isDefault) || addresses.find((a) => a.id === selectedAddressId) || addresses[0];
+                          if (!defaultAddr) return null;
+
                           return (
                             <div
-                              key={addr.id}
-                              onClick={() => setSelectedAddressId(addr.id)}
-                              className={`p-4 rounded-xl border-2 transition-all cursor-pointer relative ${
-                                isSelected
-                                  ? 'border-[#A44101] bg-orange-50/20 shadow-xs'
-                                  : 'border-slate-200 bg-white hover:border-slate-300'
-                              }`}
+                              key={defaultAddr.id}
+                              onClick={() => setSelectedAddressId(defaultAddr.id)}
+                              className="p-4 rounded-xl border-2 border-[#A44101] bg-orange-50/20 shadow-xs transition-all cursor-pointer relative"
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-stone-100 text-navy">
-                                    {addr.type}
+                                    {defaultAddr.type}
                                   </span>
-                                  {addr.isDefault && (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                                      Default
-                                    </span>
-                                  )}
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                    Default
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setEditingAddress(addr);
+                                      setEditingAddress(defaultAddr);
                                       setIsAddressModalOpen(true);
                                     }}
                                     className="p-1 rounded text-slate-400 hover:text-navy hover:bg-stone-100 transition-colors cursor-pointer"
@@ -1450,21 +1450,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                                   >
                                     <Pencil className="w-3.5 h-3.5" />
                                   </button>
-                                  {isSelected && (
-                                    <CheckCircle2 className="w-4 h-4 text-[#A44101] fill-white" />
-                                  )}
+                                  <CheckCircle2 className="w-4 h-4 text-[#A44101] fill-white" />
                                 </div>
                               </div>
-                              <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
+                              <h4 className="text-xs font-bold text-navy">{defaultAddr.name}</h4>
                               <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                                {addr.address}, {addr.city} - <span className="font-bold">{addr.pincode}</span>
+                                {defaultAddr.address}, {defaultAddr.city} - <span className="font-bold">{defaultAddr.pincode}</span>
                               </p>
                               <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
-                                Phone: {addr.phone}
+                                Phone: {defaultAddr.phone}
                               </p>
                             </div>
                           );
-                        })}
+                        })()}
                       </div>
                     )}
 

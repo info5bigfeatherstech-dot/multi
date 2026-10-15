@@ -97,7 +97,12 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   onGoToCheckout,
 }) => {
   const { addToCart } = useCart();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('q') || '';
+    }
+    return '';
+  });
   const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
   const [, setIsLoadingApi] = useState<boolean>(false);
 
@@ -242,7 +247,8 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   // Reset filters when switching category
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setSearchQuery('');
+    const urlQ = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('q') || '' : '';
+    setSearchQuery(urlQ);
     setSelectedSubcategories(initialSubcategory && initialSubcategory !== 'all' ? [initialSubcategory] : []);
     setPriceMin('');
     setPriceMax('');

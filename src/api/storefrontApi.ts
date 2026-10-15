@@ -143,6 +143,21 @@ export const storefrontProductsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  search: async (q: string, limit = 12) => {
+    try {
+      const res = await apiClient.get("/products/search", { params: { q, limit } });
+      const products = res.data?.products || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      return products;
+    } catch (err) {
+      console.warn("Primary /products/search endpoint failed, falling back to /products/all:", err);
+      try {
+        const fallbackRes = await apiClient.get("/products/all", { params: { search: q, limit } });
+        return fallbackRes.data?.products || fallbackRes.data?.data || (Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
+      } catch {
+        throw new Error(normalizeApiError(err));
+      }
+    }
+  },
   getBySlug: async (slug: string) => {
     try {
       const res = await apiClient.get(`/products/${encodeURIComponent(slug)}`);
