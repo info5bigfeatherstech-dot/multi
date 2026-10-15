@@ -20,6 +20,10 @@ import {
   Sparkles,
   Award,
   Percent,
+  Palette,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
   RotateCcw as ResetIcon
 } from 'lucide-react';
 import { 
@@ -28,7 +32,7 @@ import {
   getProductsByCategoryId,
   getAllProducts 
 } from '../data/storeData';
-import { storefrontProductsApi } from '../api';
+import { storefrontProductsApi, CATEGORY_SLUG_TO_ID_MAP } from '../api';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
 import { toast } from 'react-hot-toast';
@@ -52,6 +56,49 @@ const normalizeCategoryString = (str: string) => {
     .replace(/&/g, 'and')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+};
+
+/**
+ * Resolves a category string/slug to a valid 24-character hexadecimal MongoDB ObjectId.
+ * If cannot be resolved to a valid ObjectId, returns undefined to avoid backend 500 error.
+ */
+export const resolveCategoryIdToObjectId = (
+  catIdOrSlug: string | undefined,
+  backendCategoriesList: any[] = []
+): string | undefined => {
+  if (!catIdOrSlug || catIdOrSlug === 'all' || catIdOrSlug === 'explore-all') {
+    return undefined;
+  }
+  if (/^[0-9a-fA-F]{24}$/.test(catIdOrSlug)) {
+    return catIdOrSlug;
+  }
+  const normalized = catIdOrSlug.trim().toLowerCase();
+  const slugified = normalized.replace(/[^a-z0-9]+/g, '-');
+
+  if (Array.isArray(backendCategoriesList) && backendCategoriesList.length > 0) {
+    const found = backendCategoriesList.find((c: any) => {
+      const cId = String(c._id || c.id || '');
+      const cSlug = String(c.slug || '').toLowerCase();
+      const cName = String(c.name || '').toLowerCase();
+      return (
+        cSlug === normalized ||
+        cSlug === slugified ||
+        cName === normalized ||
+        cName.replace(/[^a-z0-9]+/g, '-') === slugified ||
+        cId === catIdOrSlug
+      );
+    });
+    if (found && found._id && /^[0-9a-fA-F]{24}$/.test(found._id)) {
+      return found._id;
+    }
+  }
+
+  const mapped = CATEGORY_SLUG_TO_ID_MAP[normalized] || CATEGORY_SLUG_TO_ID_MAP[slugified];
+  if (mapped && /^[0-9a-fA-F]{24}$/.test(mapped)) {
+    return mapped;
+  }
+
+  return undefined;
 };
 
 export const doesProductMatchCategory = (product: ProductItem, categoryId: string): boolean => {
@@ -90,6 +137,20 @@ export const doesProductMatchCategory = (product: ProductItem, categoryId: strin
   return false;
 };
 
+const AVAILABLE_COLORS = [
+  { name: 'Red', hex: '#EF4444' },
+  { name: 'Blue', hex: '#3B82F6' },
+  { name: 'Green', hex: '#10B981' },
+  { name: 'Black', hex: '#0F172A' },
+  { name: 'White', hex: '#FFFFFF', border: true },
+  { name: 'Yellow', hex: '#EAB308' },
+  { name: 'Pink', hex: '#EC4899' },
+  { name: 'Purple', hex: '#A855F7' },
+  { name: 'Orange', hex: '#F97316' },
+  { name: 'Gold', hex: '#D97706' },
+  { name: 'Silver', hex: '#94A3B8' },
+];
+
 export const CategoryPage: React.FC<CategoryPageProps> = ({
   categoryId,
   initialSubcategory,
@@ -104,82 +165,30 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     return '';
   });
   const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
-  const [, setIsLoadingApi] = useState<boolean>(false);
+  const [isLoadingApi, setIsLoadingApi] = useState<boolean>(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalProducts, setTotalProducts] = useState<number>(0);
+  const [backendCategories, setBackendCategories] = useState<any[]>([]);
 
-  // Fetch real backend products
   useEffect(() => {
-    let isMounted = true;
-    setIsLoadingApi(true);
-
-    storefrontProductsApi.getAll({ limit: 150 })
-      .then((res: any) => {
-        if (!isMounted) return;
-        const list = Array.isArray(res?.products)
-          ? res.products
-          : Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res)
-          ? res
-          : [];
-
-        if (list.length > 0) {
-          const mapped: ProductItem[] = list.map((p: any) => {
-            const currentPrice = Number(p.minPrice || p.variants?.[0]?.price?.current || p.variants?.[0]?.price?.sale || p.price || 99);
-            const originalPrice = Number(p.variants?.[0]?.price?.base || p.originalPrice || Math.round(currentPrice * 1.8));
-            const discountPct = Number(p.maxDiscountPercentage || p.variants?.[0]?.price?.discountPercentage || Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100)));
-            const img = p.variants?.[0]?.images?.[0]?.url ||
-              p.variants?.[0]?.images?.[0] ||
-              p.cardImage?.url ||
-              p.image?.url ||
-              p.imageUrl ||
-              p.images?.[0]?.url ||
-              p.images?.[0] ||
-              'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80';
-            const catName = p.category ? (typeof p.category === 'string' ? p.category : p.category.name || p.category.slug || '') : '';
-            const catSlug = p.category && typeof p.category === 'object' ? (p.category.slug || '') : '';
-            const catId = p.category && typeof p.category === 'object' ? (p.category._id || p.category.id || '') : '';
-
-            return {
-              id: p._id || p.id,
-              title: p.title || p.name || 'Apna Bharat Bazaar Product',
-              category: catName || 'General',
-              currentPrice,
-              originalPrice,
-              discountPercentage: discountPct,
-              discountBadge: `${discountPct}% OFF`,
-              image: typeof img === 'string' ? img : (img?.url || 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80'),
-              rating: typeof p.rating?.value === 'number' ? p.rating.value : (4.5 + ((String(p._id || p.id).charCodeAt(0) || 0) % 5) / 10),
-              reviews: Number(p.rating?.count || (50 + ((String(p._id || p.id).charCodeAt(1) || 0) * 7) % 500)),
-              inStock: p.inStock !== false,
-              isTopDeal: Boolean(p.isFeatured) || discountPct >= 50,
-              tag: p.appliedTags?.[0] || p.tag || (p.isFeatured ? 'FEATURED' : undefined),
-              description: p.description || '',
-              backendCatSlug: catSlug,
-              backendCatId: catId,
-            } as ProductItem;
-          });
-
-          setApiProducts(mapped);
+    storefrontProductsApi.getCategories()
+      .then((cats) => {
+        if (Array.isArray(cats) && cats.length > 0) {
+          setBackendCategories(cats);
         }
       })
-      .catch((err) => {
-        console.warn('CategoryPage product fetch error:', err?.message);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoadingApi(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
+      .catch(() => {});
   }, []);
 
-  // 1. Filter States matching user requirements
+  // 1. Filter States
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(() => {
     return initialSubcategory && initialSubcategory !== 'all' ? [initialSubcategory] : [];
   });
   const [priceMin, setPriceMin] = useState<string>('');
   const [priceMax, setPriceMax] = useState<string>('');
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   const [selectedDiscounts, setSelectedDiscounts] = useState<number[]>([]);
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
@@ -189,10 +198,11 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const [filterSale, setFilterSale] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<SortOption>('featured');
 
-  // 2. Accordion Open/Closed States for Left Filter Cards
+  // 2. Accordion Open/Closed States
   const [isSpecialDealsOpen, setIsSpecialDealsOpen] = useState(true);
   const [isPriceOpen, setIsPriceOpen] = useState(true);
   const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(true);
+  const [isColorOpen, setIsColorOpen] = useState(true);
   const [isRatingOpen, setIsRatingOpen] = useState(true);
   const [isDiscountOpen, setIsDiscountOpen] = useState(true);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(true);
@@ -209,40 +219,25 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     return getCategoryMetadata(categoryId);
   }, [categoryId]);
 
-  const rawProducts = useMemo(() => {
-    const localCatalog = getProductsByCategoryId(categoryId);
-    const allAvailable = apiProducts.length > 0 ? apiProducts : getAllProducts();
-
-    // Match products against categoryId
-    const matched = allAvailable.filter((p) => doesProductMatchCategory(p, categoryId));
-
-    // Combine matched with local products
-    const map = new Map<string, ProductItem>();
-    matched.forEach((p) => map.set(p.id, p));
-    localCatalog.forEach((p) => map.set(p.id, p));
-
-    const combined = Array.from(map.values());
-
-    // Fallback: If 0 products matched for this category, provide catalog products so the page is NEVER empty
-    if (combined.length === 0) {
-      return (apiProducts.length > 0 ? apiProducts : getAllProducts()).slice(0, 24);
-    }
-
-    return combined;
-  }, [categoryId, apiProducts]);
-
-  // Dynamic Catalog Price Bounds
-  const minCatalogPrice = useMemo(() => {
-    if (!rawProducts.length) return 0;
-    const minVal = Math.min(...rawProducts.map((p) => p.currentPrice));
-    return Math.floor(minVal / 10) * 10;
-  }, [rawProducts]);
-
-  const maxCatalogPrice = useMemo(() => {
-    if (!rawProducts.length) return 2000;
-    const maxVal = Math.max(...rawProducts.map((p) => p.currentPrice), 999);
-    return Math.ceil(maxVal / 10) * 10;
-  }, [rawProducts]);
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setPage(1);
+  }, [
+    categoryId,
+    selectedSubcategories,
+    priceMin,
+    priceMax,
+    selectedColor,
+    selectedRatings,
+    selectedDiscounts,
+    inStockOnly,
+    filterTodaysDeals,
+    filterNewArrivals,
+    filterBestSellers,
+    filterSale,
+    sortBy,
+    searchQuery
+  ]);
 
   // Reset filters when switching category
   useEffect(() => {
@@ -252,6 +247,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setSelectedSubcategories(initialSubcategory && initialSubcategory !== 'all' ? [initialSubcategory] : []);
     setPriceMin('');
     setPriceMax('');
+    setSelectedColor('');
     setSelectedRatings([]);
     setSelectedDiscounts([]);
     setInStockOnly(false);
@@ -260,8 +256,207 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setFilterBestSellers(false);
     setFilterSale(false);
     setSortBy('featured');
+    setPage(1);
     setIsMobileFilterOpen(false);
   }, [categoryId, initialSubcategory]);
+
+  // Fetch from backend API using all filter parameters
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingApi(true);
+
+    const params: Record<string, any> = {
+      page,
+      limit: 50,
+    };
+
+    const resolvedCatId = resolveCategoryIdToObjectId(categoryId, backendCategories);
+    if (resolvedCatId) {
+      params.category = resolvedCatId;
+    }
+
+    if (selectedSubcategories.length > 0) {
+      params.subcategory = selectedSubcategories.join(',');
+    }
+
+    if (priceMin !== '' && !isNaN(Number(priceMin))) {
+      params.minPrice = Number(priceMin);
+    }
+
+    if (priceMax !== '' && !isNaN(Number(priceMax))) {
+      params.maxPrice = Number(priceMax);
+    }
+
+    if (selectedColor.trim()) {
+      params.color = selectedColor.trim();
+      params.mainColor = selectedColor.trim();
+    }
+
+    if (selectedRatings.length > 0) {
+      const minR = Math.min(...selectedRatings);
+      params.rating = minR;
+      params.minRating = minR;
+    }
+
+    if (selectedDiscounts.length > 0) {
+      const minD = Math.min(...selectedDiscounts);
+      params.discount = minD;
+      params.minDiscount = minD;
+    }
+
+    if (inStockOnly) {
+      params.inStock = true;
+    }
+
+    if (filterTodaysDeals) {
+      params.deals = true;
+    }
+
+    if (filterNewArrivals) {
+      params.newArrivals = true;
+    }
+
+    if (filterBestSellers) {
+      params.bestSellers = true;
+    }
+
+    if (filterSale) {
+      params.sale = true;
+    }
+
+    if (searchQuery.trim()) {
+      params.search = searchQuery.trim();
+    }
+
+    if (sortBy && sortBy !== 'featured') {
+      const sortMap: Record<string, string> = {
+        'price-low': 'price-asc',
+        'price-high': 'price-desc',
+        'discount': 'discount',
+        'rating': 'rating',
+        'newest': 'newest',
+      };
+      params.sort = sortMap[sortBy] || sortBy;
+    }
+
+    const timer = setTimeout(() => {
+      storefrontProductsApi.getAll(params)
+        .then((res: any) => {
+          if (!isMounted) return;
+          const list = Array.isArray(res?.products)
+            ? res.products
+            : Array.isArray(res?.data?.products)
+            ? res.data.products
+            : Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res?.items)
+            ? res.items
+            : Array.isArray(res)
+            ? res
+            : [];
+
+          const total = Number(res?.total ?? res?.pagination?.total ?? res?.data?.total ?? list.length);
+          const totalP = Number(res?.totalPages ?? res?.pagination?.pages ?? res?.data?.totalPages ?? (Math.ceil(total / 50) || 1));
+          setTotalProducts(total);
+          setTotalPages(Math.max(1, totalP));
+
+          const mapped: ProductItem[] = list.map((p: any) => {
+            const currentPrice = Number(
+              p.minPrice ?? 
+              p.currentPrice ?? 
+              p.price?.sale ?? 
+              p.price?.current ?? 
+              p.variants?.[0]?.price?.current ?? 
+              p.variants?.[0]?.price?.sale ?? 
+              p.price ?? 
+              99
+            );
+            const originalPrice = Number(
+              p.maxPriceOriginal ?? 
+              p.originalPrice ?? 
+              p.price?.base ?? 
+              p.variants?.[0]?.price?.base ?? 
+              Math.round(currentPrice * 1.8)
+            );
+            const discountPct = Number(
+              p.maxDiscountPercentage ?? 
+              p.discountPercentage ?? 
+              p.variants?.[0]?.price?.discountPercentage ?? 
+              Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+            );
+            const img = 
+              p.cardImage?.url || 
+              p.image?.url || 
+              p.image || 
+              p.imageUrl || 
+              p.variants?.[0]?.images?.[0]?.url ||
+              p.variants?.[0]?.images?.[0] ||
+              p.images?.[0]?.url ||
+              p.images?.[0] ||
+              'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80';
+            const catName = p.category ? (typeof p.category === 'string' ? p.category : p.category.name || p.category.slug || '') : '';
+            const catSlug = p.category && typeof p.category === 'object' ? (p.category.slug || '') : '';
+            const catId = p.category && typeof p.category === 'object' ? (p.category._id || p.category.id || '') : '';
+
+            return {
+              id: p._id || p.id,
+              title: p.title || p.name || 'Apna Bharat Bazaar Product',
+              category: catName || 'General',
+              currentPrice,
+              originalPrice,
+              discountPercentage: discountPct,
+              discountBadge: `${discountPct}% OFF`,
+              image: typeof img === 'string' ? img : (img?.url || 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80'),
+              rating: typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (4.5 + ((String(p._id || p.id).charCodeAt(0) || 0) % 5) / 10)),
+              reviews: Number(p.rating?.count ?? p.reviews ?? (50 + ((String(p._id || p.id).charCodeAt(1) || 0) * 7) % 500)),
+              inStock: p.inStock !== false,
+              isTopDeal: Boolean(p.isFeatured) || discountPct >= 50,
+              tag: p.appliedTags?.[0] || p.tag || (p.isFeatured ? 'FEATURED' : undefined),
+              description: p.description || '',
+              backendCatSlug: catSlug,
+              backendCatId: catId,
+            } as ProductItem;
+          });
+
+          setApiProducts(mapped);
+          setHasLoadedOnce(true);
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          console.warn('CategoryPage backend filter error:', err?.message);
+          setHasLoadedOnce(true);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingApi(false);
+        });
+    }, 250);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [
+    categoryId,
+    selectedSubcategories,
+    priceMin,
+    priceMax,
+    selectedColor,
+    selectedRatings,
+    selectedDiscounts,
+    inStockOnly,
+    filterTodaysDeals,
+    filterNewArrivals,
+    filterBestSellers,
+    filterSale,
+    sortBy,
+    searchQuery,
+    page,
+    backendCategories
+  ]);
+
+  // Dynamic Catalog Price Bounds
+  const minCatalogPrice = 0;
+  const maxCatalogPrice = 10000;
 
   // Helper to match a product to a subcategory name
   const matchesSubcategory = (p: ProductItem, sub: string) => {
@@ -287,29 +482,29 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     const subCounts: Record<string, number> = {};
     if (metadata.subcategories) {
       metadata.subcategories.forEach((sub) => {
-        subCounts[sub] = rawProducts.filter((p) => matchesSubcategory(p, sub)).length;
+        subCounts[sub] = apiProducts.filter((p) => matchesSubcategory(p, sub)).length;
       });
     }
 
     const ratingCounts: Record<number, number> = {
-      4: rawProducts.filter((p) => p.rating >= 4).length,
-      3: rawProducts.filter((p) => p.rating >= 3).length,
-      2: rawProducts.filter((p) => p.rating >= 2).length,
-      1: rawProducts.filter((p) => p.rating >= 1).length,
+      4: apiProducts.filter((p) => p.rating >= 4).length,
+      3: apiProducts.filter((p) => p.rating >= 3).length,
+      2: apiProducts.filter((p) => p.rating >= 2).length,
+      1: apiProducts.filter((p) => p.rating >= 1).length,
     };
 
     const discountCounts: Record<number, number> = {
-      50: rawProducts.filter((p) => p.discountPercentage >= 50).length,
-      30: rawProducts.filter((p) => p.discountPercentage >= 30).length,
-      20: rawProducts.filter((p) => p.discountPercentage >= 20).length,
-      10: rawProducts.filter((p) => p.discountPercentage >= 10).length,
+      50: apiProducts.filter((p) => p.discountPercentage >= 50).length,
+      30: apiProducts.filter((p) => p.discountPercentage >= 30).length,
+      20: apiProducts.filter((p) => p.discountPercentage >= 20).length,
+      10: apiProducts.filter((p) => p.discountPercentage >= 10).length,
     };
 
-    const inStockCount = rawProducts.filter((p) => p.inStock !== false).length;
-    const todaysDealsCount = rawProducts.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag))).length;
-    const newArrivalsCount = rawProducts.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-')).length;
-    const bestSellersCount = rawProducts.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7).length;
-    const saleCount = rawProducts.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice).length;
+    const inStockCount = apiProducts.filter((p) => p.inStock !== false).length;
+    const todaysDealsCount = apiProducts.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag))).length;
+    const newArrivalsCount = apiProducts.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-')).length;
+    const bestSellersCount = apiProducts.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7).length;
+    const saleCount = apiProducts.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice).length;
 
     return {
       subCounts,
@@ -321,13 +516,14 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
       bestSellersCount,
       saleCount,
     };
-  }, [rawProducts, metadata.subcategories]);
+  }, [apiProducts, metadata.subcategories]);
 
   // Count active filters (for badge)
   const activeFilterCount = useMemo(() => {
     let count = 0;
     count += selectedSubcategories.length;
     if (priceMin !== '' || priceMax !== '') count++;
+    if (selectedColor) count++;
     count += selectedRatings.length;
     count += selectedDiscounts.length;
     if (inStockOnly) count++;
@@ -341,6 +537,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     selectedSubcategories,
     priceMin,
     priceMax,
+    selectedColor,
     selectedRatings,
     selectedDiscounts,
     inStockOnly,
@@ -356,6 +553,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setSelectedSubcategories([]);
     setPriceMin('');
     setPriceMax('');
+    setSelectedColor('');
     setSelectedRatings([]);
     setSelectedDiscounts([]);
     setInStockOnly(false);
@@ -364,6 +562,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     setFilterBestSellers(false);
     setFilterSale(false);
     setSortBy('featured');
+    setPage(1);
   };
 
   const toggleSubcategory = (sub: string) => {
@@ -384,101 +583,14 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     );
   };
 
-  // Filter and sort products
+  // Products returned directly from backend filtering
   const filteredProducts = useMemo(() => {
-    let list = [...rawProducts];
-
-    // 1. Subcategory Multi-select
-    if (selectedSubcategories.length > 0) {
-      list = list.filter((p) => {
-        return selectedSubcategories.some((sub) => matchesSubcategory(p, sub));
-      });
+    if (hasLoadedOnce || apiProducts.length > 0) {
+      return apiProducts;
     }
-
-    // 2. Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter((p) => 
-        p.title.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        (p.tag && p.tag.toLowerCase().includes(q))
-      );
-    }
-
-    // 3. Price Filter (Slider + Min/Max Box)
-    if (priceMin !== '' && !isNaN(Number(priceMin))) {
-      list = list.filter((p) => p.currentPrice >= Number(priceMin));
-    }
-    if (priceMax !== '' && !isNaN(Number(priceMax))) {
-      list = list.filter((p) => p.currentPrice <= Number(priceMax));
-    }
-
-    // 4. Customer Ratings Checkbox (4★ & Above, 3★ & Above, 2★ & Above, 1★ & Above)
-    if (selectedRatings.length > 0) {
-      const minRating = Math.min(...selectedRatings);
-      list = list.filter((p) => p.rating >= minRating);
-    }
-
-    // 5. Discount Checkbox (10% & Above, 20% & Above, 30% & Above, 50% & Above)
-    if (selectedDiscounts.length > 0) {
-      const minDiscount = Math.min(...selectedDiscounts);
-      list = list.filter((p) => p.discountPercentage >= minDiscount);
-    }
-
-    // 6. Availability Checkbox (In Stock)
-    if (inStockOnly) {
-      list = list.filter((p) => p.inStock !== false);
-    }
-
-    // 7. Today's Deals Checkbox (Yes)
-    if (filterTodaysDeals) {
-      list = list.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag)));
-    }
-
-    // 8. New Arrivals Checkbox (Yes)
-    if (filterNewArrivals) {
-      list = list.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-'));
-    }
-
-    // 9. Best Sellers Checkbox (Yes)
-    if (filterBestSellers) {
-      list = list.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7);
-    }
-
-    // 10. Sale Checkbox (Yes)
-    if (filterSale) {
-      list = list.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice);
-    }
-
-    // 11. Sort order
-    if (sortBy === 'price-low') {
-      list.sort((a, b) => a.currentPrice - b.currentPrice);
-    } else if (sortBy === 'price-high') {
-      list.sort((a, b) => b.currentPrice - a.currentPrice);
-    } else if (sortBy === 'discount') {
-      list.sort((a, b) => b.discountPercentage - a.discountPercentage);
-    } else if (sortBy === 'rating') {
-      list.sort((a, b) => b.rating - a.rating);
-    } else if (sortBy === 'newest') {
-      list.reverse();
-    }
-
-    return list;
-  }, [
-    rawProducts,
-    selectedSubcategories,
-    searchQuery,
-    priceMin,
-    priceMax,
-    selectedRatings,
-    selectedDiscounts,
-    inStockOnly,
-    filterTodaysDeals,
-    filterNewArrivals,
-    filterBestSellers,
-    filterSale,
-    sortBy,
-  ]);
+    const local = getProductsByCategoryId(categoryId);
+    return local.length > 0 ? local : getAllProducts().slice(0, 24);
+  }, [apiProducts, hasLoadedOnce, categoryId]);
 
   const handleAddToCart = (product: ProductItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -508,7 +620,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
       ...prev,
       [productId]: !prev[productId],
     }));
-    const prod = rawProducts.find((p: ProductItem) => p.id === productId) || getAllProducts().find((p: ProductItem) => p.id === productId);
+    const prod = filteredProducts.find((p: ProductItem) => p.id === productId) || getAllProducts().find((p: ProductItem) => p.id === productId);
     const prodTitle = prod?.title && prod.title.length > 32 
       ? `${prod.title.slice(0, 32)}...` 
       : (prod?.title || 'Product');
@@ -862,7 +974,69 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
         )}
       </div>
 
-      {/* 5. AVAILABILITY: CHECKBOX (In Stock) */}
+      {/* 5. COLOR: SWATCHES & CHIPS */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+        <button
+          type="button"
+          onClick={() => setIsColorOpen(!isColorOpen)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
+          aria-expanded={isColorOpen}
+        >
+          <div className="flex items-center gap-2.5">
+            <Palette className="w-4 h-4 text-[#A44101] shrink-0" />
+            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
+              COLOR
+            </span>
+            {selectedColor && (
+              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
+            )}
+          </div>
+          <ChevronDown 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
+              isColorOpen ? 'rotate-180' : ''
+            }`} 
+          />
+        </button>
+
+        {isColorOpen && (
+          <div className="px-4 pb-4 pt-1 space-y-2 border-t border-slate-100 animate-fadeIn">
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {AVAILABLE_COLORS.map((col) => {
+                const isSelected = selectedColor.toLowerCase() === col.name.toLowerCase();
+                return (
+                  <button
+                    key={col.name}
+                    type="button"
+                    onClick={() => setSelectedColor(isSelected ? '' : col.name)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#A44101] text-white shadow-xs font-bold'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
+                    }`}
+                  >
+                    <span
+                      className={`w-3 h-3 rounded-full shrink-0 ${col.border ? 'border border-slate-300' : ''}`}
+                      style={{ backgroundColor: col.hex }}
+                    />
+                    <span>{col.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedColor && (
+              <button
+                type="button"
+                onClick={() => setSelectedColor('')}
+                className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer block pt-1"
+              >
+                Clear Color
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 6. AVAILABILITY: CHECKBOX (In Stock) */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
         <button
           type="button"
@@ -1276,8 +1450,16 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                   )}
                 </div>
 
-                <div className="text-xs text-slate-500 font-bold shrink-0 hidden sm:block">
-                  Showing <span className="text-navy">{filteredProducts.length}</span> of {rawProducts.length} items
+                <div className="text-xs text-slate-500 font-bold shrink-0 hidden sm:flex items-center gap-2">
+                  {isLoadingApi && (
+                    <span className="flex items-center gap-1 text-[11px] text-[#A44101] font-semibold animate-pulse">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Filtering...</span>
+                    </span>
+                  )}
+                  <span>
+                    Showing <span className="text-navy font-black">{filteredProducts.length}</span> of {totalProducts || filteredProducts.length} items
+                  </span>
                 </div>
               </div>
 
@@ -1310,6 +1492,25 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                         onClick={() => { setPriceMin(''); setPriceMax(''); }}
                         className="hover:text-[#A44101] cursor-pointer"
                         title="Remove price filter"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+
+                  {/* Color */}
+                  {selectedColor && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-800 text-xs font-semibold">
+                      <span 
+                        className="w-2.5 h-2.5 rounded-full border border-slate-300 shrink-0" 
+                        style={{ backgroundColor: AVAILABLE_COLORS.find(c => c.name.toLowerCase() === selectedColor.toLowerCase())?.hex || selectedColor }} 
+                      />
+                      <span>Color: {selectedColor}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedColor('')}
+                        className="hover:text-[#A44101] cursor-pointer"
+                        title="Remove color filter"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1597,6 +1798,40 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-6 pb-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => {
+                    setPage((p) => Math.max(1, p - 1));
+                    window.scrollTo({ top: 350, behavior: 'smooth' });
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Previous</span>
+                </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs">
+                  <span>Page {page} of {totalPages}</span>
+                  {totalProducts > 0 && <span className="text-slate-400 font-medium">({totalProducts} products)</span>}
+                </div>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => {
+                    setPage((p) => Math.min(totalPages, p + 1));
+                    window.scrollTo({ top: 350, behavior: 'smooth' });
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             )}
           </div>

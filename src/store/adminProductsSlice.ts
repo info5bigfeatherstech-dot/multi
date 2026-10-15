@@ -89,6 +89,9 @@ export interface AdminProduct {
   tierPricing?: TierPrice[];
   attributes?: Record<string, string> | Array<{ key: string; value: string }>;
   specifications?: Array<{ name: string; value: string }>;
+  hsnCode?: string;
+  gstRate?: number | string;
+  trackInventory?: boolean;
   description?: string;
   dateAdded: string;
   createdAt?: string;

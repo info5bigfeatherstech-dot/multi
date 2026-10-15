@@ -623,92 +623,101 @@ export const adminOrdersApi = {
    ============================================================ */
 export interface AdminReviewItem {
   _id: string;
-  source: 'customer' | 'admin';
+  source: 'customer' | 'admin' | 'generated';
   storefront: string;
   rating: number;
+  title?: string;
   comment: string;
   displayName?: string;
   isActive: boolean;
   verifiedPurchase?: boolean;
   orderId?: string | null;
+  variantCode?: string;
   images?: Array<string | { url?: string; publicId?: string }>;
+  adminReply?: { comment: string; repliedAt: string } | null;
   createdAt: string;
   updatedAt: string;
-  product?: {
-    _id?: string;
-    id?: string;
-    title?: string;
-    name?: string;
-    slug?: string;
-    thumb?: string | null;
-  };
-  customer?: {
-    name?: string;
-    phone?: string;
-    email?: string;
-  } | null;
+  product?: { _id?: string; id?: string; title?: string; name?: string; slug?: string; thumb?: string | null };
+  customer?: { name?: string; phone?: string; email?: string } | null;
+}
+
+export interface ReviewSummary {
+  averageRating: number | null;
+  totalReviews: number;
+  reviewCount?: number;
+  distribution?: Record<string, number>;
+}
+
+export interface PublicReview {
+  _id: string;
+  rating: number;
+  title?: string;
+  comment: string;
+  displayName?: string;
+  verifiedPurchase: boolean;
+  source: 'customer' | 'admin' | 'generated';
+  adminReply?: { comment: string; repliedAt: string } | null;
+  images?: string[];
+  createdAt: string;
 }
 
 export const adminReviewsApi = {
   list: async (params?: {
-    page?: number;
-    limit?: number;
-    productId?: string;
-    source?: 'customer' | 'admin';
-    isActive?: 'true' | 'false' | boolean;
+    page?: number; limit?: number; productId?: string;
+    source?: 'all' | 'customer' | 'admin' | 'generated';
+    isActive?: 'true' | 'false' | boolean; search?: string; rating?: number | string;
   }) => {
     try {
       const q: any = { ...params };
-      if (typeof q.isActive === 'boolean') {
-        q.isActive = q.isActive ? 'true' : 'false';
-      }
+      if (typeof q.isActive === 'boolean') q.isActive = q.isActive ? 'true' : 'false';
       const res = await apiClient.get("/admin/product-reviews", { params: q });
       return res.data?.data || res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
-    }
+    } catch (err) { throw new Error(normalizeApiError(err)); }
   },
   patchStatus: async (id: string, isActive: boolean) => {
     try {
       const res = await apiClient.patch(`/admin/product-reviews/${encodeURIComponent(id)}/status`, { isActive });
       return res.data?.data || res.data;
-    } catch (err) {
+    } catch (err) { throw new Error(normalizeApiError(err)); }
+  },
+  /** POST /api/admin/product-reviews/:id/reply — gracefully handles 404 if not supported by backend yet */
+  addReply: async (id: string, comment: string) => {
+    try {
+      const res = await apiClient.post(`/admin/product-reviews/${encodeURIComponent(id)}/reply`, { comment });
+      return res.data?.data || res.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404) throw new Error('Admin reply endpoint not yet available on backend');
       throw new Error(normalizeApiError(err));
     }
   },
   createGenerated: async (payload: {
-    productId: string;
-    rating: number;
-    comment: string;
-    displayName: string;
-    isActive?: boolean;
+    productId: string; variantCode?: string;
+    displayName?: string; reviewerName?: string;
+    rating: number; title?: string; comment: string;
+    verifiedPurchase?: boolean; isActive?: boolean;
+    date?: string;
   }) => {
     try {
-      const res = await apiClient.post("/admin/product-reviews/generated", payload);
+      const body = { ...payload, displayName: payload.displayName || payload.reviewerName || '' };
+      const res = await apiClient.post("/admin/product-reviews/generated", body);
       return res.data?.data || res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
-    }
+    } catch (err) { throw new Error(normalizeApiError(err)); }
   },
   updateGenerated: async (id: string, updates: {
-    rating?: number;
-    comment?: string;
-    displayName?: string;
-    isActive?: boolean;
+    rating?: number; title?: string; comment?: string;
+    displayName?: string; reviewerName?: string;
+    isActive?: boolean; verifiedPurchase?: boolean; date?: string;
   }) => {
     try {
-      const res = await apiClient.put(`/admin/product-reviews/generated/${encodeURIComponent(id)}`, updates);
+      const body = { ...updates, displayName: updates.displayName || updates.reviewerName };
+      const res = await apiClient.put(`/admin/product-reviews/generated/${encodeURIComponent(id)}`, body);
       return res.data?.data || res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
-    }
+    } catch (err) { throw new Error(normalizeApiError(err)); }
   },
   deleteGenerated: async (id: string) => {
     try {
       const res = await apiClient.delete(`/admin/product-reviews/generated/${encodeURIComponent(id)}`);
       return res.data?.data || res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
-    }
+    } catch (err) { throw new Error(normalizeApiError(err)); }
   },
 };

@@ -127,18 +127,86 @@ export const storefrontAddressApi = {
 /* ============================================================
    3. PRODUCTS, CATEGORIES & REVIEWS APIs
    ============================================================ */
+export const CATEGORY_SLUG_TO_ID_MAP: Record<string, string> = {
+  'gifts-and-lifestyle': '6ab20497a4ded8a3ec7458b2',
+  'gifts': '6ab20497a4ded8a3ec7458b2',
+  'electronics-and-gadgets': '6ab20435a4ded8a3ec745887',
+  'electronics': '6ab20435a4ded8a3ec745887',
+  'smart-life-gadget': '6ab20435a4ded8a3ec745887',
+  'home-and-living': '6ab2040aa4ded8a3ec745879',
+  'home-living': '6ab2040aa4ded8a3ec745879',
+  'home-kitchen': '6ab20426a4ded8a3ec745880',
+  'home-decor': '6ab20483a4ded8a3ec7458a4',
+  'decor': '6ab20483a4ded8a3ec7458a4',
+  'jewellery-and-accessories': '6ab20473a4ded8a3ec74589d',
+  'jewellery': '6ab20473a4ded8a3ec74589d',
+  'jewelry': '6ab20473a4ded8a3ec74589d',
+  'fashion-world': '6ab20473a4ded8a3ec74589d',
+  'kitchen-and-dining': '6ab20426a4ded8a3ec745880',
+  'kitchen': '6ab20426a4ded8a3ec745880',
+  'stationery-office-and-school': '6ab2048ea4ded8a3ec7458ab',
+  'stationery': '6ab2048ea4ded8a3ec7458ab',
+  'stationary': '6ab2048ea4ded8a3ec7458ab',
+  'travel-and-outdoor': '6ab204a5a4ded8a3ec7458b9',
+  'travel': '6ab204a5a4ded8a3ec7458b9',
+  'tours-travels': '6ab204a5a4ded8a3ec7458b9',
+  'sports-and-fitness': '69b7990226573d44aced3a4a',
+  'sports': '69b7990226573d44aced3a4a',
+  'sports-fitness': '69b7990226573d44aced3a4a',
+  'beauty-and-personal-care': '6a196ffad1c7c35896eaca75',
+  'beauty': '6a196ffad1c7c35896eaca75',
+  'beauty-personal-care': '6a196ffad1c7c35896eaca75',
+  'mix-items': '6a01cacfcdebe15ec6267e6e',
+};
+
 export const storefrontProductsApi = {
   getAll: async (params?: {
     page?: number;
     limit?: number;
     category?: string;
     subcategory?: string;
+    subcategories?: string;
+    minPrice?: number | string;
+    maxPrice?: number | string;
+    color?: string;
+    mainColor?: string;
+    rating?: number | string;
+    minRating?: number | string;
+    discount?: number | string;
+    minDiscount?: number | string;
+    inStock?: boolean | string;
+    deals?: boolean | string;
+    newArrivals?: boolean | string;
+    bestSellers?: boolean | string;
+    sale?: boolean | string;
     sort?: string;
     search?: string;
+    [key: string]: any;
   }) => {
     try {
-      const res = await apiClient.get("/products/all", { params });
-      return res.data?.data || res.data;
+      const cleanParams: Record<string, any> = { ...(params || {}) };
+
+      // Ensure `category` is a valid 24-character hexadecimal ObjectId to prevent Mongoose CastError 500
+      if (cleanParams.category && typeof cleanParams.category === 'string') {
+        const cat = cleanParams.category.trim();
+        if (/^[0-9a-fA-F]{24}$/.test(cat)) {
+          cleanParams.category = cat;
+        } else {
+          const norm = cat.toLowerCase();
+          const mapped = CATEGORY_SLUG_TO_ID_MAP[norm] || CATEGORY_SLUG_TO_ID_MAP[norm.replace(/[^a-z0-9]+/g, '-')];
+          if (mapped && /^[0-9a-fA-F]{24}$/.test(mapped)) {
+            cleanParams.category = mapped;
+          } else {
+            // Delete invalid non-ObjectId string to avoid Mongoose Cast to ObjectId crash
+            delete cleanParams.category;
+          }
+        }
+      }
+
+      const res = await apiClient.get("/products/all", { params: cleanParams });
+      return res.data?.data && typeof res.data.data === 'object' && !Array.isArray(res.data.data) && (res.data.data.products || res.data.data.items)
+        ? res.data.data
+        : (res.data?.data || res.data);
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
@@ -190,9 +258,70 @@ export const storefrontProductsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  getMyReview: async (productId: string) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/mine/${encodeURIComponent(productId)}`);
+      return res.data?.review !== undefined ? res.data.review : (res.data?.data || res.data);
+    } catch (err: any) {
+      if (err?.response?.status === 401 || err?.response?.status === 404) {
+        return null;
+      }
+      console.warn(`Failed to fetch user review for ${productId}:`, err);
+      return null;
+    }
+  },
+  /**
+   * GET /api/product-reviews/eligibility/:productId (Auth Required)
+   * Check if the logged-in customer is eligible to review this product.
+   */
+  checkReviewEligibility: async (productId: string): Promise<{ isEligible: boolean; canReview: boolean; reason?: string }> => {
+    try {
+      const res = await apiClient.get(`/product-reviews/eligibility/${encodeURIComponent(productId)}`);
+      return res.data?.data || res.data || { isEligible: true, canReview: true };
+    } catch (err: any) {
+      if (err?.response?.status === 401) return { isEligible: false, canReview: false, reason: 'Not logged in' };
+      if (err?.response?.status === 404) return { isEligible: true, canReview: true };
+      return { isEligible: true, canReview: true };
+    }
+  },
+  /**
+   * GET /api/product-reviews/public/:productId — paginated public reviews list
+   */
+  getPublicReviews: async (productId: string, params?: {
+    page?: number; limit?: number; sort?: 'newest' | 'highest' | 'lowest';
+  }) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}`, { params });
+      const data = res.data;
+      const reviews = data?.reviews || data?.data?.reviews || (Array.isArray(data) ? data : []);
+      const pagination = data?.pagination || data?.data?.pagination || null;
+      return { reviews, pagination };
+    } catch (err: any) {
+      console.warn(`Failed to fetch public reviews for ${productId}:`, err);
+      return { reviews: [], pagination: null };
+    }
+  },
+  /**
+   * GET /api/product-reviews/public/:productId/summary — aggregated rating metrics
+   */
+  getPublicReviewSummary: async (productId: string) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}/summary`);
+      const data = res.data?.summary || res.data?.data || res.data;
+      return {
+        averageRating: data?.averageRating ?? data?.average ?? null,
+        totalReviews: data?.totalReviews ?? data?.reviewCount ?? 0,
+        distribution: data?.distribution || {},
+      };
+    } catch (err: any) {
+      console.warn(`Failed to fetch review summary for ${productId}:`, err);
+      return { averageRating: null, totalReviews: 0, distribution: {} };
+    }
+  },
   submitReview: async (payload: {
     productId: string;
     rating: number;
+    title?: string;
     comment: string;
     images?: string[];
   }) => {

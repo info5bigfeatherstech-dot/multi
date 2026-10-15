@@ -5,7 +5,6 @@ import {
   X, 
   Save, 
   Package, 
-  DollarSign, 
   Image as ImageIcon, 
   Warehouse, 
   Plus, 
@@ -14,7 +13,10 @@ import {
   ChevronDown,
   ChevronUp,
   Upload,
-  Tag
+  Tag,
+  Layers,
+  Sparkles,
+  Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../../../../../store/hooks';
@@ -27,6 +29,54 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '../../../../../components/ui/select';
+
+export interface CatalogAttributeItem {
+  id: string;
+  name: string;
+  type: 'variant' | 'spec';
+  suggestedValues: string[];
+}
+
+export interface ActiveVariantAxis {
+  id: string;
+  name: string;
+  selectedValues: string[];
+}
+
+const STORAGE_CATALOG_KEY = 'abb_catalog_attributes_dict';
+
+const DEFAULT_CATALOG_ATTRIBUTES: CatalogAttributeItem[] = [
+  {
+    id: 'attr-color',
+    name: 'Color',
+    type: 'variant',
+    suggestedValues: ['Red', 'Blue', 'Black', 'White', 'Navy', 'Green', 'Grey', 'Beige', 'Yellow', 'Pink']
+  },
+  {
+    id: 'attr-size',
+    name: 'Size',
+    type: 'variant',
+    suggestedValues: ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', 'Free Size']
+  },
+  {
+    id: 'attr-material',
+    name: 'Material',
+    type: 'variant',
+    suggestedValues: ['Cotton', 'Polyester', 'Silk', 'Linen', 'Denim', 'Wool', 'Leather']
+  },
+  {
+    id: 'attr-pack',
+    name: 'Pack',
+    type: 'variant',
+    suggestedValues: ['Pack of 1', 'Pack of 2', 'Pack of 3', 'Pack of 4', 'Pack of 5', 'Pack of 10']
+  },
+  {
+    id: 'attr-style',
+    name: 'Style',
+    type: 'variant',
+    suggestedValues: ['Regular Fit', 'Slim Fit', 'Oversized', 'Relaxed', 'Printed']
+  }
+];
 
 interface ProductEditModalProps {
   product?: AdminProduct | null;
@@ -56,13 +106,17 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
   const [tag, setTag] = useState(isAddMode ? '' : (product?.tag || ''));
 
   // Pricing
-  const [currentPrice, setCurrentPrice] = useState(isAddMode ? 299 : (product?.currentPrice ?? 299));
-  const [originalPrice, setOriginalPrice] = useState(isAddMode ? 599 : (product?.originalPrice ?? 599));
-  const [costPrice, setCostPrice] = useState(isAddMode ? 180 : (product?.costPrice || Math.round(Number(product?.currentPrice || 299) * 0.6)));
+  const [currentPrice, setCurrentPrice] = useState(isAddMode ? 200 : (product?.currentPrice ?? 200));
+  const [originalPrice, setOriginalPrice] = useState(isAddMode ? 300 : (product?.originalPrice ?? 300));
+  const [costPrice] = useState(isAddMode ? 120 : (product?.costPrice || Math.round(Number(product?.currentPrice || 200) * 0.6)));
 
-  // Inventory
-  const [stock, setStock] = useState(isAddMode ? 50 : (product?.stock ?? 50));
-  const [lowStockThreshold, setLowStockThreshold] = useState(isAddMode ? 10 : (product?.lowStockThreshold ?? 10));
+  // Inventory & Tax
+  const [stock, setStock] = useState(isAddMode ? 20 : (product?.stock ?? 20));
+  const [moq, setMoq] = useState(isAddMode ? 10 : ((product as any)?.moq ?? (product as any)?.minimumOrderQuantity ?? 10));
+  const [lowStockThreshold, setLowStockThreshold] = useState(isAddMode ? 5 : (product?.lowStockThreshold ?? 5));
+  const [hsnCode, setHsnCode] = useState((product as any)?.hsnCode || '1324');
+  const [gstRate, setGstRate] = useState((product as any)?.gstRate || '3% (Precious Items)');
+  const [trackInventory, setTrackInventory] = useState((product as any)?.trackInventory !== false);
   const [binLocation, setBinLocation] = useState(isAddMode ? 'Warehouse-A' : (product?.binLocation || ''));
 
   // Images
@@ -178,6 +232,246 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
   };
 
   const [variants, setVariants] = useState<ProductVariant[]>(parseInitialVariants);
+
+  // Catalog dictionary state
+  const [catalogDict, setCatalogDict] = useState<CatalogAttributeItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_CATALOG_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to load catalog dictionary from localStorage:', e);
+    }
+    return DEFAULT_CATALOG_ATTRIBUTES;
+  });
+
+  const saveCatalogDict = (updated: CatalogAttributeItem[]) => {
+    setCatalogDict(updated);
+    try {
+      localStorage.setItem(STORAGE_CATALOG_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to persist catalog dictionary:', e);
+    }
+  };
+
+  // Parse initial active axes from existing variants
+  const parseInitialActiveAxes = (): ActiveVariantAxis[] => {
+    const axesMap = new Map<string, Set<string>>();
+    const initialVars = parseInitialVariants();
+    initialVars.forEach(v => {
+      if (Array.isArray(v.attributes)) {
+        v.attributes.forEach(a => {
+          if (a.key?.trim() && a.value?.trim()) {
+            if (!axesMap.has(a.key.trim())) {
+              axesMap.set(a.key.trim(), new Set());
+            }
+            axesMap.get(a.key.trim())!.add(a.value.trim());
+          }
+        });
+      }
+    });
+
+    const result: ActiveVariantAxis[] = [];
+    axesMap.forEach((vals, name) => {
+      if (result.length < 3) {
+        result.push({
+          id: `axis-${Date.now()}-${result.length}`,
+          name,
+          selectedValues: Array.from(vals)
+        });
+      }
+    });
+    return result;
+  };
+
+  const [activeAxes, setActiveAxes] = useState<ActiveVariantAxis[]>(parseInitialActiveAxes);
+  const [showAddAxisModal, setShowAddAxisModal] = useState(false);
+  const [newAxisCustomName, setNewAxisCustomName] = useState('');
+  const [newAxisValues, setNewAxisValues] = useState('');
+  const [newTagInput, setNewTagInput] = useState<Record<string, string>>({});
+
+  const availableVariantAxes = catalogDict.filter(item => item.type === 'variant');
+
+  const handleToggleAddAxis = (axisName: string) => {
+    if (activeAxes.some(a => a.name.toLowerCase() === axisName.toLowerCase())) {
+      setActiveAxes(activeAxes.filter(a => a.name.toLowerCase() !== axisName.toLowerCase()));
+      return;
+    }
+    if (activeAxes.length >= 3) {
+      toast.error('Maximum 3 active variant option axes allowed (e.g. Color, Size, Material)');
+      return;
+    }
+    const catItem = catalogDict.find(c => c.name.toLowerCase() === axisName.toLowerCase() && c.type === 'variant');
+    const newActive: ActiveVariantAxis = {
+      id: `axis-${Date.now()}`,
+      name: catItem?.name || axisName,
+      selectedValues: []
+    };
+    setActiveAxes([...activeAxes, newActive]);
+  };
+
+  const handleCreateCustomAxis = () => {
+    const trimmed = newAxisCustomName.trim();
+    if (!trimmed) {
+      toast.error('Option name is required');
+      return;
+    }
+    const parsedValues = newAxisValues
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+
+    if (parsedValues.length === 0) {
+      toast.error('At least one value is required (comma-separated)');
+      return;
+    }
+
+    if (activeAxes.length >= 3 && !activeAxes.some(a => a.name.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error('Maximum 3 variant options allowed');
+      return;
+    }
+
+    const existing = catalogDict.find(c => c.name.toLowerCase() === trimmed.toLowerCase() && c.type === 'variant');
+    if (!existing) {
+      const newCatItem: CatalogAttributeItem = {
+        id: `attr-${Date.now()}`,
+        name: trimmed,
+        type: 'variant',
+        suggestedValues: parsedValues
+      };
+      saveCatalogDict([...catalogDict, newCatItem]);
+    } else {
+      const merged = Array.from(new Set([...existing.suggestedValues, ...parsedValues]));
+      const updatedDict = catalogDict.map(item => 
+        item.name.toLowerCase() === trimmed.toLowerCase() && item.type === 'variant'
+          ? { ...item, suggestedValues: merged }
+          : item
+      );
+      saveCatalogDict(updatedDict);
+    }
+
+    if (!activeAxes.some(a => a.name.toLowerCase() === trimmed.toLowerCase())) {
+      setActiveAxes([...activeAxes, {
+        id: `axis-${Date.now()}`,
+        name: trimmed,
+        selectedValues: parsedValues
+      }]);
+    } else {
+      setActiveAxes(activeAxes.map(a => 
+        a.name.toLowerCase() === trimmed.toLowerCase()
+          ? { ...a, selectedValues: Array.from(new Set([...a.selectedValues, ...parsedValues])) }
+          : a
+      ));
+    }
+    setNewAxisCustomName('');
+    setNewAxisValues('');
+    setShowAddAxisModal(false);
+    toast.success(`Option "${trimmed}" added with ${parsedValues.length} value(s)!`);
+  };
+
+  const handleToggleAxisValue = (axisId: string, val: string) => {
+    setActiveAxes(prev => prev.map(axis => {
+      if (axis.id === axisId) {
+        const isSelected = axis.selectedValues.includes(val);
+        const updatedValues = isSelected 
+          ? axis.selectedValues.filter(v => v !== val)
+          : [...axis.selectedValues, val];
+        return { ...axis, selectedValues: updatedValues };
+      }
+      return axis;
+    }));
+  };
+
+  const handleAddValueToAxis = (axisId: string) => {
+    const rawVal = (newTagInput[axisId] || '').trim();
+    if (!rawVal) return;
+
+    const targetAxis = activeAxes.find(a => a.id === axisId);
+    if (!targetAxis) return;
+
+    setActiveAxes(prev => prev.map(axis => {
+      if (axis.id === axisId) {
+        if (!axis.selectedValues.includes(rawVal)) {
+          return { ...axis, selectedValues: [...axis.selectedValues, rawVal] };
+        }
+      }
+      return axis;
+    }));
+
+    const updatedDict = catalogDict.map(item => {
+      if (item.name.toLowerCase() === targetAxis.name.toLowerCase() && item.type === 'variant') {
+        if (!item.suggestedValues.includes(rawVal)) {
+          return { ...item, suggestedValues: [...item.suggestedValues, rawVal] };
+        }
+      }
+      return item;
+    });
+    saveCatalogDict(updatedDict);
+
+    setNewTagInput({ ...newTagInput, [axisId]: '' });
+  };
+
+  const handleRemoveActiveAxis = (axisId: string) => {
+    setActiveAxes(activeAxes.filter(a => a.id !== axisId));
+  };
+
+  const handleGenerateVariantsFromAxes = () => {
+    const validAxes = activeAxes.filter(a => a.selectedValues.length > 0);
+    if (validAxes.length === 0) {
+      toast.error('Please select at least one value for an active axis');
+      return;
+    }
+
+    const cartesian = (arrays: string[][]): string[][] => {
+      return arrays.reduce((acc, curr) => {
+        return acc.flatMap(a => curr.map(b => [...a, b]));
+      }, [[]] as string[][]);
+    };
+
+    const combinations = cartesian(validAxes.map(a => a.selectedValues));
+    if (combinations.length > 100) {
+      toast.error(`Cannot generate ${combinations.length} combinations! Maximum allowed is 100.`);
+      return;
+    }
+
+    const cleanSkuBase = (sku.trim() || product?.sku || '7898966').toUpperCase();
+    const finalTitle = title.trim() || product?.title || 'Product';
+
+    const newVariants: ProductVariant[] = combinations.map((combo, idx) => {
+      const attrPairs = validAxes.map((axis, aIdx) => ({
+        key: axis.name,
+        value: combo[aIdx]
+      }));
+
+      const comboLabel = combo.join(' / ');
+      const variantSku = `${cleanSkuBase}-${idx + 1}`;
+
+      return {
+        id: `var-${Date.now()}-${idx}`,
+        name: `Variant ${idx + 1}`,
+        sku: variantSku,
+        titleOverride: `${finalTitle} - ${comboLabel}`,
+        description: description.trim(),
+        price: Number(currentPrice) || 21,
+        basePrice: Number(originalPrice) || 122,
+        stock: Number(stock) || 50,
+        lowStockAlert: Number(lowStockThreshold) || 15,
+        moq: 1,
+        weight: 0.5,
+        dimensions: { length: 30, width: 20, height: 10 },
+        isActive: true,
+        ecomVisibility: true,
+        trackInventory: true,
+        images: image ? [image] : [],
+        attributes: attrPairs
+      };
+    });
+
+    setVariants(newVariants);
+    toast.success(`Generated ${newVariants.length} variant combinations!`);
+  };
+
   const [expandedVariantIds, setExpandedVariantIds] = useState<{ [id: string]: boolean }>({
     'var-1': true
   });
@@ -426,6 +720,9 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
         discountPercentage: calculatedDiscount,
         stock: Number(stock),
         lowStockThreshold: Number(lowStockThreshold),
+        hsnCode: hsnCode.trim(),
+        gstRate,
+        trackInventory,
         binLocation: binLocation.trim(),
         image: image.trim() || 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80',
         gallery,
@@ -459,6 +756,9 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
           images: [image.trim(), ...gallery].filter(Boolean).map((u, i) => ({ url: u, order: i })),
           attributes: attributesPayload,
           specifications: specs,
+          hsnCode: hsnCode.trim(),
+          gstRate,
+          trackInventory,
           variants: payloadVariants
         });
       } catch {
@@ -484,6 +784,9 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
           discountPercentage: calculatedDiscount,
           stock: Number(stock),
           lowStockThreshold: Number(lowStockThreshold),
+          hsnCode: hsnCode.trim(),
+          gstRate,
+          trackInventory,
           binLocation: binLocation.trim(),
           image: image.trim(),
           gallery,
@@ -729,81 +1032,184 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             </div>
           </div>
 
-          {/* 2. PRICING & TAXES SECTION */}
-          <div id="sec-pricing" className="modal-section bg-slate-50/60 border border-slate-200/90 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200 text-slate-900 font-bold text-sm">
-              <DollarSign className="w-4 h-4 text-[#A44101]" />
-              <span>Pricing & Margins</span>
+          {/* 2. PRODUCT PRICING & STOCK */}
+          <div id="sec-pricing" className="modal-section bg-white border border-slate-200/90 rounded-2xl p-5 sm:p-6 space-y-5 shadow-2xs">
+            <div className="flex items-center gap-2.5 pb-2.5 border-b border-slate-100">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm shrink-0">
+                $
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+                2. Product Pricing &amp; Stock
+              </h2>
             </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    MRP / Original Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={originalPrice}
-                    onChange={(e) => setOriginalPrice(Number(e.target.value))}
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold focus:outline-none focus:border-[#A44101]"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Selling Price / Deal (₹) *
-                  </label>
+            {/* Row 1: Selling Price & MRP */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Selling Price (Base ₹) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
+                    ₹
+                  </span>
                   <input
                     type="number"
                     min="1"
                     value={currentPrice}
-                    onChange={(e) => setCurrentPrice(Number(e.target.value))}
+                    onChange={(e) => setCurrentPrice(e.target.value === '' ? ('' as any) : Number(e.target.value))}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-[#A44101] focus:outline-none focus:border-[#A44101]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Cost Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={costPrice}
-                    onChange={(e) => setCostPrice(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-[#A44101]"
+                    placeholder="200"
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
                   />
                 </div>
               </div>
 
-              {/* Profit Margin Info Box */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <span className="text-xs text-slate-500 font-medium">Customer Discount</span>
-                  <div className="text-lg font-black text-emerald-600">
-                    {originalPrice > currentPrice
-                      ? `${Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}% OFF`
-                      : '0% (At MRP)'}
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  MRP (Maximum Retail Price ₹) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={originalPrice}
+                    onChange={(e) => setOriginalPrice(e.target.value === '' ? ('' as any) : Number(e.target.value))}
+                    required
+                    placeholder="300"
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                  />
                 </div>
+              </div>
+            </div>
 
-                <div>
-                  <span className="text-xs text-slate-500 font-medium">Gross Margin per Unit</span>
-                  <div className="text-lg font-black text-navy">
-                    ₹{Math.max(0, currentPrice - costPrice)}
-                    <span className="text-xs font-normal text-slate-500 ml-1">
-                      ({currentPrice > 0 ? Math.round(((currentPrice - costPrice) / currentPrice) * 100) : 0}%)
-                    </span>
-                  </div>
-                </div>
+            {/* Row 2: Available Stock Quantity, Min. Order Qty (MOQ Units), Low Stock Alert Level */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Available Stock Quantity
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value === '' ? ('' as any) : Number(e.target.value))}
+                  placeholder="20"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+              </div>
 
-                <div>
-                  <span className="text-xs text-slate-500 font-medium">Applicable GST</span>
-                  <div className="text-sm font-bold text-slate-700">18% Included (Standard)</div>
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Min. Order Qty (MOQ Units)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={moq}
+                  onChange={(e) => setMoq(e.target.value === '' ? ('' as any) : Number(e.target.value))}
+                  placeholder="10"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  Low Stock Alert Level
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={lowStockThreshold}
+                  onChange={(e) => setLowStockThreshold(e.target.value === '' ? ('' as any) : Number(e.target.value))}
+                  placeholder="5"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Row 3: HSN Code & GST Tax Rate */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  HSN Code
+                </label>
+                <input
+                  type="text"
+                  value={hsnCode}
+                  onChange={(e) => setHsnCode(e.target.value)}
+                  placeholder="1324"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                  GST Tax Rate (%)
+                </label>
+                <Select
+                  value={gstRate}
+                  onValueChange={(val) => setGstRate(val)}
+                >
+                  <SelectTrigger className="w-full h-10.5 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-800">
+                    <SelectValue placeholder="Select GST Tax Rate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0% (Exempt)">0% (Exempt)</SelectItem>
+                    <SelectItem value="3% (Precious Items)">3% (Precious Items)</SelectItem>
+                    <SelectItem value="5% (Essential Goods)">5% (Essential Goods)</SelectItem>
+                    <SelectItem value="12% (Standard Low)">12% (Standard Low)</SelectItem>
+                    <SelectItem value="18% (Standard High)">18% (Standard High)</SelectItem>
+                    <SelectItem value="28% (Luxury / Sin Goods)">28% (Luxury / Sin Goods)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Row 4: Track Inventory Box */}
+            <div className="p-3.5 sm:px-4 bg-slate-50/70 border border-slate-200/90 rounded-xl flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="modal-track-inventory-checkbox"
+                checked={trackInventory}
+                onChange={(e) => setTrackInventory(e.target.checked)}
+                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label 
+                htmlFor="modal-track-inventory-checkbox"
+                className="text-xs font-semibold text-slate-800 cursor-pointer select-none"
+              >
+                Track inventory stock automatically during customer checkout
+              </label>
+            </div>
+
+            {/* Profit Margin Info Box */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-4 mt-2">
+              <div>
+                <span className="text-xs text-slate-500 font-medium">Customer Discount</span>
+                <div className="text-lg font-black text-emerald-600">
+                  {originalPrice > currentPrice
+                    ? `${Math.round(((originalPrice - currentPrice) / originalPrice) * 100)}% OFF`
+                    : '0% (At MRP)'}
                 </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-500 font-medium">Gross Margin per Unit</span>
+                <div className="text-lg font-black text-slate-900">
+                  ₹{Math.max(0, currentPrice - costPrice)}
+                  <span className="text-xs font-normal text-slate-500 ml-1">
+                    ({currentPrice > 0 ? Math.round(((currentPrice - costPrice) / currentPrice) * 100) : 0}%)
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs text-slate-500 font-medium">Applicable GST</span>
+                <div className="text-sm font-bold text-slate-700">{gstRate || '3% Included'}</div>
               </div>
             </div>
           </div>
@@ -978,6 +1384,227 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                   + Add variant (inherits top)
                 </button>
               </div>
+            </div>
+
+            {/* VARIANT OPTION AXES (MAX 3) - EXACT MATCH TO USER SCREENSHOT */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#A44101]" />
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Variant Options
+                  </h4>
+                </div>
+                {showAddAxisModal ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAxisModal(false)}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cancel</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAxisModal(true)}
+                    className="px-3.5 py-1.5 rounded-xl border border-[#A44101]/30 hover:bg-[#A44101]/10 text-[#A44101] text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    + Custom option
+                  </button>
+                )}
+              </div>
+              
+              <p className="text-xs text-slate-500">
+                Pick options → values → generate (max 3 options). Custom options save to the dictionary for reuse on every future product.
+              </p>
+
+              {/* Quick-Pick Available Axes from Catalog */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Catalog Axes:
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {availableVariantAxes.map(item => {
+                    const isActive = activeAxes.some(a => a.name.toLowerCase() === item.name.toLowerCase());
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleToggleAddAxis(item.name)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isActive
+                            ? 'bg-[#A44101] text-white shadow-xs ring-2 ring-[#A44101]/20'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {isActive ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                        <span>{item.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Add Custom Option Card - EXACT MATCH TO USER SCREENSHOT */}
+              {showAddAxisModal && (
+                <div className="p-5 sm:p-6 bg-[#FFFDFB] border border-orange-200/90 rounded-2xl space-y-4 shadow-2xs">
+                  <h4 className="text-xs font-bold text-slate-900">
+                    Add custom option → saves to dictionary + adds on this product
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                        Option name *
+                      </label>
+                      <input
+                        type="text"
+                        value={newAxisCustomName}
+                        onChange={(e) => setNewAxisCustomName(e.target.value)}
+                        placeholder="color"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-orange-500 ring-1 ring-orange-500/20 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCreateCustomAxis();
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                        Values * (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={newAxisValues}
+                        onChange={(e) => setNewAxisValues(e.target.value)}
+                        placeholder="e.g. 64GB, 128GB, 256GB"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#A44101]"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCreateCustomAxis();
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500">
+                    At least one value required. Values are pre-selected; tweak chips then Generate. Max 3 options per product.
+                  </p>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleCreateCustomAxis}
+                      className="px-4 py-2.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Save &amp; add option</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Active Axes with Value Pills */}
+              {activeAxes.length === 0 ? (
+                <div className="border border-dashed border-slate-200 rounded-2xl p-6 text-center text-xs text-slate-400">
+                  No options selected — use <span className="font-semibold text-slate-600">+ Add option</span> or <span className="font-semibold text-slate-600">+ Custom option</span>, or generate a single default variant.
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  {activeAxes.map((axis) => {
+                    const catItem = catalogDict.find(c => c.name.toLowerCase() === axis.name.toLowerCase() && c.type === 'variant');
+                    const suggested = catItem?.suggestedValues || [];
+                    const allValues = Array.from(new Set([...suggested, ...axis.selectedValues]));
+
+                    return (
+                      <div key={axis.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                              {axis.name}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              ({axis.selectedValues.length} selected)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveActiveAxis(axis.id)}
+                            className="p-1 text-slate-400 hover:text-red-500 rounded transition cursor-pointer"
+                            title="Remove axis"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Value Pills */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {allValues.map((val) => {
+                            const isSelected = axis.selectedValues.includes(val);
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => handleToggleAxisValue(axis.id, val)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                                  isSelected
+                                    ? 'bg-[#A44101] text-white shadow-2xs'
+                                    : 'bg-white border border-slate-200 text-slate-700 hover:border-slate-300'
+                                }`}
+                              >
+                                <span>{val}</span>
+                                {isSelected && <Check className="w-3 h-3" />}
+                              </button>
+                            );
+                          })}
+
+                          {/* Inline input to add value */}
+                          <div className="inline-flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={newTagInput[axis.id] || ''}
+                              onChange={(e) => setNewTagInput({ ...newTagInput, [axis.id]: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddValueToAxis(axis.id);
+                                }
+                              }}
+                              placeholder={`+ New ${axis.name}...`}
+                              className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 w-28 focus:outline-none focus:border-[#A44101]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleAddValueToAxis(axis.id)}
+                              className="p-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs cursor-pointer"
+                              title="Add value"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={handleGenerateVariantsFromAxes}
+                      className="px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-sm transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Generate Variant Combinations</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
