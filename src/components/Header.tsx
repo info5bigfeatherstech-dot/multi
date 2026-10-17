@@ -38,6 +38,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import { CATEGORY_SUBCATEGORIES, ProductItem, getAllProducts } from '../data/storeData';
 import { storefrontProductsApi } from '../api';
+import { getProductSlug } from '../utils/productUtils';
 
 export interface NavCategoryMenuItem {
   id: string;
@@ -575,7 +576,8 @@ export const Header: React.FC<HeaderProps> = ({
     if (onSelectProduct) {
       onSelectProduct(product);
     } else {
-      window.history.pushState(null, '', `/product/${product.id}`);
+      const slug = getProductSlug(product);
+      window.history.pushState(null, '', `/product/${slug}`);
       window.dispatchEvent(new PopStateEvent('popstate'));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }

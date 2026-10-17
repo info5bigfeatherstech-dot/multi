@@ -5,6 +5,7 @@ import {
   MapPin, 
   Coins, 
   Check, 
+  ArrowLeft,
   Truck, 
   FileText, 
   Plus, 
@@ -44,13 +45,32 @@ interface ProfilePageProps {
 
 type TabKey = 'profile' | 'orders' | 'addresses' | 'wallet' | 'settings';
 
+const getTabFromLocation = (): TabKey => {
+  if (typeof window === 'undefined') return 'profile';
+  const path = window.location.pathname.toLowerCase();
+  if (path === '/order' || path === '/orders' || path.startsWith('/order/') || path.startsWith('/orders/')) {
+    return 'orders';
+  }
+  if (path === '/address' || path === '/addresses' || path.startsWith('/address/') || path.startsWith('/addresses/')) {
+    return 'addresses';
+  }
+  if (path === '/profile') {
+    return 'profile';
+  }
+  const hash = window.location.hash.toLowerCase();
+  if (hash === '#orders' || hash === '#order') return 'orders';
+  if (hash === '#addresses' || hash === '#address') return 'addresses';
+  if (hash === '#profile') return 'profile';
+  return 'profile';
+};
+
 export const ProfilePage: React.FC<ProfilePageProps> = ({
   onBackToHome,
   onGoToWishlist: _onGoToWishlist,
   onGoToCheckout,
   onRequireAuth,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabKey>('orders');
+  const [activeTab, setActiveTab] = useState<TabKey>(getTabFromLocation);
 
   // User Profile Form State
   const [userName, setUserName] = useState(() => {
@@ -132,8 +152,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [addrPhone, setAddrPhone] = useState(() => userPhone.replace('+91 ', '') || '');
   const [addrPincode, setAddrPincode] = useState('');
   const [addrHouseNumber, setAddrHouseNumber] = useState('');
+  const [addrBuilding, setAddrBuilding] = useState('');
+  const [addrFloor, setAddrFloor] = useState('');
   const [addrArea, setAddrArea] = useState('');
   const [addrAddressLine1, setAddrAddressLine1] = useState('');
+  const [addrAddressLine2, setAddrAddressLine2] = useState('');
   const [addrLandmark, setAddrLandmark] = useState('');
   const [addrCity, setAddrCity] = useState('');
   const [addrState, setAddrState] = useState('');
@@ -177,12 +200,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const handleOpenInsideOrder = (orderId: string) => {
     setSelectedOrderIdForInsideView(orderId);
     if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', `/profile?order=${encodeURIComponent(orderId)}`);
+      window.history.pushState(null, '', `/order?order=${encodeURIComponent(orderId)}`);
     }
   };
 
   useEffect(() => {
     const handlePopState = () => {
+      const tab = getTabFromLocation();
+      setActiveTab(tab);
       const params = new URLSearchParams(window.location.search);
       const oParam = params.get('order');
       setSelectedOrderIdForInsideView(oParam || null);
@@ -441,8 +466,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setAddrPhone((userPhone || '').replace('+91 ', '') || '');
     setAddrPincode('');
     setAddrHouseNumber('');
+    setAddrBuilding('');
+    setAddrFloor('');
     setAddrArea('');
     setAddrAddressLine1('');
+    setAddrAddressLine2('');
     setAddrLandmark('');
     setAddrCity('');
     setAddrState('');
@@ -455,45 +483,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const handleStartEditAddress = (addr: any) => {
     setEditingAddressId(addr.id);
     setAddressFormError('');
-    setAddrFullName(addr.name || '');
+    setAddrFullName(addr.name || addr.fullName || '');
     const cleanPhone = (addr.phone || '').replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
     setAddrPhone(cleanPhone);
-    setAddrPincode(addr.pincode || '');
+    setAddrPincode(addr.pincode || addr.postalCode || '');
     setAddrCity(addr.city || '');
     setAddrState(addr.state || 'Delhi');
     setAddrType((addr.type as 'Home' | 'Work' | 'Other') || 'Home');
     setAddrIsDefault(Boolean(addr.isDefault));
 
-    if (addr.houseNumber) {
-      setAddrHouseNumber(addr.houseNumber);
-    } else {
-      const parts = (addr.addressLine || '').split(',').map((s: string) => s.trim());
-      setAddrHouseNumber(parts[0] || '');
-    }
-
-    if (addr.area) {
-      setAddrArea(addr.area);
-    } else {
-      const parts = (addr.addressLine || '').split(',').map((s: string) => s.trim());
-      setAddrArea(parts.length > 2 ? parts[parts.length - 2] : (parts[1] || ''));
-    }
-
-    if (addr.addressLine1) {
-      setAddrAddressLine1(addr.addressLine1);
-    } else {
-      setAddrAddressLine1(addr.addressLine || '');
-    }
-
+    setAddrHouseNumber(addr.houseNumber || '');
+    setAddrBuilding(addr.building || '');
+    setAddrFloor(addr.floor || '');
+    setAddrArea(addr.area || '');
+    setAddrAddressLine1(addr.addressLine1 || addr.addressLine || '');
+    setAddrAddressLine2(addr.addressLine2 || '');
     setAddrLandmark(addr.landmark || '');
+
     setPincodeHint(`${addr.city || ''}${addr.state ? `, ${addr.state}` : ''}`);
     setShowAddressForm(true);
-
-    setTimeout(() => {
-      const formEl = document.getElementById('profile-address-form');
-      if (formEl) {
-        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
+    window.scrollTo({ top: 120, behavior: 'smooth' });
   };
 
   const handleSaveInlineAddress = async (e: React.FormEvent) => {
@@ -540,7 +549,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     const fullStreet = [
       addrHouseNumber.trim(),
+      addrBuilding.trim(),
+      addrFloor.trim(),
       finalAddressLine1,
+      addrAddressLine2.trim(),
       addrArea.trim(),
       addrLandmark.trim() ? `Near ${addrLandmark.trim()}` : '',
     ].filter(Boolean).join(', ');
@@ -553,11 +565,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           name: addrFullName.trim(),
           phone: cleanPhone,
           houseNumber: addrHouseNumber.trim(),
+          building: addrBuilding.trim(),
+          floor: addrFloor.trim(),
           area: addrArea.trim(),
           postalCode: cleanPin,
           pincode: cleanPin,
           addressLine1: finalAddressLine1,
-          addressLine2: addrLandmark.trim(),
+          addressLine2: addrAddressLine2.trim() || addrLandmark.trim(),
           street: fullStreet,
           landmark: addrLandmark.trim(),
           city: addrCity.trim(),
@@ -580,8 +594,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         pincode: cleanPin,
         isDefault: addrIsDefault,
         houseNumber: addrHouseNumber.trim(),
+        building: addrBuilding.trim(),
+        floor: addrFloor.trim(),
         area: addrArea.trim(),
         addressLine1: finalAddressLine1,
+        addressLine2: addrAddressLine2.trim(),
         landmark: addrLandmark.trim(),
       };
 
@@ -619,8 +636,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       pincode: cleanPin,
       isDefault: addresses.length === 0 || addrIsDefault,
       houseNumber: addrHouseNumber.trim(),
+      building: addrBuilding.trim(),
+      floor: addrFloor.trim(),
       area: addrArea.trim(),
       addressLine1: finalAddressLine1,
+      addressLine2: addrAddressLine2.trim(),
       landmark: addrLandmark.trim(),
     };
 
@@ -630,11 +650,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         name: newAddrObj.name,
         phone: newAddrObj.phone,
         houseNumber: addrHouseNumber.trim(),
+        building: addrBuilding.trim(),
+        floor: addrFloor.trim(),
         area: addrArea.trim(),
         postalCode: cleanPin,
         pincode: cleanPin,
         addressLine1: finalAddressLine1,
-        addressLine2: addrLandmark.trim(),
+        addressLine2: addrAddressLine2.trim() || addrLandmark.trim(),
         street: fullStreet,
         landmark: addrLandmark.trim(),
         city: newAddrObj.city,
@@ -854,8 +876,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               onClick={() => {
                 setActiveTab('orders');
                 setSelectedOrderIdForInsideView(null);
-                if (typeof window !== 'undefined') {
-                  window.history.pushState(null, '', '/profile');
+                if (typeof window !== 'undefined' && window.location.pathname !== '/order') {
+                  window.history.pushState(null, '', '/order');
                 }
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
@@ -875,7 +897,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               type="button"
-              onClick={() => setActiveTab('profile')}
+              onClick={() => {
+                setActiveTab('profile');
+                setSelectedOrderIdForInsideView(null);
+                if (typeof window !== 'undefined' && window.location.pathname !== '/profile') {
+                  window.history.pushState(null, '', '/profile');
+                }
+              }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
                 activeTab === 'profile'
                   ? 'bg-navy text-white shadow-xs'
@@ -891,7 +919,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               type="button"
-              onClick={() => setActiveTab('addresses')}
+              onClick={() => {
+                setActiveTab('addresses');
+                setSelectedOrderIdForInsideView(null);
+                if (typeof window !== 'undefined' && window.location.pathname !== '/address') {
+                  window.history.pushState(null, '', '/address');
+                }
+              }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
                 activeTab === 'addresses'
                   ? 'bg-navy text-white shadow-xs'
@@ -938,7 +972,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   onBack={() => {
                     setSelectedOrderIdForInsideView(null);
                     if (typeof window !== 'undefined') {
-                      window.history.pushState(null, '', '/profile');
+                      window.history.pushState(null, '', '/order');
                     }
                   }}
                   onGoToCheckout={onGoToCheckout}
@@ -1438,158 +1472,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* TAB 3: SAVED DELIVERY ADDRESSES */}
             {activeTab === 'addresses' && (
               <div className="space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
-                  <div>
-                    <h2 className="text-lg font-bold text-navy">Saved Delivery Addresses</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Manage multiple shipping addresses for fast checkout</p>
-                  </div>
-                  {addresses.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (showAddressForm && !editingAddressId) {
-                          setShowAddressForm(false);
-                        } else {
-                          resetAddressForm();
-                          setShowAddressForm(true);
-                        }
-                      }}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ${
-                        showAddressForm && !editingAddressId
-                          ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                          : 'bg-[#A44101] hover:bg-[#8C3701] text-white active:scale-98'
-                      }`}
-                    >
-                      {showAddressForm && !editingAddressId ? (
-                        <>
-                          <X className="w-4 h-4" />
-                          <span>Close Form</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4" />
-                          <span>Add New Address</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                {/* Success Notice */}
-                {addressSuccessMsg && (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-fadeIn">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{addressSuccessMsg}</span>
-                  </div>
-                )}
-
-                {/* Existing Saved Address Cards */}
-                {addresses.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      Your Saved Addresses ({addresses.length})
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {addresses.map((addr) => {
-                        const isBeingEdited = editingAddressId === addr.id;
-                        return (
-                          <div
-                            key={addr.id}
-                            className={`p-4 rounded-2xl border transition-all relative ${
-                              isBeingEdited
-                                ? 'border-[#A44101] ring-2 ring-[#A44101]/30 bg-amber-50/30 shadow-sm'
-                                : addr.isDefault 
-                                  ? 'border-navy bg-stone-50/70 shadow-xs' 
-                                  : 'border-slate-200 bg-white hover:border-slate-300'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy flex items-center gap-1">
-                                  {addr.type === 'Home' && <Home className="w-3 h-3" />}
-                                  {addr.type === 'Work' && <Briefcase className="w-3 h-3" />}
-                                  {addr.type === 'Other' && <Building className="w-3 h-3" />}
-                                  <span>{addr.type}</span>
-                                </span>
-                                {addr.isDefault && (
-                                  <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded border border-[#A44101]/20">
-                                    Default
-                                  </span>
-                                )}
-                                {isBeingEdited && (
-                                  <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 animate-pulse">
-                                    Editing...
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEditAddress(addr)}
-                                  className="px-2 py-1 rounded-lg text-[11px] font-bold text-navy hover:text-[#A44101] hover:bg-stone-100 flex items-center gap-1 transition-colors cursor-pointer"
-                                  title="Edit Address"
-                                >
-                                  <Pencil className="w-3.5 h-3.5 text-[#A44101]" />
-                                  <span>Edit</span>
-                                </button>
-                                {!addr.isDefault && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetDefaultAddress(addr.id)}
-                                    className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer px-1 py-1"
-                                  >
-                                    Set Default
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteAddress(addr.id)}
-                                  className="text-slate-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 cursor-pointer transition-colors"
-                                  title="Delete Address"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-
-                            <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
-                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                              {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
-                            </p>
-                            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
-                              <Phone className="w-3.5 h-3.5" />
-                              <span>{addr.phone}</span>
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Inline Address Entry Form: Shown when 0 addresses exist OR when showAddressForm is true */}
-                {(addresses.length === 0 || showAddressForm) && (
-                  <div id="profile-address-form" className="p-5 sm:p-6 rounded-2xl border border-slate-200 bg-stone-50/60 shadow-xs space-y-5 animate-fadeIn">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
+                {showAddressForm || editingAddressId || addresses.length === 0 ? (
+                  // DEDICATED EDIT / NEW ADDRESS VIEW (Exact Match to Reference Image 2)
+                  <div className="space-y-6 animate-fadeIn">
+                    {/* Top Back Button */}
+                    {addresses.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-bold text-navy flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-[#A44101]" />
-                          <span>
-                            {editingAddressId
-                              ? 'Edit Delivery Address'
-                              : (addresses.length === 0 ? 'Add Delivery Address' : 'Add New Delivery Address')}
-                          </span>
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {editingAddressId
-                            ? 'Update the recipient and delivery details for this address below.'
-                            : (addresses.length === 0
-                              ? 'You have not added any addresses yet. Fill in the fields below to save your delivery address.'
-                              : 'Enter the new shipping destination details below.')}
-                        </p>
-                      </div>
-                      {addresses.length > 0 && (
                         <button
                           type="button"
                           onClick={() => {
@@ -1597,216 +1485,289 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             setShowAddressForm(false);
                             resetAddressForm();
                           }}
-                          className="text-slate-400 hover:text-navy p-1 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 group"
                         >
-                          <X className="w-4 h-4" />
+                          <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+                          <span className="uppercase tracking-wider text-[11px]">Back to addresses</span>
                         </button>
-                      )}
+                      </div>
+                    )}
+
+                    {/* Heading Area */}
+                    <div className="space-y-1">
+                      <span className="text-xs font-black uppercase tracking-widest text-[#E11D48]">
+                        {editingAddressId ? 'Edit Address' : 'New Address'}
+                      </span>
+                      <h2 className="text-2xl sm:text-3xl font-serif sm:font-medium text-slate-900 leading-tight">
+                        {editingAddressId ? 'Update your address' : 'Add delivery address'}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-500">
+                        {editingAddressId 
+                          ? 'Make changes to your delivery address details.' 
+                          : 'Enter your doorstep delivery address details below.'}
+                      </p>
                     </div>
 
                     {addressFormError && (
-                      <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold">
+                      <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold">
                         {addressFormError}
                       </div>
                     )}
 
-                    <form onSubmit={handleSaveInlineAddress} className="space-y-4">
-                      {/* Name & Phone */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <form onSubmit={handleSaveInlineAddress} className="space-y-6">
+                      {/* Card 1: Contact Details */}
+                      <div className="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Full Name <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={addrFullName}
-                            onChange={(e) => setAddrFullName(e.target.value)}
-                            placeholder="e.g. Rahul Sharma"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                            required
-                          />
+                          <h3 className="text-base font-bold text-slate-900 leading-tight">Contact</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">Who should we deliver to?</p>
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Mobile Number (10 digits) <span className="text-red-500">*</span>
-                          </label>
-                          <div className="relative flex items-center">
-                            <span className="absolute left-3 text-xs font-bold text-slate-400 select-none">+91</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Full name <span className="text-red-500">*</span>
+                            </label>
                             <input
-                              type="tel"
-                              value={addrPhone}
-                              onChange={(e) => setAddrPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                              placeholder="9876543210"
-                              maxLength={10}
-                              className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-mono"
+                              type="text"
+                              value={addrFullName}
+                              onChange={(e) => setAddrFullName(e.target.value)}
+                              placeholder="Full name"
+                              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
                               required
                             />
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Pincode, City, State */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                            <span>Pincode (6 digits) <span className="text-red-500">*</span></span>
-                            {isFetchingPincode && <Loader2 className="w-3 h-3 animate-spin text-[#A44101]" />}
-                          </label>
-                          <input
-                            type="text"
-                            value={addrPincode}
-                            onChange={(e) => handleInlinePincodeChange(e.target.value)}
-                            placeholder="e.g. 110001"
-                            maxLength={6}
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-mono"
-                            required
-                          />
-                          {pincodeHint && (
-                            <span className="text-[10px] text-emerald-600 font-bold block mt-1">
-                              ✓ {pincodeHint}
-                            </span>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            City / District <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={addrCity}
-                            onChange={(e) => setAddrCity(e.target.value)}
-                            placeholder="e.g. New Delhi"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            State <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={addrState}
-                            onChange={(e) => setAddrState(e.target.value)}
-                            placeholder="e.g. Delhi"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      {/* House Number, Area & Address Line 1 */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            House / Flat / Building No. <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={addrHouseNumber}
-                            onChange={(e) => setAddrHouseNumber(e.target.value)}
-                            placeholder="e.g. Flat 302, Building 4 / House No. 12"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
-                            Area / Locality <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={addrArea}
-                            onChange={(e) => setAddrArea(e.target.value)}
-                            placeholder="e.g. Sector 15 / Indiranagar / Civil Lines"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      {/* Address Line 1: Street, Building, or Road Details */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Address Line 1 (Street / Road Details) <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={addrAddressLine1}
-                          onChange={(e) => setAddrAddressLine1(e.target.value)}
-                          placeholder="e.g. Main Ring Road, Opposite Park / Near Axis Bank"
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                          required
-                        />
-                      </div>
-
-                      {/* Landmark */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Landmark (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={addrLandmark}
-                          onChange={(e) => setAddrLandmark(e.target.value)}
-                          placeholder="e.g. Near Metro Station / Behind City Mall"
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                        />
-                      </div>
-
-                      {/* Address Type & Default Checkbox */}
-                      <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-200/60">
-                        <div className="space-y-1">
-                          <span className="block text-xs font-bold text-slate-700">Address Type</span>
-                          <div className="flex items-center gap-2">
-                            {(['Home', 'Work', 'Other'] as const).map((t) => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => setAddrType(t)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                  addrType === t
-                                    ? 'bg-navy text-white shadow-xs'
-                                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                                }`}
-                              >
-                                {t === 'Home' && <Home className="w-3.5 h-3.5" />}
-                                {t === 'Work' && <Briefcase className="w-3.5 h-3.5" />}
-                                {t === 'Other' && <Building className="w-3.5 h-3.5" />}
-                                <span>{t}</span>
-                              </button>
-                            ))}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">
+                              Phone <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative flex items-center">
+                              <span className="absolute left-3 text-xs font-bold text-slate-400 select-none">+91</span>
+                              <input
+                                type="tel"
+                                value={addrPhone}
+                                onChange={(e) => setAddrPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                placeholder="Phone number"
+                                maxLength={10}
+                                className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-mono"
+                                required
+                              />
+                            </div>
                           </div>
                         </div>
+                      </div>
 
-                        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer pt-4 sm:pt-0">
-                          <input
-                            type="checkbox"
-                            checked={addrIsDefault}
-                            onChange={(e) => setAddrIsDefault(e.target.checked)}
-                            className="w-4 h-4 rounded text-navy focus:ring-navy border-slate-300 cursor-pointer"
-                          />
-                          <span>Set as default delivery address</span>
-                        </label>
+                      {/* Card 2: Delivery Location Details */}
+                      <div className="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 leading-tight">Delivery location</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">Exact doorstep details for the courier</p>
+                        </div>
+
+                        <div className="space-y-4 pt-1">
+                          {/* Row 1: House / flat no. * | Building (optional) */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                House / flat no. <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={addrHouseNumber}
+                                onChange={(e) => setAddrHouseNumber(e.target.value)}
+                                placeholder="e.g. 12 / Flat 302"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Building (optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={addrBuilding}
+                                onChange={(e) => setAddrBuilding(e.target.value)}
+                                placeholder="e.g. Marcc Apartment / Tower A"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Row 2: Floor (optional) | Area / locality * */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Floor (optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={addrFloor}
+                                onChange={(e) => setAddrFloor(e.target.value)}
+                                placeholder="e.g. 4th Floor"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                <span>Area / locality <span className="text-red-500">*</span></span>
+                              </label>
+                              <div className="relative flex items-center">
+                                <MapPin className="w-3.5 h-3.5 text-amber-600 absolute left-3 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={addrArea}
+                                  onChange={(e) => setAddrArea(e.target.value)}
+                                  placeholder="e.g. Dabri / Sector 15"
+                                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Row 3: Address line 1 * | Address line 2 */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Address line 1 <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={addrAddressLine1}
+                                onChange={(e) => setAddrAddressLine1(e.target.value)}
+                                placeholder="e.g. Main Ring Road / Street details"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Address line 2
+                              </label>
+                              <input
+                                type="text"
+                                value={addrAddressLine2}
+                                onChange={(e) => setAddrAddressLine2(e.target.value)}
+                                placeholder="e.g. Lane / wing / suite"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Row 4: Landmark (optional) | PIN code * */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                Landmark (optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={addrLandmark}
+                                onChange={(e) => setAddrLandmark(e.target.value)}
+                                placeholder="e.g. Near Metro Station / Behind Mall"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                <span>PIN code <span className="text-red-500">*</span></span>
+                                {isFetchingPincode && <Loader2 className="w-3 h-3 animate-spin text-[#A44101]" />}
+                              </label>
+                              <input
+                                type="text"
+                                value={addrPincode}
+                                onChange={(e) => handleInlinePincodeChange(e.target.value)}
+                                placeholder="e.g. 110045"
+                                maxLength={6}
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-mono"
+                                required
+                              />
+                              {pincodeHint && (
+                                <span className="text-[10px] text-emerald-600 font-bold block mt-1">
+                                  ✓ {pincodeHint}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Row 5: City / District * | State * */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                City / District <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={addrCity}
+                                onChange={(e) => setAddrCity(e.target.value)}
+                                placeholder="City"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                                State <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={addrState}
+                                onChange={(e) => setAddrState(e.target.value)}
+                                placeholder="State"
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          {/* Address Type & Default Checkbox */}
+                          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100">
+                            <div className="space-y-1">
+                              <span className="block text-xs font-bold text-slate-700">Address Type</span>
+                              <div className="flex items-center gap-2">
+                                {(['Home', 'Work', 'Other'] as const).map((t) => (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => setAddrType(t)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                      addrType === t
+                                        ? 'bg-navy text-white shadow-xs'
+                                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                    }`}
+                                  >
+                                    {t === 'Home' && <Home className="w-3.5 h-3.5" />}
+                                    {t === 'Work' && <Briefcase className="w-3.5 h-3.5" />}
+                                    {t === 'Other' && <Building className="w-3.5 h-3.5" />}
+                                    <span>{t}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer pt-2 sm:pt-0">
+                              <input
+                                type="checkbox"
+                                checked={addrIsDefault}
+                                onChange={(e) => setAddrIsDefault(e.target.checked)}
+                                className="w-4 h-4 rounded text-navy focus:ring-navy border-slate-300 cursor-pointer"
+                              />
+                              <span>Set as default delivery address</span>
+                            </label>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center gap-3 pt-3">
+                      <div className="flex items-center gap-3">
                         <button
                           type="submit"
                           disabled={isSavingAddress}
-                          className="px-6 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-60 active:scale-98"
+                          className="px-7 py-3 rounded-xl bg-navy hover:bg-navy-light text-white text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer flex items-center gap-2 disabled:opacity-60 active:scale-98"
                         >
-                          {isSavingAddress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                          <span>
-                            {isSavingAddress 
-                              ? (editingAddressId ? 'Updating Address...' : 'Saving Address...') 
-                              : (editingAddressId ? 'Update Delivery Address' : 'Save Delivery Address')}
-                          </span>
+                          {isSavingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                          <span>{isSavingAddress ? 'Saving...' : (editingAddressId ? 'Update address' : 'Save address')}</span>
                         </button>
                         {addresses.length > 0 && (
                           <button
@@ -1816,13 +1777,117 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               setShowAddressForm(false);
                               resetAddressForm();
                             }}
-                            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-stone-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                            className="px-5 py-3 rounded-xl border border-slate-200 bg-white hover:bg-stone-50 text-slate-700 text-xs sm:text-sm font-bold transition-all cursor-pointer"
                           >
                             Cancel
                           </button>
                         )}
                       </div>
                     </form>
+                  </div>
+                ) : (
+                  // SAVED ADDRESSES LIST VIEW (Card View)
+                  <div className="space-y-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                      <div>
+                        <h2 className="text-lg font-bold text-navy">Saved Delivery Addresses</h2>
+                        <p className="text-xs text-slate-500 mt-0.5">Manage multiple shipping addresses for fast checkout</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetAddressForm();
+                          setShowAddressForm(true);
+                        }}
+                        className="px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer bg-[#A44101] hover:bg-[#8C3701] text-white active:scale-98"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add New Address</span>
+                      </button>
+                    </div>
+
+                    {/* Success Notice */}
+                    {addressSuccessMsg && (
+                      <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{addressSuccessMsg}</span>
+                      </div>
+                    )}
+
+                    {/* Existing Saved Address Cards */}
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                        Your Saved Addresses ({addresses.length})
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {addresses.map((addr) => {
+                          return (
+                            <div
+                              key={addr.id}
+                              className={`p-4 rounded-2xl border transition-all relative ${
+                                addr.isDefault 
+                                  ? 'border-navy bg-stone-50/70 shadow-xs' 
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy flex items-center gap-1">
+                                    {addr.type === 'Home' && <Home className="w-3 h-3" />}
+                                    {addr.type === 'Work' && <Briefcase className="w-3 h-3" />}
+                                    {addr.type === 'Other' && <Building className="w-3 h-3" />}
+                                    <span>{addr.type}</span>
+                                  </span>
+                                  {addr.isDefault && (
+                                    <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded border border-[#A44101]/20">
+                                      Default
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditAddress(addr)}
+                                    className="px-2 py-1 rounded-lg text-[11px] font-bold text-navy hover:text-[#A44101] hover:bg-stone-100 flex items-center gap-1 transition-colors cursor-pointer"
+                                    title="Edit Address"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5 text-[#A44101]" />
+                                    <span>Edit</span>
+                                  </button>
+                                  {!addr.isDefault && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetDefaultAddress(addr.id)}
+                                      className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer px-1 py-1"
+                                    >
+                                      Set Default
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteAddress(addr.id)}
+                                    className="text-slate-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 cursor-pointer transition-colors"
+                                    title="Delete Address"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
+                              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
+                              </p>
+                              <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                                <Phone className="w-3.5 h-3.5" />
+                                <span>{addr.phone}</span>
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

@@ -1791,6 +1791,21 @@ export const CATEGORY_SECTIONS_DATA: CategorySectionInfo[] = [
 
 export const ALL_PRODUCTS_CATALOG: ProductItem[] = [
   {
+    id: "prod-radha-krishna-jhumka",
+    slug: "artificial-radha-krishna-temple-motif-jhumka-earrings-for-women",
+    title: "Artificial Radha Krishna Temple Motif Jhumka Earrings for Women",
+    category: "Jewellery & Accessories",
+    currentPrice: 199,
+    originalPrice: 799,
+    discountPercentage: 75,
+    image: "https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/products/2026/07/love-pearl-chain-necklace-v-2633-1-img-0-1784529134136.webp",
+    rating: 4.9,
+    reviews: 248,
+    isTopDeal: true,
+    tag: "TEMPLE JEWELLERY",
+    inStock: true,
+  },
+  {
     id: "prod-1",
     title: "Stainless Steel Tiffin Lunch Box with Pouch",
     category: "Home & Kitchen",

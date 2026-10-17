@@ -8,7 +8,8 @@ import {
   Trash2, 
   ArrowRight, 
   Truck, 
-  Sparkles
+  Sparkles,
+  Sparkle
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
@@ -26,7 +27,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
     removeFromCart, 
     totalCount, 
     subtotal, 
-    totalOriginal, 
     totalSavings 
   } = useCart();
 
@@ -227,51 +227,69 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
 
               {/* 4. Drawer Footer: Price breakdown & CTA */}
               {cartItems.length > 0 && (
-                <div className="p-4 sm:p-5 bg-white border-t border-slate-200 space-y-3">
-                  {/* Total Savings Pill */}
+                <div className="p-4 sm:p-5 bg-white border-t border-slate-200 space-y-4">
+                  {/* Total Savings Pill (if applicable) */}
                   {totalSavings > 0 && (
-                    <div className="bg-slate-100 border border-slate-200 rounded-lg py-1.5 px-3 flex items-center justify-between text-xs">
-                      <span className="font-bold text-navy flex items-center gap-1">
+                    <div className="bg-amber-50 border border-amber-200/80 rounded-xl py-1.5 px-3 flex items-center justify-between text-xs">
+                      <span className="font-bold text-amber-900 flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-[#A44101]" /> Total Savings
                       </span>
                       <span className="font-black text-[#A44101]">₹{totalSavings} OFF</span>
                     </div>
                   )}
 
-                  {/* Pricing Breakdown */}
-                  <div className="space-y-1.5 text-xs text-slate-600">
-                    <div className="flex justify-between">
-                      <span>Total MRP</span>
-                      <span className="font-semibold line-through text-slate-400">₹{totalOriginal}</span>
+                  {/* Elegant Price Breakdown Card (Matching Reference Image) */}
+                  <div className="bg-[#FAF9F5] border border-[#ECE7DF] rounded-2xl p-4 sm:p-5 space-y-3">
+                    <div className="flex justify-between items-center text-xs sm:text-sm text-stone-600">
+                      <span>Subtotal</span>
+                      <span className="font-semibold text-stone-900">₹{subtotal}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Delivery Fee</span>
-                      <span className="font-bold text-[#A44101]">FREE</span>
+
+                    <div className="flex justify-between items-center text-xs sm:text-sm text-stone-600">
+                      <span>Shipping</span>
+                      <span className="font-normal text-stone-700">Calculated at checkout</span>
                     </div>
-                    <div className="flex justify-between pt-1 border-t border-slate-100 text-sm font-black text-navy">
-                      <span>Final Payable</span>
-                      <span className="text-base text-navy">₹{subtotal}</span>
+
+                    <div className="border-t border-[#E8E2D8] my-1" />
+
+                    <div className="flex justify-between items-center">
+                      <span className="font-serif text-base sm:text-lg font-bold text-stone-900 tracking-tight">
+                        Estimated Total
+                      </span>
+                      <span className="font-serif text-base sm:text-lg font-bold text-stone-900">
+                        ₹{subtotal}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] sm:text-xs text-stone-500 pt-1">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkle className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                        <span>Secure checkout</span>
+                      </div>
+                      <span>Fast and protected</span>
                     </div>
                   </div>
 
-                  {/* Checkout CTA Button */}
+                  {/* Proceed to Checkout CTA Button */}
                   <button
                     type="button"
                     onClick={handleCheckoutClick}
-                    className="w-full py-3.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
+                    className="w-full py-4 rounded-xl bg-[#181816] hover:bg-black text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-98"
                   >
-                    <span>Proceed to Checkout • ₹{subtotal}</span>
+                    <span>PROCEED TO CHECKOUT • ₹{subtotal}</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </button>
 
-                  {/* Continue Shopping button */}
-                  <button
-                    type="button"
-                    onClick={closeCart}
-                    className="w-full text-center text-xs font-bold text-slate-500 hover:text-navy py-1 transition-colors cursor-pointer"
-                  >
-                    Continue Shopping
-                  </button>
+                  {/* View Full Bag Link */}
+                  <div className="text-center pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleCheckoutClick}
+                      className="text-xs font-semibold text-stone-800 hover:text-black underline underline-offset-4 decoration-stone-400 hover:decoration-black transition-colors cursor-pointer"
+                    >
+                      View Full Bag
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>

@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { 
   ArrowRight,
-  ArrowUpRight,
-  ChevronDown,
-  ChevronUp 
+  ArrowUpRight
 } from 'lucide-react';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 
@@ -136,36 +134,13 @@ interface CategoriesSectionProps {
 export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   onSelectCategory,
 }) => {
-  const [showAll, setShowAll] = useState(false);
-  const categoriesList = CATEGORIES_DETAILED_DATA;
+  const displayedCategories = CATEGORIES_DETAILED_DATA;
   const shouldReduceMotion = useReducedMotion();
-
-  // Shop By Category cards remain static as requested
-
-  // Listen for category selection events from Header or other links
-  useEffect(() => {
-    const handleCategoryEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<string>;
-      const catId = customEvent.detail;
-      const found = categoriesList.find((c) => c.id === catId);
-      if (found) {
-        setShowAll(true);
-      }
-    };
-    window.addEventListener('select-category', handleCategoryEvent);
-    return () => window.removeEventListener('select-category', handleCategoryEvent);
-  }, [categoriesList]);
-
-  const displayedCategories = showAll 
-    ? categoriesList 
-    : categoriesList.slice(0, 8);
 
   const handleCardClick = (category: CategoryCardData, subcategory?: string) => {
     if (category.isExploreAll) {
       if (onSelectCategory) {
         onSelectCategory('explore-all');
-      } else {
-        setShowAll(true);
       }
       return;
     }
@@ -180,15 +155,6 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
         const catalog = document.querySelector('.section-top-categories');
         if (catalog) catalog.scrollIntoView({ behavior: 'smooth' });
       }
-    }
-  };
-
-  const handleToggleViewMore = () => {
-    if (showAll) {
-      setShowAll(false);
-      document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      setShowAll(true);
     }
   };
 
@@ -213,16 +179,23 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
           <div>
             <button
               type="button"
-              onClick={handleToggleViewMore}
+              onClick={() => {
+                if (onSelectCategory) {
+                  onSelectCategory('explore-all');
+                } else {
+                  const catalog = document.querySelector('.section-top-categories');
+                  if (catalog) catalog.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
               className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-navy hover:text-[#A44101] transition-colors group cursor-pointer"
             >
-              <span>{showAll ? 'Show less' : 'All categories'}</span>
+              <span>All categories</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-[#A44101]" />
             </button>
           </div>
         </div>
 
-        {/* 4-Column Responsive Grid (4x2 = 8 cards matching reference) */}
+        {/* 4-Column Responsive Grid displaying all category cards directly */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
           {displayedCategories.map((cat, idx) => (
             <CategoryCard 
@@ -233,27 +206,6 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
               onClick={() => handleCardClick(cat)}
             />
           ))}
-        </div>
-
-        {/* Bottom View More / Show Less Toggle Button */}
-        <div className="flex justify-center mt-8 sm:mt-10">
-          <button
-            type="button"
-            onClick={handleToggleViewMore}
-            className="inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-white hover:bg-stone-50 text-navy border-2 border-stone-300 hover:border-navy text-xs sm:text-sm font-black tracking-wide transition-all shadow-sm hover:shadow-md cursor-pointer active:scale-95 group"
-            aria-expanded={showAll}
-          >
-            <span>
-              {showAll 
-                ? 'Show Less Categories' 
-                : `View More Categories (${CATEGORIES_DETAILED_DATA.length - 8} More)`}
-            </span>
-            {showAll ? (
-              <ChevronUp className="w-4 h-4 text-[#A44101] transition-transform group-hover:-translate-y-0.5" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-[#A44101] transition-transform group-hover:translate-y-0.5" />
-            )}
-          </button>
         </div>
 
       </div>

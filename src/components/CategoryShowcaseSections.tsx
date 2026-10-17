@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { ProductItem } from '../data/storeData';
+import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { apiClient } from '../api';
 
@@ -173,7 +173,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
   const { addToCart } = useCart();
   const [addedItemIds, setAddedItemIds] = useState<{ [key: string]: boolean }>({});
   const shouldReduceMotion = useReducedMotion();
-  const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
+  const [apiProducts, setApiProducts] = useState<ProductItem[]>(() => getAllProducts());
   const [categoryImageMap, setCategoryImageMap] = useState<Record<string, string>>({});
 
   const handleAddToCart = (product: ProductItem) => {
@@ -569,18 +569,14 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               className="w-full flex overflow-x-auto scroll-smooth gap-3 sm:gap-4 py-1 px-1 scrollbar-none select-none"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {section.products.map((product: ProductItem, prodIdx: number) => {
+              {section.products.map((product: ProductItem) => {
                 const isAdded = !!addedItemIds[product.id];
 
                 return (
-                  <motion.article
+                  <article
                     key={product.id}
-                    initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 14 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: shouldReduceMotion ? 0 : prodIdx * 0.05, duration: 0.3 }}
                     onClick={() => onProductClick?.(product)}
-                    className="w-[200px] sm:w-[220px] lg:w-[calc((100%-3*12px)/4)] xl:w-[calc((100%-4*14px)/5)] min-w-[190px] xl:min-w-[205px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-300 flex flex-col justify-between overflow-hidden group cursor-pointer"
+                    className="w-[200px] sm:w-[220px] lg:w-[calc((100%-3*12px)/4)] xl:w-[calc((100%-4*14px)/5)] min-w-[190px] xl:min-w-[205px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer"
                   >
                     {/* Product Visual */}
                     <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
@@ -602,7 +598,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                         src={product.image}
                         alt={product.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
+                        decoding="async"
                         onError={(e) => {
                           (e.currentTarget as HTMLElement).style.display = 'none';
                         }}
@@ -687,7 +683,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                         </div>
                       </div>
                     </div>
-                  </motion.article>
+                  </article>
                 );
               })}
             </div>

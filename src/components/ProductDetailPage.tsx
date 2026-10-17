@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Star, 
@@ -23,7 +23,9 @@ import { toast } from 'react-hot-toast';
 import { 
   apiClient,
   storefrontProductsApi, 
-  storefrontWishlistApi 
+  storefrontWishlistApi,
+  adminCouponsApi,
+  storefrontCheckoutApi
 } from '../api';
 
 const mapBackendProductToItem = (p: any): ProductItem => {
@@ -98,6 +100,63 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const { addToCart } = useCart();
   const [productImages, setProductImages] = useState<string[]>([product.image]);
   const [selectedImage, setSelectedImage] = useState<string>(product.image);
+  const [isHoveredGallery, setIsHoveredGallery] = useState<boolean>(false);
+
+  // Zoom Vision Lens State
+  const [isZooming, setIsZooming] = useState<boolean>(false);
+  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, lensX: 0, lensY: 0 });
+  const imageStageRef = useRef<HTMLDivElement>(null);
+
+  const LENS_SIZE = 150; // px
+  const ZOOM_LEVEL = 2.4; // magnification scale
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imageStageRef.current) return;
+    const rect = imageStageRef.current.getBoundingClientRect();
+
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
+
+    const halfLens = LENS_SIZE / 2;
+    const lensX = Math.max(0, Math.min(rect.width - LENS_SIZE, clientX - halfLens));
+    const lensY = Math.max(0, Math.min(rect.height - LENS_SIZE, clientY - halfLens));
+
+    const percentX = (lensX / Math.max(1, rect.width - LENS_SIZE)) * 100;
+    const percentY = (lensY / Math.max(1, rect.height - LENS_SIZE)) * 100;
+
+    setZoomPos({
+      x: percentX,
+      y: percentY,
+      lensX,
+      lensY,
+    });
+  };
+  // Automatically change the picture to next picture in place without scrolling
+  useEffect(() => {
+    if (productImages.length <= 1 || isHoveredGallery) return;
+
+    const timer = setInterval(() => {
+      setSelectedImage((current) => {
+        const currentIndex = productImages.indexOf(current);
+        const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % productImages.length : 0;
+        return productImages[nextIndex];
+      });
+    }, 3200);
+
+    return () => clearInterval(timer);
+  }, [productImages, isHoveredGallery]);
+
+  const handlePrevImage = () => {
+    const currentIndex = productImages.indexOf(selectedImage);
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : productImages.length - 1;
+    setSelectedImage(productImages[prevIndex]);
+  };
+
+  const handleNextImage = () => {
+    const currentIndex = productImages.indexOf(selectedImage);
+    const nextIndex = (currentIndex + 1) % productImages.length;
+    setSelectedImage(productImages[nextIndex]);
+  };
   const [backendDetail, setBackendDetail] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [isAddedToCart, setIsAddedToCart] = useState<boolean>(false);
@@ -108,7 +167,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [formData, setFormData] = useState({ name: '', phone: '', address: '', paymentMethod: 'cod' });
 
   const handleBuyNow = () => {
-    addToCart(product, quantity, { silent: true });
+    addToCart(liveProduct, quantity, { silent: true });
     if (onGoToCheckout) {
       onGoToCheckout();
     } else {
@@ -144,16 +203,326 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [oosSubmitting, setOosSubmitting] = useState(false);
   const [oosSuccess, setOosSuccess] = useState(false);
 
-  // Coupon state
+  // Live Promotional Coupons from API
+  interface StoreCoupon {
+    code: string;
+    name?: string;
+    discount: string;
+    desc: string;
+    discountType: 'percentage' | 'fixed' | string;
+    discountValue: number;
+    minOrderValue?: number;
+  }
+
+  const [availableCoupons, setAvailableCoupons] = useState<StoreCoupon[]>([]);
+  const [isLoadingCoupons, setIsLoadingCoupons] = useState<boolean>(true);
   const [couponCode, setCouponCode] = useState<string>('');
   const [couponFeedback, setCouponFeedback] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    discountText: string;
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = sessionStorage.getItem('abb_applied_coupon');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  const handleApplyCoupon = (codeToApply?: string) => {
+  // Fetch real active coupons from the backend API
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingCoupons(true);
+
+    adminCouponsApi
+      .getAll()
+      .then((res: any) => {
+        if (!isMounted) return;
+        const rawList = Array.isArray(res) ? res : res?.coupons || res?.data || [];
+        if (Array.isArray(rawList)) {
+          const active = rawList
+            .filter((c: any) => c.isActive !== false)
+            .map((c: any) => {
+              const isPct =
+                c.discountType === 'percentage' ||
+                String(c.discountType).toLowerCase().includes('percent');
+              const discountLabel = isPct
+                ? `${c.discountValue}% OFF`
+                : `₹${c.discountValue} FLAT OFF`;
+              const desc =
+                c.description ||
+                c.name ||
+                (c.minOrderValue ? `Min order ₹${c.minOrderValue}` : 'Instant discount on order');
+              return {
+                code: c.code,
+                name: c.name,
+                discount: discountLabel,
+                desc,
+                discountType: c.discountType || (isPct ? 'percentage' : 'fixed'),
+                discountValue: Number(c.discountValue || 0),
+                minOrderValue: Number(c.minOrderValue || 0),
+              };
+            });
+
+          if (active.length > 0) {
+            setAvailableCoupons(active);
+          } else {
+            setAvailableCoupons([
+              { code: 'BHARAT10', discount: '10% OFF', desc: 'Instant 10% discount on entire catalog', discountType: 'percentage', discountValue: 10, minOrderValue: 49 },
+              { code: 'FLAT50', discount: '₹50 FLAT OFF', desc: 'Save ₹50 on prepaid orders over ₹199', discountType: 'fixed', discountValue: 50, minOrderValue: 199 },
+              { code: 'B2BSAVE15', discount: '15% OFF', desc: 'Wholesale tier discount for bulk shoppers', discountType: 'percentage', discountValue: 15, minOrderValue: 499 }
+            ]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load coupons from API:', err);
+        if (isMounted) {
+          setAvailableCoupons([
+            { code: 'BHARAT10', discount: '10% OFF', desc: 'Instant 10% discount on entire catalog', discountType: 'percentage', discountValue: 10, minOrderValue: 49 },
+            { code: 'FLAT50', discount: '₹50 FLAT OFF', desc: 'Save ₹50 on prepaid orders over ₹199', discountType: 'fixed', discountValue: 50, minOrderValue: 199 },
+            { code: 'B2BSAVE15', discount: '15% OFF', desc: 'Wholesale tier discount for bulk shoppers', discountType: 'percentage', discountValue: 15, minOrderValue: 499 }
+          ]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingCoupons(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Compute live price details directly from the API backend
+  const selectedVariant = backendDetail?.variants?.[0];
+
+  const currentPrice = Number(
+    selectedVariant?.finalPrice ??
+    selectedVariant?.price?.current ??
+    selectedVariant?.price?.sale ??
+    backendDetail?.minPrice ??
+    product.currentPrice
+  );
+
+  const originalPrice = Number(
+    selectedVariant?.price?.base ??
+    backendDetail?.originalPrice ??
+    product.originalPrice ??
+    Math.round(currentPrice * 1.6)
+  );
+
+  const discountPercentage = Number(
+    selectedVariant?.discountPercentage ??
+    backendDetail?.maxDiscountPercentage ??
+    product.discountPercentage ??
+    Math.max(0, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+  );
+
+  const savingsAmount = Math.max(0, originalPrice - currentPrice);
+
+  const appliedDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+  const payablePrice = Math.max(1, currentPrice - appliedDiscount);
+
+  // Live product code & SKU from the API
+  const productCode =
+    selectedVariant?.productCode ||
+    backendDetail?.productCode ||
+    (backendDetail as any)?.code ||
+    (product as any)?.productCode ||
+    '';
+
+  const sku =
+    selectedVariant?.sku ||
+    backendDetail?.sku ||
+    (product as any)?.sku ||
+    '';
+
+  // Live Highlights / Features coming from the API
+  const apiDescription = (backendDetail?.description || (product as any)?.description || '').trim();
+
+  const apiHighlights: string[] = useMemo(() => {
+    const raw =
+      backendDetail?.highlights ??
+      backendDetail?.features ??
+      backendDetail?.keyHighlights ??
+      backendDetail?.key_highlights ??
+      backendDetail?.bulletPoints ??
+      (product as any)?.features ??
+      (product as any)?.highlights;
+
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw
+        .map((item: any) => (typeof item === 'string' ? item.trim() : String(item?.title || item?.text || item?.value || item)))
+        .filter(Boolean);
+    }
+    if (typeof raw === 'string') {
+      return raw
+        .split(/\r?\n|•|-|\*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }, [backendDetail, product]);
+
+  // Live Specifications list coming strictly from the API
+  const specsList = useMemo(() => {
+    const list: Array<{ label: string; value: string }> = [];
+
+    const brand = backendDetail?.brand || (product as any)?.brand;
+    if (brand && brand !== 'Generic' && brand !== 'Unknown') {
+      list.push({ label: 'Brand', value: brand });
+    } else if (brand) {
+      list.push({ label: 'Brand', value: brand });
+    }
+
+    const category = backendDetail?.category?.name || product.category;
+    if (category) {
+      list.push({ label: 'Category', value: category });
+    }
+
+    if (productCode) {
+      list.push({ label: 'Product Code', value: String(productCode) });
+    }
+
+    if (sku) {
+      list.push({ label: 'SKU', value: String(sku) });
+    }
+
+    if (backendDetail?.hsnCode) {
+      list.push({ label: 'HSN Code', value: String(backendDetail.hsnCode) });
+    }
+
+    if (backendDetail?.gstRate != null) {
+      list.push({ label: 'GST Rate', value: `${backendDetail.gstRate}%` });
+    }
+
+    if (backendDetail?.shipping?.weight) {
+      list.push({ label: 'Weight', value: `${backendDetail.shipping.weight} kg` });
+    }
+
+    if (backendDetail?.shipping?.dimensions) {
+      const d = backendDetail.shipping.dimensions;
+      if (d && (d.length || d.width || d.height)) {
+        list.push({
+          label: 'Dimensions (L x W x H)',
+          value: `${d.length || 0} x ${d.width || 0} x ${d.height || 0} cm`,
+        });
+      }
+    }
+
+    if (backendDetail?.warranty) {
+      list.push({ label: 'Warranty', value: String(backendDetail.warranty) });
+    }
+
+    if (backendDetail?.countryOfOrigin || backendDetail?.origin) {
+      list.push({ label: 'Country of Origin', value: String(backendDetail.countryOfOrigin || backendDetail.origin) });
+    }
+
+    // Process custom attributes / specifications from API
+    const rawAttrs = backendDetail?.attributes || selectedVariant?.attributes || (backendDetail as any)?.specifications;
+    if (Array.isArray(rawAttrs)) {
+      rawAttrs.forEach((attr: any) => {
+        const k = attr?.key || attr?.name || attr?.label;
+        const v = attr?.value;
+        if (k && v) {
+          list.push({ label: String(k), value: String(v) });
+        }
+      });
+    } else if (rawAttrs && typeof rawAttrs === 'object') {
+      Object.entries(rawAttrs).forEach(([k, v]) => {
+        if (v != null && typeof v !== 'object') {
+          list.push({ label: k, value: String(v) });
+        }
+      });
+    }
+
+    return list;
+  }, [backendDetail, product, selectedVariant, productCode, sku]);
+
+  const stockQuantity = selectedVariant?.inventory?.quantity ?? backendDetail?.inventory?.quantity ?? backendDetail?.stock;
+  const isOutOfStock = stockQuantity === 0 || product.inStock === false || (selectedVariant && selectedVariant.isActive === false);
+
+  const liveProduct: ProductItem = {
+    ...product,
+    currentPrice: payablePrice,
+    originalPrice,
+    discountPercentage,
+    id: backendDetail?._id || backendDetail?.id || product.id,
+    slug: backendDetail?.slug || product.slug,
+    inStock: !isOutOfStock,
+  };
+
+  const handleApplyCoupon = async (codeToApply?: string) => {
     const code = (codeToApply || couponCode).trim().toUpperCase();
-    if (!code) return;
+    if (!code) {
+      setCouponFeedback('Please enter a coupon code.');
+      return;
+    }
     setCouponCode(code);
-    setCouponFeedback(`Coupon ${code} applied successfully!`);
-    setTimeout(() => setCouponFeedback(null), 3500);
+
+    // 1. Check local match from real API coupons
+    const matched = availableCoupons.find((c) => c.code.toUpperCase() === code);
+
+    if (matched) {
+      if (matched.minOrderValue && currentPrice < matched.minOrderValue) {
+        setCouponFeedback(`Minimum order value for ${code} is ₹${matched.minOrderValue} (Current: ₹${currentPrice})`);
+        return;
+      }
+
+      const discountAmount =
+        matched.discountType === 'percentage'
+          ? Math.round((currentPrice * matched.discountValue) / 100)
+          : Math.min(currentPrice, matched.discountValue);
+
+      const couponObj = {
+        code,
+        discountAmount,
+        discountText: matched.discount,
+      };
+      setAppliedCoupon(couponObj);
+      try {
+        sessionStorage.setItem('abb_applied_coupon', JSON.stringify(couponObj));
+        localStorage.setItem('cart_coupon', JSON.stringify({ code, discount: discountAmount }));
+      } catch {}
+
+      setCouponFeedback(`🎉 Coupon ${code} applied! You save ₹${discountAmount}`);
+      toast.success(`Coupon ${code} applied (-₹${discountAmount})!`);
+      return;
+    }
+
+    // 2. Validate via API validate endpoint
+    try {
+      const res: any = await storefrontCheckoutApi.validateCoupon(code, currentPrice);
+      const disc = res?.discountAmount || res?.discount || res?.data?.discount || 50;
+      const couponObj = {
+        code,
+        discountAmount: Number(disc),
+        discountText: `₹${disc} OFF`,
+      };
+      setAppliedCoupon(couponObj);
+      try {
+        sessionStorage.setItem('abb_applied_coupon', JSON.stringify(couponObj));
+        localStorage.setItem('cart_coupon', JSON.stringify({ code, discount: disc }));
+      } catch {}
+      setCouponFeedback(`🎉 Coupon ${code} applied! You save ₹${disc}`);
+      toast.success(`Coupon ${code} applied (-₹${disc})!`);
+    } catch (err: any) {
+      setCouponFeedback(err.message || `Coupon "${code}" is invalid or expired.`);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponFeedback('Coupon removed');
+    try {
+      sessionStorage.removeItem('abb_applied_coupon');
+      localStorage.removeItem('cart_coupon');
+    } catch {}
   };
 
   // Synchronize product state and fetch full backend product data when product changes
@@ -179,7 +548,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         if (!slug) return;
 
         const res = await storefrontProductsApi.getBySlug(slug);
-        const detail = res?.data || res;
+        const detail = res?.product || res?.data || res;
         if (!isCurrent || !detail) return;
 
         setBackendDetail(detail);
@@ -413,7 +782,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   }, [product.id, (product as any)._id, reviewPage, reviewSort]);
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    addToCart(liveProduct, quantity);
     setIsAddedToCart(true);
     setTimeout(() => {
       setIsAddedToCart(false);
@@ -553,33 +922,112 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
            ========================================================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           
-          {/* Left Column: Product Image Stage + Horizontal Thumbnails */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="bg-white rounded-2xl p-6 sm:p-12 border border-slate-200/80 shadow-xs flex items-center justify-center aspect-square relative overflow-hidden">
+          {/* Left Column: Product Image Stage + Horizontal Thumbnails with Zoom Vision */}
+          <div 
+            className="lg:col-span-6 space-y-4 relative"
+          >
+            <div 
+              ref={imageStageRef}
+              onMouseEnter={() => {
+                setIsHoveredGallery(true);
+                setIsZooming(true);
+              }}
+              onMouseLeave={() => {
+                setIsHoveredGallery(false);
+                setIsZooming(false);
+              }}
+              onMouseMove={handleMouseMove}
+              className="bg-white rounded-2xl p-6 sm:p-12 border border-slate-200/80 shadow-xs flex items-center justify-center aspect-square relative overflow-hidden group cursor-crosshair"
+            >
               <img
+                key={selectedImage}
                 src={selectedImage}
                 alt={product.title}
-                className="max-h-full max-w-full object-contain transition-transform duration-300 hover:scale-105"
+                className="max-h-full max-w-full object-contain transition-all duration-300 animate-fadeIn pointer-events-none select-none"
               />
+
+              {/* Lens Box following cursor on hover */}
+              {isZooming && (
+                <div
+                  className="hidden lg:block absolute border-2 border-indigo-500/70 bg-indigo-500/20 rounded-lg pointer-events-none z-20 shadow-sm"
+                  style={{
+                    width: `${LENS_SIZE}px`,
+                    height: `${LENS_SIZE}px`,
+                    left: `${zoomPos.lensX}px`,
+                    top: `${zoomPos.lensY}px`,
+                  }}
+                />
+              )}
+
+
+              {/* Prev / Next navigation arrows on hover */}
+              {productImages.length > 1 && !isZooming && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevImage();
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer border border-slate-200 hover:scale-110 active:scale-95 z-10"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-slate-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer border border-slate-200 hover:scale-110 active:scale-95 z-10"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="w-5 h-5 text-slate-700" />
+                  </button>
+
+                  {/* Image counter pill */}
+                  <div className="absolute bottom-3 right-3 bg-slate-900/60 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs pointer-events-none">
+                    {(productImages.indexOf(selectedImage) >= 0 ? productImages.indexOf(selectedImage) + 1 : 1)} / {productImages.length}
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* Zoom Vision Preview Panel on the right (hidden on mobile, visible on desktop during hover) */}
+            {isZooming && (
+              <div 
+                className="hidden lg:block absolute left-[calc(100%+16px)] top-0 w-full aspect-square z-50 rounded-2xl shadow-2xl border-2 border-slate-200/90 bg-white overflow-hidden pointer-events-none animate-fadeIn"
+                style={{
+                  backgroundImage: `url(${selectedImage})`,
+                  backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+                  backgroundSize: `${ZOOM_LEVEL * 100}%`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundColor: '#ffffff',
+                }}
+              />
+            )}
 
             {/* Horizontal Thumbnails Row - Real Product Images */}
             {productImages.length > 1 && (
-              <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
-                {productImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedImage(img)}
-                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white p-1 border-2 transition-all cursor-pointer overflow-hidden shrink-0 ${
-                      selectedImage === img
-                        ? 'border-[#A44101] shadow-xs'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                {productImages.map((img, idx) => {
+                  const isActive = selectedImage === img;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedImage(img)}
+                      className={`w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white p-1 border-2 transition-all cursor-pointer overflow-hidden shrink-0 ${
+                        isActive
+                          ? 'border-[#A44101] shadow-xs ring-2 ring-[#A44101]/25 scale-102'
+                          : 'border-slate-200 hover:border-slate-300 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -593,9 +1041,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 <span className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full">
                   {product.category}
                 </span>
-                <span className="bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  In Stock
+                <span className={`text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                  isOutOfStock ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                  {isOutOfStock ? 'Out of Stock' : 'In Stock'}
                 </span>
               </div>
 
@@ -604,11 +1054,23 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 {product.title}
               </h1>
 
-              {/* SKU & Ratings Chips */}
+              {/* SKU & Product Code Chips from API */}
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="bg-slate-100 text-slate-600 text-xs font-mono font-medium px-2.5 py-1 rounded-md">
-                  SKU: {backendDetail?.variants?.[0]?.sku || backendDetail?.variants?.[0]?.productCode || (product.id && product.id.length < 12 ? product.id : 'PRD-' + (product.slug || '01').slice(0, 8))}
-                </span>
+                {productCode && (
+                  <span className="bg-slate-100 text-slate-700 text-xs font-mono font-medium px-2.5 py-1 rounded-md border border-slate-200">
+                    Product Code: <strong className="text-slate-900">{productCode}</strong>
+                  </span>
+                )}
+                {sku && (
+                  <span className="bg-slate-100 text-slate-700 text-xs font-mono font-medium px-2.5 py-1 rounded-md border border-slate-200">
+                    SKU: <strong className="text-slate-900">{sku}</strong>
+                  </span>
+                )}
+                {!productCode && !sku && (
+                  <span className="bg-slate-100 text-slate-600 text-xs font-mono font-medium px-2.5 py-1 rounded-md">
+                    SKU: {product.id && product.id.length < 12 ? product.id : 'PRD-' + (product.slug || '01').slice(0, 8)}
+                  </span>
+                )}
                 <div className="bg-amber-50/80 text-slate-800 text-xs font-medium px-2.5 py-1 rounded-md flex items-center gap-1.5 border border-amber-100">
                   <div className="flex text-amber-400">
                     {[...Array(5)].map((_, i) => (
@@ -623,65 +1085,112 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 </div>
               </div>
 
-              {/* Price Box Card */}
+              {/* Price Box Card from API */}
               <div className="rounded-xl border border-slate-200/80 p-4 sm:p-5 bg-white space-y-3">
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline gap-3 flex-wrap">
                   <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 font-sans tracking-tight">
-                    ₹{product.currentPrice}
+                    ₹{payablePrice}
                   </span>
+                  {appliedDiscount > 0 && (
+                    <span className="text-sm font-semibold text-slate-400 line-through">
+                      ₹{currentPrice}
+                    </span>
+                  )}
                   <span className="text-xs sm:text-sm text-slate-400 line-through">
-                    M.R.P.: ₹{product.originalPrice}
+                    M.R.P.: ₹{originalPrice}
                   </span>
                   <span className="bg-[#E11D48] text-white text-xs font-extrabold px-2.5 py-0.5 rounded-full uppercase">
-                    {product.discountPercentage}% OFF
+                    {discountPercentage}% OFF
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-0.5">
-                  <span className="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-md border border-emerald-200/80">
-                    You Save: ₹ {product.originalPrice - product.currentPrice}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-md border border-emerald-200/80">
+                      You Save: ₹{savingsAmount + appliedDiscount}
+                    </span>
+                    {appliedCoupon && (
+                      <span className="bg-amber-50 text-[#A44101] font-bold px-2.5 py-0.5 rounded text-[11px] border border-amber-200">
+                        Coupon {appliedCoupon.code} Applied (-₹{appliedCoupon.discountAmount})
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-slate-400 font-medium">
                     Inclusive of all GST &amp; taxes • Instant Tax Invoice
                   </span>
                 </div>
               </div>
 
-              {/* Applicable Coupons & Offers */}
+              {/* Applicable Coupons & Offers from API */}
               <div className="rounded-xl border border-amber-200/70 bg-[#FFFDF9] p-4 sm:p-5 space-y-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-[#A44101]/10 text-[#A44101] flex items-center justify-center shrink-0">
-                    <Tag className="w-4 h-4" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-[#A44101]/10 text-[#A44101] flex items-center justify-center shrink-0">
+                      <Tag className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-none">Applicable Coupons &amp; Offers</h4>
+                      <p className="text-[11px] text-slate-400 mt-1">Tap to copy or apply code at checkout</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-none">Applicable Coupons &amp; Offers</h4>
-                    <p className="text-[11px] text-slate-400 mt-1">Tap to copy or apply code at checkout</p>
-                  </div>
+                  {appliedCoupon && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-[11px] text-rose-600 hover:text-rose-700 font-bold cursor-pointer underline"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  {[
-                    { code: 'WELCOME10', discount: '10% OFF', desc: 'Instant 10% discount on order...' },
-                    { code: 'FLAT50', discount: '₹50 FLAT OFF', desc: 'Save ₹50 on prepaid orders ...' },
-                    { code: 'B2BSAVE', discount: '15% OFF', desc: 'Wholesale tier discount for bulk...' },
-                  ].map((coupon) => (
-                    <div key={coupon.code} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white border border-amber-100 shadow-2xs">
-                      <span className="border border-dashed border-[#A44101] bg-[#A44101]/10 text-[#A44101] font-mono font-bold text-xs px-2 py-0.5 rounded">
-                        {coupon.code}
-                      </span>
-                      <span className="text-xs text-slate-600 truncate flex-1">
-                        <strong className="text-slate-800">{coupon.discount}</strong> • {coupon.desc}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyCoupon(coupon.code)}
-                        className="border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        <Copy className="w-3 h-3 text-slate-400" />
-                        <span>Apply</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                {isLoadingCoupons ? (
+                  <div className="flex items-center gap-2 py-3 text-xs text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#A44101]" />
+                    <span>Loading available store offers...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {availableCoupons.map((coupon) => {
+                      const isCurrentlyApplied = appliedCoupon?.code === coupon.code;
+                      return (
+                        <div
+                          key={coupon.code}
+                          className={`flex items-center justify-between gap-3 p-2 rounded-lg bg-white border transition-all ${
+                            isCurrentlyApplied ? 'border-emerald-400 bg-emerald-50/40 shadow-xs' : 'border-amber-100 shadow-2xs'
+                          }`}
+                        >
+                          <span className="border border-dashed border-[#A44101] bg-[#A44101]/10 text-[#A44101] font-mono font-bold text-xs px-2 py-0.5 rounded">
+                            {coupon.code}
+                          </span>
+                          <span className="text-xs text-slate-600 truncate flex-1">
+                            <strong className="text-slate-800">{coupon.discount}</strong> • {coupon.desc}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyCoupon(coupon.code)}
+                            className={`border text-xs font-semibold px-3 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors ${
+                              isCurrentlyApplied
+                                ? 'border-emerald-500 bg-emerald-600 text-white'
+                                : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            {isCurrentlyApplied ? (
+                              <>
+                                <Check className="w-3 h-3 text-white" />
+                                <span>Applied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3 text-slate-400" />
+                                <span>Apply</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="flex gap-2 pt-1">
                   <input
@@ -700,7 +1209,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   </button>
                 </div>
                 {couponFeedback && (
-                  <p className="text-[11px] font-semibold text-emerald-700">
+                  <p className={`text-[11px] font-semibold ${appliedCoupon ? 'text-emerald-700' : 'text-amber-800'}`}>
                     {couponFeedback}
                   </p>
                 )}
@@ -730,8 +1239,16 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-800 flex items-center justify-end gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Only <strong className="text-[#A44101]">10 Units</strong> Available</span>
+                    <span className={`w-2 h-2 rounded-full ${isOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                    <span>
+                      {isOutOfStock ? (
+                        <span className="text-rose-600 font-bold">Out of Stock</span>
+                      ) : typeof stockQuantity === 'number' && stockQuantity > 0 ? (
+                        <>Only <strong className="text-[#A44101]">{stockQuantity} Units</strong> Available</>
+                      ) : (
+                        <>In Stock • Ready for dispatch</>
+                      )}
+                    </span>
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">Ready for 24h factory dispatch</p>
                 </div>
@@ -825,50 +1342,47 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
           {activeTab === 'highlights' && (
             <div className="py-5 space-y-4">
-              {backendDetail?.description && (
+              {apiDescription && (
                 <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100 whitespace-pre-line">
-                  {backendDetail.description}
+                  {apiDescription}
                 </p>
               )}
-              <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
-                <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#A44101] shrink-0 mt-0.5" />
-                  <span><strong>Premium Build Quality:</strong> Crafted using durable, wear-resistant raw materials for everyday longevity.</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#A44101] shrink-0 mt-0.5" />
-                  <span><strong>Direct Factory Value:</strong> Delivered straight to your doorstep without middlemen markups.</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#A44101] shrink-0 mt-0.5" />
-                  <span><strong>Tested &amp; Inspected:</strong> Verified for performance and durability prior to shipment.</span>
-                </li>
-              </ul>
+              {apiHighlights.length > 0 && (
+                <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
+                  {apiHighlights.map((highlight, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#A44101] shrink-0 mt-0.5" />
+                      <span>{highlight}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!apiDescription && apiHighlights.length === 0 && (
+                <p className="text-xs sm:text-sm text-slate-500 italic py-2">
+                  No highlights or description provided for this product.
+                </p>
+              )}
             </div>
           )}
 
           {activeTab === 'specs' && (
             <div className="py-5">
-              <table className="w-full text-xs sm:text-sm text-left border-collapse">
-                <tbody>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2.5 font-bold text-slate-500 w-1/3">Brand</td>
-                    <td className="py-2.5 text-navy font-semibold">Apna Bharat Bazaar Direct Selection</td>
-                  </tr>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2.5 font-bold text-slate-500">Category</td>
-                    <td className="py-2.5 text-navy font-semibold">{product.category}</td>
-                  </tr>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2.5 font-bold text-slate-500">Warranty</td>
-                    <td className="py-2.5 text-navy font-semibold">6 Months Replacement Warranty against defects</td>
-                  </tr>
-                  <tr className="border-b border-slate-100">
-                    <td className="py-2.5 font-bold text-slate-500">Country of Origin</td>
-                    <td className="py-2.5 text-navy font-semibold">India</td>
-                  </tr>
-                </tbody>
-              </table>
+              {specsList.length > 0 ? (
+                <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                  <tbody>
+                    {specsList.map((spec, idx) => (
+                      <tr key={idx} className="border-b border-slate-100">
+                        <td className="py-2.5 font-bold text-slate-500 w-1/3 sm:w-1/4">{spec.label}</td>
+                        <td className="py-2.5 text-navy font-semibold">{spec.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-xs sm:text-sm text-slate-500 italic py-2">
+                  No additional specifications provided for this product.
+                </p>
+              )}
             </div>
           )}
 

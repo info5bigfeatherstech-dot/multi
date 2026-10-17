@@ -14,12 +14,14 @@ import { CheckoutPage } from './components/CheckoutPage';
 import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
 import { CartProvider } from './context/CartContext';
-import { ProductItem, getProductById } from './data/storeData';
+import { ProductItem } from './data/storeData';
 import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
 import { BulkOrdersPage } from './components/BulkOrdersPage';
 import { AuthModal } from './components/AuthModal';
 import { DealsPage } from './components/DealsPage';
+import { Loader2, PackageX } from 'lucide-react';
+import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug } from './utils/productUtils';
 
 type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals';
 
@@ -43,7 +45,19 @@ export const App: React.FC = () => {
     }
     if (path.startsWith('/contact') || path.startsWith('/support') || hash === '#contact') return 'contact';
     if (path.startsWith('/wishlist') || hash === '#wishlist') return 'wishlist';
-    if (path.startsWith('/profile') || path.startsWith('/orders') || hash === '#profile' || hash === '#orders') {
+    if (
+      path.startsWith('/profile') ||
+      path.startsWith('/orders') ||
+      path.startsWith('/order') ||
+      path.startsWith('/addresses') ||
+      path.startsWith('/address') ||
+      path === '/account' ||
+      hash === '#profile' ||
+      hash === '#orders' ||
+      hash === '#order' ||
+      hash === '#address' ||
+      hash === '#addresses'
+    ) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('user_access_token') : null;
       if (!token) return 'home';
       return 'profile';
@@ -67,13 +81,28 @@ export const App: React.FC = () => {
     if (typeof window === 'undefined') return null;
     const path = window.location.pathname;
     const hash = window.location.hash;
+    let target = '';
     if (path.startsWith('/product/')) {
-      return getProductById(path.replace('/product/', '')) || null;
+      target = decodeURIComponent(path.replace('/product/', '')).replace(/^\/+|\/+$/g, '');
+    } else if (hash.startsWith('#product-')) {
+      target = decodeURIComponent(hash.replace('#product-', '')).replace(/^\/+|\/+$/g, '');
     }
-    if (hash.startsWith('#product-')) {
-      return getProductById(hash.replace('#product-', '')) || null;
+    if (!target) return null;
+    return getCachedProduct(target);
+  });
+
+  const [isProductLoading, setIsProductLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname;
+    const hash = window.location.hash;
+    if (path.startsWith('/product/') || hash.startsWith('#product-')) {
+      const target = decodeURIComponent(
+        path.startsWith('/product/') ? path.replace('/product/', '') : hash.replace('#product-', '')
+      ).replace(/^\/+|\/+$/g, '');
+      if (!target) return false;
+      return !getCachedProduct(target);
     }
-    return null;
+    return false;
   });
 
   const [selectedCategory, setSelectedCategory] = useState<string>(() => {
@@ -117,9 +146,15 @@ export const App: React.FC = () => {
         } else if (rawHash === '#wishlist') {
           path = '/wishlist';
           window.history.replaceState(null, '', '/wishlist');
-        } else if (rawHash === '#profile' || rawHash === '#orders' || rawHash === '#account') {
+        } else if (rawHash === '#profile') {
           path = '/profile';
           window.history.replaceState(null, '', '/profile');
+        } else if (rawHash === '#orders' || rawHash === '#order') {
+          path = '/order';
+          window.history.replaceState(null, '', '/order');
+        } else if (rawHash === '#address' || rawHash === '#addresses') {
+          path = '/address';
+          window.history.replaceState(null, '', '/address');
         } else if (rawHash === '#admin' || rawHash.startsWith('#admin')) {
           path = '/admin/dashboard';
           window.history.replaceState(null, '', '/admin/dashboard');
@@ -163,12 +198,38 @@ export const App: React.FC = () => {
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path.startsWith('/product/')) {
-        const prodId = window.location.pathname.replace('/product/', '');
-        const prod = getProductById(prodId);
-        if (prod) {
-          setSelectedProduct(prod);
-          setCurrentView('product');
+        const prodId = decodeURIComponent(window.location.pathname.replace('/product/', '')).replace(/^\/+|\/+$/g, '');
+        setCurrentView('product');
+        const cached = getCachedProduct(prodId);
+        if (cached) {
+          setSelectedProduct(cached);
+          setIsProductLoading(false);
+          const canonicalSlug = getProductSlug(cached);
+          if (prodId !== canonicalSlug && !window.location.hash) {
+            window.history.replaceState(null, '', `/product/${canonicalSlug}`);
+          }
           window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          setIsProductLoading(true);
+          fetchProductByIdentifier(prodId)
+            .then((prod) => {
+              if (prod) {
+                setSelectedProduct(prod);
+                cacheProduct(prod);
+                const canonicalSlug = getProductSlug(prod);
+                if (prodId !== canonicalSlug && !window.location.hash) {
+                  window.history.replaceState(null, '', `/product/${canonicalSlug}`);
+                }
+              } else {
+                setSelectedProduct(null);
+              }
+            })
+            .catch(() => {
+              setSelectedProduct(null);
+            })
+            .finally(() => {
+              setIsProductLoading(false);
+            });
         }
       } else if (path.startsWith('/category/')) {
         const catId = window.location.pathname.replace('/category/', '');
@@ -192,14 +253,21 @@ export const App: React.FC = () => {
           setSelectedProduct(null);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-      } else if (path === '/profile' || path === '/orders' || path === '/account') {
+      } else if (
+        path === '/profile' ||
+        path === '/orders' ||
+        path === '/order' ||
+        path === '/addresses' ||
+        path === '/address' ||
+        path === '/account'
+      ) {
         const token = localStorage.getItem('user_access_token');
         if (!token) {
           setCurrentView('home');
           setSelectedProduct(null);
           window.history.replaceState(null, '', '/');
           setPostAuthRedirect('profile');
-          setAuthModalMessage('Please log in or register to access your profile and order history');
+          setAuthModalMessage('Please log in or register to access your account');
           setIsAuthModalOpen(true);
         } else {
           setCurrentView('profile');
@@ -239,8 +307,11 @@ export const App: React.FC = () => {
 
   const handleSelectProduct = (product: ProductItem) => {
     setSelectedProduct(product);
+    setIsProductLoading(false);
+    cacheProduct(product);
     setCurrentView('product');
-    window.history.pushState(null, '', `/product/${product.id}`);
+    const slug = getProductSlug(product);
+    window.history.pushState(null, '', `/product/${slug}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -419,15 +490,42 @@ export const App: React.FC = () => {
               onBackToHome={handleBackToStore}
               onGoToWishlist={handleGoToWishlist}
             />
-          ) : currentView === 'product' && selectedProduct ? (
+          ) : currentView === 'product' ? (
             /* Dedicated Product Detail Page */
-            <ProductDetailPage
-              key={selectedProduct.id || selectedProduct.slug || selectedProduct.title}
-              product={selectedProduct}
-              onBack={handleBackToStore}
-              onSelectProduct={handleSelectProduct}
-              onGoToCheckout={handleGoToCheckout}
-            />
+            isProductLoading ? (
+              <div className="min-h-[70vh] flex flex-col items-center justify-center py-20 px-4">
+                <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-4 border border-amber-100 shadow-xs">
+                  <Loader2 className="w-8 h-8 text-[#A44101] animate-spin" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">Loading product details...</h3>
+                <p className="text-xs text-slate-500">Retrieving full specifications and live prices</p>
+              </div>
+            ) : selectedProduct ? (
+              <ProductDetailPage
+                key={selectedProduct.id || selectedProduct.slug || selectedProduct.title}
+                product={selectedProduct}
+                onBack={handleBackToStore}
+                onSelectProduct={handleSelectProduct}
+                onGoToCheckout={handleGoToCheckout}
+              />
+            ) : (
+              <div className="min-h-[70vh] flex flex-col items-center justify-center py-20 px-4 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-4 border border-slate-200">
+                  <PackageX className="w-8 h-8 text-slate-400" />
+                </div>
+                <h2 className="text-xl font-bold text-navy mb-2">Product Not Found</h2>
+                <p className="text-sm text-slate-500 max-w-md mb-6">
+                  The product you requested might have been sold out, moved, or is temporarily unavailable.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleBackToStore}
+                  className="px-6 py-2.5 bg-[#A44101] hover:bg-[#8A3701] text-white font-bold rounded-lg shadow-sm transition-colors text-sm cursor-pointer"
+                >
+                  Return to Home Store
+                </button>
+              </div>
+            )
           ) : currentView === 'deals' ? (
             /* Dedicated Deals & On Sale Page */
             <DealsPage

@@ -229,7 +229,7 @@ export const storefrontProductsApi = {
   getBySlug: async (slug: string) => {
     try {
       const res = await apiClient.get(`/products/${encodeURIComponent(slug)}`);
-      return res.data?.data || res.data;
+      return res.data?.product || res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }

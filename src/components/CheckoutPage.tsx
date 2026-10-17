@@ -9,11 +9,9 @@ import {
   Plus,
   Minus,
   Gift,
-  Coins,
   Tag,
   QrCode,
   CheckCircle2,
-  PartyPopper,
   MapPin,
   Download,
   RefreshCw,
@@ -156,11 +154,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [giftMessage, setGiftMessage] = useState('');
   const [giftOccasion, setGiftOccasion] = useState('Birthday');
 
-  // Coupons & Coins
+  // Coupons
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
-  const [useCoins, setUseCoins] = useState(false);
 
   // --------------------------------------------------------------------------
   // Phase 1: Authoritative Server Quote
@@ -196,19 +193,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   // Synchronous Calculations (Local Fallbacks)
   // --------------------------------------------------------------------------
-  const subtotalMRP = cartItems.reduce((acc, item) => acc + item.originalPrice * item.qty, 0);
   const subtotalCurrent = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const catalogDiscount = subtotalMRP - subtotalCurrent;
-  const coinsDiscount = useCoins ? 100 : 0;
   const deliveryFee = 0; // FREE Delivery
-  const fallbackFinalTotal = Math.max(0, subtotalCurrent - couponDiscount - coinsDiscount + deliveryFee);
+  const fallbackFinalTotal = Math.max(0, subtotalCurrent - couponDiscount + deliveryFee);
 
   // Active Authoritative Values (Server Quote overrides with local fallback)
   const displayTotalPayable = serverQuote?.amountPayable ?? fallbackFinalTotal;
-  const displayDiscount = serverQuote?.promotionDiscount ?? couponDiscount;
-  const displayDeliveryCharge = serverQuote?.deliveryCharges ?? 0;
-  const displayTaxes = serverQuote?.taxes ?? 0;
-  const displaySubtotal = serverQuote?.itemsSubtotal ?? subtotalCurrent;
 
   // Partial Payment breakdown
   const advancePercent = checkoutSettings.partialPaymentPercent || 25;
@@ -223,7 +213,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       requireAuth({ message: 'Please log in or register to proceed to checkout' });
       onBackToHome?.();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --------------------------------------------------------------------------
@@ -430,7 +420,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
         balanceCollection: balanceColl,
         couponCode: appliedCoupon || undefined,
-        loyaltyPointsToRedeem: useCoins ? 100 : 0,
       });
 
       if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined)) {
@@ -445,7 +434,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   useEffect(() => {
     fetchAuthoritativeQuote();
-  }, [selectedAddressId, paymentMode, appliedCoupon, useCoins, cartItems.length]);
+  }, [selectedAddressId, paymentMode, appliedCoupon, cartItems.length]);
 
   // --------------------------------------------------------------------------
   // Address Handler
@@ -466,7 +455,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       setAddresses((prev) => {
         const next = prev.map((a) => (a.id === editingAddress.id ? updatedAddr : a));
-        try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch {}
+        try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch { }
         return next;
       });
 
@@ -507,7 +496,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     };
     setAddresses((prev) => {
       const next = [formatted, ...prev.map((a) => ({ ...a, isDefault: false }))];
-      try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch { }
       return next;
     });
     setSelectedAddressId(tempId);
@@ -664,7 +653,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
             balanceCollection,
             couponCode: appliedCoupon || undefined,
-            loyaltyPointsToRedeem: useCoins ? 100 : 0,
           });
           if (activeQuote?.quoteId) {
             setServerQuote(activeQuote);
@@ -889,7 +877,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   return (
     <div className="bg-stone-50/50 min-h-screen py-6 sm:py-10 animate-fadeIn">
-      <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 space-y-6">
 
         {/* ------------------------------------------------------------------ */}
         {/* TOP BAR & STEP PROGRESS WIZARD (Visible when cart has items)       */}
@@ -961,24 +949,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       className="flex flex-col items-center gap-1.5 relative z-10 bg-white px-3 cursor-pointer group focus:outline-none"
                     >
                       <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all ${
-                          isActive
-                            ? 'bg-[#A44101] text-white ring-4 ring-[#A44101]/20 shadow-md scale-105'
-                            : isCompleted
+                        className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all ${isActive
+                          ? 'bg-[#A44101] text-white ring-4 ring-[#A44101]/20 shadow-md scale-105'
+                          : isCompleted
                             ? 'bg-[#A44101] text-white'
                             : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'
-                        }`}
+                          }`}
                       >
                         {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : s.step}
                       </div>
                       <span
-                        className={`text-[10px] sm:text-[11px] font-extrabold tracking-wider uppercase transition-colors ${
-                          isActive
-                            ? 'text-[#A44101]'
-                            : isCompleted
+                        className={`text-[10px] sm:text-[11px] font-extrabold tracking-wider uppercase transition-colors ${isActive
+                          ? 'text-[#A44101]'
+                          : isCompleted
                             ? 'text-navy font-bold'
                             : 'text-slate-400'
-                        }`}
+                          }`}
                       >
                         {s.label}
                       </span>
@@ -1155,10 +1141,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           /* ---------------------------------------------------------------- */
           /* VIEW B: 3-STEP CHECKOUT WIZARD & AUTHORITATIVE PRICE DETAILS     */
           /* ---------------------------------------------------------------- */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-
-            {/* Left Column (2 Cols): Active Step View */}
-            <div className="lg:col-span-2 space-y-6">
+          <div className="w-full space-y-6">
 
               {/* ============================================================ */}
               {/* STEP 1: REVIEW ORDER (Products, Quantities, Coupons, Coins)   */}
@@ -1274,7 +1257,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             type="text"
                             value={couponCode}
                             onChange={(e) => setCouponCode(e.target.value)}
-                            placeholder="e.g. SUMMER10, BABA100, SAVE50"
+                            placeholder={availableCoupons.length > 0 ? `e.g. ${availableCoupons.map((c: any) => c.code).slice(0, 3).join(', ')}` : "Enter coupon code"}
                             className="flex-1 px-3.5 py-2 text-xs uppercase font-mono rounded-xl border border-slate-300 focus:outline-none focus:border-[#A44101] bg-white"
                           />
                           <button
@@ -1314,22 +1297,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         )}
                       </form>
 
-                      {/* Baba Coins Redemption */}
-                      <div className="p-3.5 rounded-xl bg-stone-50 border border-slate-200/80 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2.5">
-                          <Coins className="w-5 h-5 text-[#A44101]" />
-                          <div>
-                            <span className="font-bold text-navy block">Use 100 Baba Loyalty Coins</span>
-                            <p className="text-[11px] text-slate-500">Instantly deduct ₹100 from your subtotal</p>
-                          </div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={useCoins}
-                          onChange={(e) => setUseCoins(e.target.checked)}
-                          className="w-4 h-4 text-[#A44101] rounded cursor-pointer accent-[#A44101]"
-                        />
-                      </div>
                     </div>
 
                     {/* Step 1 Footer CTA */}
@@ -1567,9 +1534,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                     <div className="space-y-3">
                       {/* OPTION 1: Full Online Payment via Razorpay */}
-                      <label className={`p-4 rounded-xl border-2 flex flex-col gap-3 cursor-pointer transition-all ${
-                        paymentMode === 'online' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
-                      }`}>
+                      <label className={`p-4 rounded-xl border-2 flex flex-col gap-3 cursor-pointer transition-all ${paymentMode === 'online' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
+                        }`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <input
@@ -1598,9 +1564,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
                       {/* OPTION 2: Partial Payment (Advance Online + Balance on Delivery) */}
                       {checkoutSettings.partialPaymentEnabled && (
-                        <label className={`p-4 rounded-xl border-2 flex flex-col gap-3 cursor-pointer transition-all ${
-                          paymentMode === 'advance' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
-                        }`}>
+                        <label className={`p-4 rounded-xl border-2 flex flex-col gap-3 cursor-pointer transition-all ${paymentMode === 'advance' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
+                          }`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <input
@@ -1643,9 +1608,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       )}
 
                       {/* OPTION 3: Full Cash on Delivery (COD) */}
-                      <label className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${
-                        paymentMode === 'cod' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
-                      } ${!checkoutSettings.codEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                      <label className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${paymentMode === 'cod' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
+                        } ${!checkoutSettings.codEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         <div className="flex items-center gap-3">
                           <input
                             type="radio"
@@ -1775,167 +1739,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 </motion.div>
               )}
 
-            </div>
-
-            {/* Right Column (1 Col): Live Price Details, Quote, and Primary Step Action */}
-            <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
-              <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-soft space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <h3 className="text-sm font-bold text-navy uppercase tracking-wider">
-                    Price Details
-                  </h3>
-                  {serverQuote?.quoteId && (
-                    <span className="text-[9px] font-mono bg-stone-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
-                      Quote: {serverQuote.quoteId.slice(-8)}
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-2.5 text-xs">
-                  <div className="flex justify-between text-slate-500">
-                    <span>Items Subtotal ({cartItems.reduce((acc, i) => acc + i.qty, 0)} items)</span>
-                    <span className="font-bold text-navy">₹{displaySubtotal}</span>
-                  </div>
-
-                  {catalogDiscount > 0 && (
-                    <div className="flex justify-between text-[#A44101] font-bold">
-                      <span>Catalog Savings</span>
-                      <span>- ₹{catalogDiscount}</span>
-                    </div>
-                  )}
-
-                  {displayDiscount > 0 && (
-                    <div className="flex justify-between text-[#A44101] font-bold">
-                      <span>Promotion Discount ({appliedCoupon || 'PROMO'})</span>
-                      <span>- ₹{displayDiscount}</span>
-                    </div>
-                  )}
-
-                  {useCoins && (
-                    <div className="flex justify-between text-[#A44101] font-bold">
-                      <span>Baba Coins Redeemed</span>
-                      <span>- ₹{coinsDiscount}</span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between text-slate-700">
-                    <span>Delivery Charges</span>
-                    <span className="text-emerald-700 font-bold">
-                      {displayDeliveryCharge === 0 ? 'FREE' : `₹${displayDeliveryCharge}`}
-                    </span>
-                  </div>
-
-                  {displayTaxes > 0 && (
-                    <div className="flex justify-between text-slate-500">
-                      <span>Applicable GST / Taxes</span>
-                      <span>₹{displayTaxes}</span>
-                    </div>
-                  )}
-
-                  {/* Two-phase plan breakdown if advance */}
-                  {paymentMode === 'advance' && currentStep === 3 ? (
-                    <div className="pt-3 border-t border-slate-200 space-y-1.5">
-                      <div className="flex justify-between text-xs text-slate-600">
-                        <span>Total Order Value:</span>
-                        <span className="font-bold text-navy">₹{displayTotalPayable}</span>
-                      </div>
-                      <div className="flex justify-between text-sm font-black text-[#A44101]">
-                        <span>Pay Online Now ({advancePercent}%):</span>
-                        <span>₹{advancePayableNow}</span>
-                      </div>
-                      <div className="flex justify-between text-xs font-bold text-slate-500">
-                        <span>Balance Due on Delivery:</span>
-                        <span>₹{balancePayableOnDelivery}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-3 border-t border-slate-200 flex items-baseline justify-between">
-                      <div>
-                        <span className="block text-sm font-black text-navy">Total Payable</span>
-                        <span className="text-[10px] text-slate-500">All Taxes &amp; Shipping Included</span>
-                      </div>
-                      <span className="text-xl font-black text-navy">₹{displayTotalPayable}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Dynamic Step-Based Action Button in Price Details Sidebar */}
-                <div className="pt-4 border-t border-slate-100">
-                  {currentStep === 1 && (
-                    <button
-                      type="button"
-                      onClick={handleProceedToStep2}
-                      className="w-full py-3.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
-                    >
-                      <span>Proceed to Delivery</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {currentStep === 2 && (
-                    <button
-                      type="button"
-                      onClick={handleProceedToStep3}
-                      className="w-full py-3.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98"
-                    >
-                      <span>Proceed to Payment</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {currentStep === 3 && (
-                    <button
-                      type="button"
-                      onClick={handlePlaceOrder}
-                      disabled={isPlacingOrder || isQuoteLoading}
-                      className="w-full py-3.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-98 disabled:opacity-75"
-                    >
-                      {isPlacingOrder ? (
-                        <span className="flex items-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                          <span>Confirming Order...</span>
-                        </span>
-                      ) : paymentMode === 'cod' ? (
-                        <>
-                          <ShieldCheck className="w-4 h-4 text-white" />
-                          <span>Place Order (COD) • ₹{displayTotalPayable}</span>
-                        </>
-                      ) : paymentMode === 'advance' ? (
-                        <>
-                          <CreditCard className="w-4 h-4 text-white" />
-                          <span>Pay Advance • ₹{advancePayableNow}</span>
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="w-4 h-4 text-white" />
-                          <span>Pay with Razorpay • ₹{displayTotalPayable}</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  <p className="text-[10px] text-center text-slate-500 mt-2.5">
-                    Safe &amp; Secure 256-Bit SSL Payment • 7 Days Easy Returns
-                  </p>
-                </div>
-              </div>
-
-              {/* Trust Badges Strip */}
-              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2.5 text-xs text-slate-600">
-                <div className="flex items-center gap-2.5">
-                  <Truck className="w-4 h-4 text-navy shrink-0" />
-                  <span>Free Pan-India Delivery within 3-4 days</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-navy shrink-0" />
-                  <span>100% Genuine Direct Factory Products</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <PartyPopper className="w-4 h-4 text-navy shrink-0" />
-                  <span>Earn 50 Baba Coins on this order</span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
