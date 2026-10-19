@@ -142,7 +142,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const handleNavigateToOrders = (statusFilter = 'All') => {
+  const handleNavigateToOrders = (statusFilter = 'Pending') => {
     setOrderFilter(statusFilter);
     setCurrentTab('orders');
     if (typeof window !== 'undefined') {
