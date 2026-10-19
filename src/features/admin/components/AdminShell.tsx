@@ -15,8 +15,7 @@ import {
   ChevronRight, 
   ArrowLeft,
   ExternalLink,
-  Sliders,
-  Database,
+  SlidersHorizontal,
   Box,
   PlusCircle,
   FolderTree,
@@ -30,7 +29,14 @@ import {
   BarChart2,
   Sparkles,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  User,
+  LayoutGrid,
+  FileText,
+  ClipboardList,
+  UserCheck,
+  HelpCircle,
+  Lightbulb
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
 import {
@@ -72,9 +78,23 @@ export type AdminTab =
   | 'marketing' 
   | 'staff'
   | 'settings'
+  | 'settings-profile'
+  | 'settings-controls'
+  | 'settings-product-display'
+  | 'settings-header-badge'
+  | 'settings-product-code-prefix'
+  | 'settings-delivery'
+  | 'settings-label-settings'
+  | 'settings-payments'
+  | 'settings-orders'
+  | 'settings-customer'
+  | 'settings-staff'
+  | 'settings-policies'
+  | 'settings-help'
+  | 'settings-suggest'
+  | 'settings-other'
   | 'settings-general' 
   | 'settings-shipping' 
-  | 'settings-staff'
   | 'settings-backup';
 
 interface AdminShellProps {
@@ -199,6 +219,33 @@ const SidebarSubItem: React.FC<SidebarSubItemProps> = ({
   </button>
 );
 
+interface SettingsSidebarItemProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  isActive?: boolean;
+  onClick: () => void;
+}
+
+const SettingsSidebarItem: React.FC<SettingsSidebarItemProps> = ({
+  icon: Icon,
+  label,
+  isActive = false,
+  onClick,
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer text-left text-sm ${
+      isActive
+        ? 'bg-[#FFF0F2] text-[#E11D48] font-semibold shadow-xs'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 font-normal'
+    }`}
+  >
+    <Icon className={`w-4 h-4 shrink-0 stroke-[1.8] ${isActive ? 'text-[#E11D48]' : 'text-slate-500'}`} />
+    <span className="truncate">{label}</span>
+  </button>
+);
+
 export const AdminShell: React.FC<AdminShellProps> = ({
   currentUser,
   currentTab,
@@ -214,6 +261,12 @@ export const AdminShell: React.FC<AdminShellProps> = ({
   const [isSettingsMode, setIsSettingsMode] = useState(
     currentTab.startsWith('settings')
   );
+
+  useEffect(() => {
+    if (currentTab.startsWith('settings')) {
+      setIsSettingsMode(true);
+    }
+  }, [currentTab]);
 
   const [counts, setCounts] = useState({
     orders: mockAdminStore.getOrders().length,
@@ -317,7 +370,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
   const handleEnterSettingsMode = () => {
     setIsSettingsMode(true);
-    onSelectTab('settings');
+    onSelectTab('settings-controls');
     setIsMobileMenuOpen(false);
   };
 
@@ -410,44 +463,149 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-6 sidebar-scroll">
             {isSettingsMode ? (
               /* Dedicated Settings Mode Navigation */
-              <div className="space-y-4 animate-fadeIn">
+              <div className="space-y-4 animate-fadeIn pb-6">
                 <button
                   type="button"
                   onClick={handleExitSettingsMode}
-                  className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white hover:bg-slate-200 text-navy text-xs font-bold transition-all cursor-pointer border border-slate-200 shadow-2xs"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold transition-all cursor-pointer border border-slate-200/90 shadow-2xs mb-2"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#A44101]" />
-                  <span>← Back to admin</span>
+                  <div className="w-5 h-5 rounded-md border border-slate-200 bg-white flex items-center justify-center text-slate-600 shrink-0">
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </div>
+                  <span>Back to admin</span>
                 </button>
 
+                {/* STORE */}
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block px-2.5 mb-2">
-                    System Settings
+                  <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase px-3.5 block mb-1">
+                    STORE
                   </span>
-                  <div className="space-y-1">
-                    <SidebarNavItem
-                      icon={Sliders}
-                      label="General Configuration"
-                      isActive={currentTab === 'settings'}
-                      onClick={() => handleTabClick('settings')}
+                  <div className="space-y-0.5">
+                    <SettingsSidebarItem
+                      icon={User}
+                      label="Profile"
+                      isActive={currentTab === 'settings-profile'}
+                      onClick={() => handleTabClick('settings-profile')}
                     />
-                    <SidebarNavItem
+                    <SettingsSidebarItem
+                      icon={SlidersHorizontal}
+                      label="Controls"
+                      isActive={currentTab === 'settings-controls' || currentTab === 'settings'}
+                      onClick={() => handleTabClick('settings-controls')}
+                    />
+                  </div>
+                </div>
+
+                {/* WEBSITE */}
+                <div>
+                  <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase px-3.5 block mb-1">
+                    WEBSITE
+                  </span>
+                  <div className="space-y-0.5">
+                    <SettingsSidebarItem
+                      icon={LayoutGrid}
+                      label="Product display"
+                      isActive={currentTab === 'settings-product-display'}
+                      onClick={() => handleTabClick('settings-product-display')}
+                    />
+                    <SettingsSidebarItem
+                      icon={Box}
+                      label="Header badge"
+                      isActive={currentTab === 'settings-header-badge'}
+                      onClick={() => handleTabClick('settings-header-badge')}
+                    />
+                    <SettingsSidebarItem
+                      icon={Box}
+                      label="Product code prefix"
+                      isActive={currentTab === 'settings-product-code-prefix'}
+                      onClick={() => handleTabClick('settings-product-code-prefix')}
+                    />
+                  </div>
+                </div>
+
+                {/* E-COMMERCE */}
+                <div>
+                  <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase px-3.5 block mb-1">
+                    E-COMMERCE
+                  </span>
+                  <div className="space-y-0.5">
+                    <SettingsSidebarItem
                       icon={Truck}
-                      label="Delivery & Courier Hubs"
-                      isActive={currentTab === 'settings-shipping'}
-                      onClick={() => handleTabClick('settings-shipping')}
+                      label="Delivery"
+                      isActive={currentTab === 'settings-delivery' || currentTab === 'settings-shipping'}
+                      onClick={() => handleTabClick('settings-delivery')}
                     />
-                    <SidebarNavItem
+                    <SettingsSidebarItem
+                      icon={FileText}
+                      label="Label settings"
+                      isActive={currentTab === 'settings-label-settings'}
+                      onClick={() => handleTabClick('settings-label-settings')}
+                    />
+                    <SettingsSidebarItem
+                      icon={SlidersHorizontal}
+                      label="Payments"
+                      isActive={currentTab === 'settings-payments'}
+                      onClick={() => handleTabClick('settings-payments')}
+                    />
+                    <SettingsSidebarItem
+                      icon={ClipboardList}
+                      label="Orders"
+                      isActive={currentTab === 'settings-orders'}
+                      onClick={() => handleTabClick('settings-orders')}
+                    />
+                  </div>
+                </div>
+
+                {/* GENERAL */}
+                <div>
+                  <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase px-3.5 block mb-1">
+                    GENERAL
+                  </span>
+                  <div className="space-y-0.5">
+                    <SettingsSidebarItem
                       icon={Users}
-                      label="Staff & Role Matrix"
-                      isActive={currentTab === 'settings-staff' || currentTab === 'staff'}
+                      label="Customer"
+                      isActive={currentTab === 'settings-customer'}
+                      onClick={() => handleTabClick('settings-customer')}
+                    />
+                    <SettingsSidebarItem
+                      icon={UserCheck}
+                      label="Staff"
+                      isActive={currentTab === 'settings-staff'}
                       onClick={() => handleTabClick('settings-staff')}
                     />
-                    <SidebarNavItem
-                      icon={Database}
-                      label="Mock Storage & Backup"
-                      isActive={currentTab === 'settings-backup'}
-                      onClick={() => handleTabClick('settings-backup')}
+                    <SettingsSidebarItem
+                      icon={FileText}
+                      label="Store policies"
+                      isActive={currentTab === 'settings-policies'}
+                      onClick={() => handleTabClick('settings-policies')}
+                    />
+                  </div>
+                </div>
+
+                {/* HELP & SUPPORT */}
+                <div>
+                  <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase px-3.5 block mb-1">
+                    HELP & SUPPORT
+                  </span>
+                  <div className="space-y-0.5">
+                    <SettingsSidebarItem
+                      icon={HelpCircle}
+                      label="Help center"
+                      isActive={currentTab === 'settings-help'}
+                      onClick={() => handleTabClick('settings-help')}
+                    />
+                    <SettingsSidebarItem
+                      icon={Lightbulb}
+                      label="Suggest ideas"
+                      isActive={currentTab === 'settings-suggest'}
+                      onClick={() => handleTabClick('settings-suggest')}
+                    />
+                    <SettingsSidebarItem
+                      icon={Settings}
+                      label="Other"
+                      isActive={currentTab === 'settings-other' || currentTab === 'settings-backup'}
+                      onClick={() => handleTabClick('settings-other')}
                     />
                   </div>
                 </div>

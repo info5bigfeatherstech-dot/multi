@@ -1009,3 +1009,120 @@ export const adminRtoApi = {
   },
 };
 
+/* ============================================================
+   14. STORE SETTINGS & CONTROLS APIs
+   ============================================================ */
+
+// 1. Controls API (COD & Partial Payment Policies)
+export const adminCheckoutSettingsApi = {
+  getPolicy: async () => {
+    try {
+      const res = await apiClient.get("/checkout/admin/settings");
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  updatePolicy: async (payload: {
+    codEnabled?: boolean;
+    partialPaymentEnabled?: boolean;
+    partialPaymentPercent?: number | null;
+  }) => {
+    try {
+      const res = await apiClient.put("/checkout/admin/settings", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+// 2. Delivery & Shipping Provider Settings API
+export const adminShippingSettingsApi = {
+  getSettings: async () => {
+    try {
+      const res = await apiClient.get("/shipping-provider/admin/settings");
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  updateSettings: async (payload: {
+    activeProvider?: string;
+    warehouseId?: string;
+    pickupPincode?: string;
+    enabled?: boolean;
+  }) => {
+    try {
+      const res = await apiClient.put("/shipping-provider/admin/settings", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  getWarehouses: async () => {
+    try {
+      const res = await apiClient.get("/shipping-provider/admin/shipmozo/warehouses");
+      return res.data?.data || res.data || [];
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  testShipmozo: async () => {
+    try {
+      const res = await apiClient.post("/shipping-provider/admin/shipmozo/test");
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+// 3. Shipmozo Label Settings API
+export const adminShipmozoLabelSettingsApi = {
+  getSettings: async () => {
+    try {
+      const res = await apiClient.get("/shipping-provider/admin/shipmozo-label-settings");
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  updateSettings: async (payload: any) => {
+    try {
+      const res = await apiClient.put("/shipping-provider/admin/shipmozo-label-settings", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  preview: async (payload: any) => {
+    try {
+      const res = await apiClient.post("/shipping-provider/admin/shipmozo-label-settings/preview", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  uploadLogo: async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("logo", file);
+      const res = await apiClient.post("/shipping-provider/admin/shipmozo-label-settings/logo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  removeLogo: async () => {
+    try {
+      const res = await apiClient.delete("/shipping-provider/admin/shipmozo-label-settings/logo");
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+

@@ -60,7 +60,22 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       if (path.includes('leads')) return 'leads';
       if (path.includes('marketing') || path.includes('coupons')) return 'marketing';
       if (path.includes('growth') || path.includes('abandoned')) return 'abandoned';
-      if (path.includes('settings')) return 'settings';
+      if (path.includes('settings-profile')) return 'settings-profile';
+      if (path.includes('settings-controls') || path.includes('settings-control')) return 'settings-controls';
+      if (path.includes('settings-product-display')) return 'settings-product-display';
+      if (path.includes('settings-header-badge')) return 'settings-header-badge';
+      if (path.includes('settings-product-code-prefix')) return 'settings-product-code-prefix';
+      if (path.includes('settings-delivery') || path.includes('settings-shipping')) return 'settings-delivery';
+      if (path.includes('settings-label-settings') || path.includes('settings-label')) return 'settings-label-settings';
+      if (path.includes('settings-payments')) return 'settings-payments';
+      if (path.includes('settings-orders')) return 'settings-orders';
+      if (path.includes('settings-customer')) return 'settings-customer';
+      if (path.includes('settings-staff')) return 'settings-staff';
+      if (path.includes('settings-policies')) return 'settings-policies';
+      if (path.includes('settings-help')) return 'settings-help';
+      if (path.includes('settings-suggest')) return 'settings-suggest';
+      if (path.includes('settings-other') || path.includes('settings-backup')) return 'settings-other';
+      if (path.includes('settings')) return 'settings-controls';
     }
     return 'dashboard';
   });
@@ -147,7 +162,22 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       else if (path.includes('leads')) setCurrentTab('leads');
       else if (path.includes('abandoned') || path.includes('growth')) setCurrentTab('abandoned');
       else if (path.includes('staff')) setCurrentTab('staff');
-      else if (path.includes('settings')) setCurrentTab('settings');
+      else if (path.includes('settings-profile')) setCurrentTab('settings-profile');
+      else if (path.includes('settings-controls') || path.includes('settings-control')) setCurrentTab('settings-controls');
+      else if (path.includes('settings-product-display')) setCurrentTab('settings-product-display');
+      else if (path.includes('settings-header-badge')) setCurrentTab('settings-header-badge');
+      else if (path.includes('settings-product-code-prefix')) setCurrentTab('settings-product-code-prefix');
+      else if (path.includes('settings-delivery') || path.includes('settings-shipping')) setCurrentTab('settings-delivery');
+      else if (path.includes('settings-label-settings') || path.includes('settings-label')) setCurrentTab('settings-label-settings');
+      else if (path.includes('settings-payments')) setCurrentTab('settings-payments');
+      else if (path.includes('settings-orders')) setCurrentTab('settings-orders');
+      else if (path.includes('settings-customer')) setCurrentTab('settings-customer');
+      else if (path.includes('settings-staff')) setCurrentTab('settings-staff');
+      else if (path.includes('settings-policies')) setCurrentTab('settings-policies');
+      else if (path.includes('settings-help')) setCurrentTab('settings-help');
+      else if (path.includes('settings-suggest')) setCurrentTab('settings-suggest');
+      else if (path.includes('settings-other') || path.includes('settings-backup')) setCurrentTab('settings-other');
+      else if (path.includes('settings')) setCurrentTab('settings-controls');
       else if (path.includes('dashboard') || path === '/admin') setCurrentTab('dashboard');
     };
     window.addEventListener('popstate', handlePopState);
@@ -271,7 +301,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       )}
 
       {currentTab.startsWith('settings') && currentTab !== 'settings-staff' && (
-        <AdminSettingsView />
+        <AdminSettingsView currentTab={currentTab} onSelectTab={setCurrentTab} />
       )}
     </AdminShell>
   );
