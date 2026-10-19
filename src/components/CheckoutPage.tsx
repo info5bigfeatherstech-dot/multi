@@ -13,7 +13,6 @@ import {
   QrCode,
   CheckCircle2,
   MapPin,
-  Download,
   RefreshCw,
   Pencil,
   ArrowLeft,
@@ -28,7 +27,7 @@ import { isAuthenticated, requireAuth } from '../utils/authGuard';
 interface CheckoutPageProps {
   onBackToHome?: () => void;
   onGoToWishlist?: () => void;
-  onViewOrders?: () => void;
+  onViewOrders?: (orderId?: string) => void;
 }
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({
@@ -184,10 +183,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [orderId, setOrderId] = useState('');
   const [placedOrderSummary, setPlacedOrderSummary] = useState<any | null>(null);
 
-  // Post-Order Actions: Invoice & Live Tracking
-  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
-  const [liveTrackingData, setLiveTrackingData] = useState<any | null>(null);
-  const [isTrackingLoading, setIsTrackingLoading] = useState(false);
+  // Post-Order Actions: Balance Payment
   const [isPayingBalance, setIsPayingBalance] = useState(false);
 
   // --------------------------------------------------------------------------
@@ -227,7 +223,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           setCheckoutSettings({
             storefront: settings.storefront || 'ecomm',
             codEnabled: settings.codEnabled !== false,
-            partialPaymentEnabled: Boolean(settings.partialPaymentEnabled),
+            partialPaymentEnabled: settings.partialPaymentEnabled !== false,
             partialPaymentPercent: Number(settings.partialPaymentPercent) || 25,
           });
         }
@@ -408,9 +404,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     setIsQuoteLoading(true);
 
-    const hint = paymentMode === 'cod' ? 'full_cod' : (paymentMode === 'advance' ? 'advance' : 'online');
+    const hint = paymentMode === 'cod' ? 'cod' : 'online';
     const plan = paymentMode === 'advance' ? 'advance' : 'full';
-    const balanceColl = paymentMode === 'cod' || paymentMode === 'advance' ? 'cod' : 'online';
+    const balanceColl = paymentMode === 'online' ? 'online' : 'cod';
 
     try {
       const qRes = await storefrontCheckoutApi.getQuote({
@@ -424,6 +420,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined)) {
         setServerQuote(qRes);
+        if (qRes.checkoutPolicy) {
+          setCheckoutSettings((prev) => ({
+            ...prev,
+            codEnabled: qRes.checkoutPolicy.codEnabled !== false,
+            partialPaymentEnabled: qRes.checkoutPolicy.partialPaymentEnabled !== false,
+            partialPaymentPercent: Number(qRes.checkoutPolicy.partialPaymentPercent) || 25,
+          }));
+        }
       }
     } catch (err: any) {
       console.warn('Quote fetch notice:', err?.message);
@@ -626,8 +630,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     try {
       const plan = paymentMode === 'advance' ? 'advance' : 'full';
-      const paymentMethod = paymentMode === 'cod' ? 'full_cod' : (paymentMode === 'advance' ? 'advance' : 'online');
-      const balanceCollection = paymentMode === 'cod' || paymentMode === 'advance' ? 'cod' : 'online';
+      const paymentMethod = paymentMode === 'cod' ? 'cod' : 'online';
+      const balanceCollection = paymentMode === 'online' ? 'online' : 'cod';
 
       // Step A: Ensure we have a valid MongoDB Address ID
       let effectiveAddressId = selectedAddressId;
@@ -703,13 +707,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       const orderRes = await storefrontCheckoutApi.createOrder(orderPayload);
 
       const orderData = orderRes?.order || orderRes;
+      if (orderRes?.razorpayError) {
+        alert('Payment initiation: ' + (orderRes?.razorpayErrorDetail?.description || orderRes?.message || 'Could not initiate Razorpay payment.'));
+        setIsPlacingOrder(false);
+        return;
+      }
+
       const createdOrderId = orderRes?.orderId || orderData?.orderId || orderData?.orderNumber || `ABB-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const razorpayOrder = orderRes?.razorpayOrder || orderData?.razorpayOrder;
 
       // ----------------------------------------------------------------------
-      // Scenario 1: Cash on Delivery (full_cod)
+      // Scenario 1: Cash on Delivery (cod)
       // ----------------------------------------------------------------------
-      if (paymentMethod === 'full_cod') {
+      if (paymentMode === 'cod') {
         const orderSummary = {
           id: createdOrderId,
           date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -741,7 +751,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       // ----------------------------------------------------------------------
       // Scenario 2: Online Payment via Razorpay Modal & Verification
       // ----------------------------------------------------------------------
-      const amountToPayInRupees = plan === 'advance' ? advancePayableNow : (activeQuote?.amountPayable ?? displayTotalPayable);
+      const amountToPayInRupees = plan === 'advance'
+        ? (razorpayOrder?.amount ? Math.round(razorpayOrder.amount / 100) : advancePayableNow)
+        : (activeQuote?.amountPayable ?? displayTotalPayable);
 
       await storefrontCheckoutApi.processRazorpayPayment({
         orderId: createdOrderId,
@@ -801,47 +813,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   };
 
   // --------------------------------------------------------------------------
-  // Post-Order Lifecycle Actions: Invoice Download & Shipment Tracking
+  // Post-Order Lifecycle Actions: Navigation & Balance Payment
   // --------------------------------------------------------------------------
-  const handleDownloadInvoice = async () => {
-    if (!orderId) return;
-    setIsDownloadingInvoice(true);
-    try {
-      const blob = await storefrontCheckoutApi.downloadInvoice(orderId);
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `invoice-${orderId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch {
-      alert('Invoice download: Preparing authenticated PDF invoice. Please check in Profile Orders.');
-    } finally {
-      setIsDownloadingInvoice(false);
-    }
-  };
-
-  const handleTrackShipment = async () => {
-    if (!orderId) return;
-    setIsTrackingLoading(true);
-    try {
-      const tracking = await storefrontCheckoutApi.trackOrder(orderId);
-      setLiveTrackingData(tracking || {
-        status: 'Shipment Created',
-        courier: 'Blue Dart Express',
-        awb: `BD-${orderId}`,
-        estimatedDelivery: 'Within 3-4 days',
-      });
-    } catch {
-      setLiveTrackingData({
-        status: 'Dispatched from Warehouse',
-        courier: 'Blue Dart Air Express',
-        awb: `BD-${orderId}`,
-        estimatedDelivery: 'Within 3-4 days',
-      });
-    } finally {
-      setIsTrackingLoading(false);
+  const handleTrackShipment = () => {
+    if (onViewOrders) {
+      onViewOrders(orderId);
+    } else if (typeof window !== 'undefined') {
+      window.location.href = orderId ? `/order?order=${encodeURIComponent(orderId)}` : '/orders';
     }
   };
 
@@ -1044,62 +1022,29 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             </div>
 
             {/* Post-Order Lifecycle Action Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleDownloadInvoice}
-                disabled={isDownloadingInvoice}
-                className="py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-navy font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-              >
-                {isDownloadingInvoice ? (
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#A44101]" />
-                ) : (
-                  <Download className="w-4 h-4 text-[#A44101]" />
-                )}
-                <span>Download PDF Invoice</span>
-              </button>
-
+            <div className="pt-2">
               <button
                 type="button"
                 onClick={handleTrackShipment}
-                disabled={isTrackingLoading}
-                className="py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-navy font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-navy font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
               >
-                {isTrackingLoading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#A44101]" />
-                ) : (
-                  <Truck className="w-4 h-4 text-[#A44101]" />
-                )}
+                <Truck className="w-4 h-4 text-[#A44101]" />
                 <span>Track Live Courier</span>
               </button>
             </div>
 
-            {/* Live Shipment Tracking Drawer if queried */}
-            {liveTrackingData && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200 text-left text-xs space-y-2 text-sky-950"
-              >
-                <div className="flex items-center justify-between font-bold">
-                  <span className="flex items-center gap-1.5">
-                    <Truck className="w-4 h-4 text-sky-700" />
-                    <span>Live Courier Status: {liveTrackingData.status}</span>
-                  </span>
-                  <span className="text-[10px] bg-sky-200/60 px-2 py-0.5 rounded text-sky-900 font-mono">
-                    AWB: {liveTrackingData.awb || 'BD-IN-TRANSIT'}
-                  </span>
-                </div>
-                <p className="text-[11px] text-sky-800">
-                  Carrier: {liveTrackingData.courier || 'Blue Dart Express'} • Expected Delivery: {liveTrackingData.estimatedDelivery}
-                </p>
-              </motion.div>
-            )}
-
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={onViewOrders || onBackToHome}
+                onClick={() => {
+                  if (onViewOrders) {
+                    onViewOrders(orderId);
+                  } else if (typeof window !== 'undefined') {
+                    window.location.href = orderId ? `/order?order=${encodeURIComponent(orderId)}` : '/orders';
+                  } else {
+                    onBackToHome?.();
+                  }
+                }}
                 className="w-full sm:w-auto px-8 py-3 rounded-xl bg-navy hover:bg-navy-light text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-md cursor-pointer"
               >
                 View in My Orders

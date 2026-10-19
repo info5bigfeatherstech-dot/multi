@@ -8,19 +8,13 @@ import {
   Phone,
   User,
   CreditCard,
-  FileText,
   Copy,
   Check,
   Download,
-  HelpCircle,
   RefreshCw,
   ShoppingBag,
-  ShieldCheck,
-  ChevronRight,
-  MessageCircle,
-  Headphones,
-  Printer,
-  Loader2
+  Loader2,
+  Package
 } from 'lucide-react';
 import { storefrontCheckoutApi } from '../../api';
 
@@ -47,20 +41,24 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
+  const effectiveOrderId = initialOrder?.orderId || initialOrder?.id || orderId;
+
   // Fetch full live order data and courier tracking
   const fetchOrderDetails = useCallback(async (showRefreshSpinner = false) => {
+    if (!effectiveOrderId) return;
     if (showRefreshSpinner) setIsRefreshing(true);
-    else if (!order) setIsLoading(true);
 
     try {
       const [orderRes, trackRes] = await Promise.allSettled([
-        storefrontCheckoutApi.getOrderDetails(orderId),
-        storefrontCheckoutApi.trackOrder(orderId),
+        storefrontCheckoutApi.getOrderDetails(effectiveOrderId),
+        storefrontCheckoutApi.trackOrder(effectiveOrderId),
       ]);
 
       if (orderRes.status === 'fulfilled' && orderRes.value) {
         const data = orderRes.value?.order || orderRes.value?.data || orderRes.value;
-        setOrder((prev: any) => ({ ...prev, ...data }));
+        if (data && typeof data === 'object') {
+          setOrder((prev: any) => ({ ...(prev || {}), ...data }));
+        }
       }
 
       if (trackRes.status === 'fulfilled' && trackRes.value) {
@@ -72,7 +70,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [orderId, order]);
+  }, [effectiveOrderId]);
 
   useEffect(() => {
     fetchOrderDetails();
@@ -91,13 +89,15 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
 
   // Handle Invoice Download
   const handleDownloadInvoice = async () => {
+    const targetOrderId = effectiveOrderId || order?.orderId || order?.id || orderId;
+    if (!targetOrderId) return;
     setIsDownloadingInvoice(true);
     try {
-      const blob = await storefrontCheckoutApi.downloadInvoice(orderId);
+      const blob = await storefrontCheckoutApi.downloadInvoice(targetOrderId);
       const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Tax-Invoice-${orderId}.pdf`);
+      link.setAttribute('download', `Tax-Invoice-${targetOrderId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -113,12 +113,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
     }
   };
 
-  // Handle Print
-  const handlePrint = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  };
+
 
   // Safe fallback computations
   const currentStatus = String(order?.orderStatus || order?.status || 'Confirmed');
@@ -141,20 +136,55 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
     statusBadgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
   }
 
-  // Items extraction
+  // Items extraction from API
   const rawItems = order?.items || order?.orderItems || order?.products || [];
-  const items = (rawItems.length > 0) ? rawItems.map((i: any, idx: number) => ({
-    id: i.product?.id || i.product?._id || i.productId || i.id || `item-${idx}`,
-    title: i.product?.title || i.product?.name || i.productTitle || i.title || i.name || 'Apna Bharat Bazaar Product',
-    image: i.product?.images?.[0]?.url || i.product?.images?.[0] || i.product?.image || i.image || i.thumbnail || 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80',
-    price: Number(i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? i.product?.price ?? 0),
-    quantity: Number(i.quantity ?? i.qty ?? i.count ?? 1),
-    category: i.product?.category || i.category || 'General Essentials',
-  })) : [
+  const items = (rawItems.length > 0) ? rawItems.map((i: any, idx: number) => {
+    const prod = (typeof i.productId === 'object' && i.productId !== null)
+      ? i.productId
+      : (typeof i.product === 'object' && i.product !== null ? i.product : {});
+
+    const title = prod.name || prod.title || i.productTitle || i.title || i.name || 'Store Item';
+
+    const matchingVariant = Array.isArray(prod.variants)
+      ? (prod.variants.find((v: any) => String(v._id || v.id) === String(i.variantId)) || prod.variants[0])
+      : null;
+
+    const variantImg = matchingVariant?.images?.[0]?.url ||
+      (typeof matchingVariant?.images?.[0] === 'string' ? matchingVariant?.images?.[0] : null) ||
+      matchingVariant?.image?.url ||
+      matchingVariant?.image;
+
+    const prodImg =
+      (Array.isArray(prod.images) ? (prod.images[0]?.url || (typeof prod.images[0] === 'string' ? prod.images[0] : null)) : null) ||
+      prod.cardImage?.url ||
+      prod.image?.url ||
+      (typeof prod.image === 'string' ? prod.image : null);
+
+    const directImg =
+      i.image?.url ||
+      (typeof i.image === 'string' ? i.image : null) ||
+      (Array.isArray(i.images) ? (i.images[0]?.url || (typeof i.images[0] === 'string' ? i.images[0] : null)) : null) ||
+      i.thumbnail?.url ||
+      (typeof i.thumbnail === 'string' ? i.thumbnail : null);
+
+    const image = variantImg || prodImg || directImg || '';
+    const price = Number((i.priceSnapshot?.sale || i.priceSnapshot?.base) ?? (i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? prod.price ?? 0));
+    const quantity = Number(i.quantity ?? i.qty ?? i.count ?? 1);
+    const category = prod.category?.name || prod.category || i.category || 'General Essentials';
+
+    return {
+      id: i.productId?._id || i.productId?.id || i.productId || i.id || `item-${idx}`,
+      title,
+      image,
+      price,
+      quantity,
+      category,
+    };
+  }) : [
     {
       id: 'default-item',
-      title: order?.title || 'Apna Bharat Bazaar Store Item',
-      image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80',
+      title: order?.title || `Order #${orderId}`,
+      image: '',
       price: Number(order?.total || 0),
       quantity: 1,
       category: 'Store Item',
@@ -291,15 +321,6 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               <span className="hidden md:inline">Refresh</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
-              title="Print Order Summary"
-            >
-              <Printer className="w-3.5 h-3.5 text-slate-600" />
-              <span className="hidden md:inline">Print</span>
-            </button>
 
             <button
               type="button"
@@ -434,15 +455,21 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
                 return (
                   <div key={item.id || idx} className="py-4 first:pt-1 last:pb-1 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4 min-w-0">
-                      <div className="relative">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 bg-white shrink-0 shadow-2xs"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80';
-                          }}
-                        />
+                      <div className="relative shrink-0">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-slate-200 bg-white shadow-2xs"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border border-slate-200 bg-amber-50 text-[#A44101] flex items-center justify-center shadow-2xs">
+                            <Package className="w-8 h-8" />
+                          </div>
+                        )}
                         <span className="absolute -bottom-1 -right-1 bg-navy text-white text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-2xs">
                           x{item.quantity}
                         </span>
@@ -496,24 +523,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
           </div>
 
           {/* Customer Assurance Guarantee Banner */}
-          <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200/90 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="w-8 h-8 text-[#A44101] shrink-0" />
-              <div>
-                <h4 className="text-xs sm:text-sm font-black">Apna Bharat Bazaar 100% Purchase Protection</h4>
-                <p className="text-[11px] text-amber-900/80 mt-0.5">
-                  Verified authentic products, hassle-free 7-day replacements &amp; pan-India courier safety guarantees.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => alert('Support team hotline: +91 93200 01717')}
-              className="px-4 py-2 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all cursor-pointer shrink-0 shadow-2xs"
-            >
-              Contact Support
-            </button>
-          </div>
+    
         </div>
 
         {/* RIGHT COLUMN: SHIPPING ADDRESS & FINANCIAL SUMMARY */}
@@ -601,52 +611,11 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleDownloadInvoice}
-              disabled={isDownloadingInvoice}
-              className="w-full py-2.5 rounded-xl border border-slate-200 bg-stone-50 hover:bg-stone-100 text-xs font-bold text-navy transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-            >
-              <FileText className="w-4 h-4 text-[#A44101]" />
-              <span>{isDownloadingInvoice ? 'Generating Invoice...' : 'Download Invoice (PDF)'}</span>
-            </button>
+          
           </div>
 
           {/* Need Help / Support Accordion */}
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 border border-slate-200 shadow-xs space-y-3">
-            <h4 className="text-xs font-black text-navy uppercase tracking-wider flex items-center gap-2">
-              <HelpCircle className="w-4 h-4 text-[#A44101]" />
-              <span>Need Help With This Order?</span>
-            </h4>
-            <p className="text-xs text-slate-500">
-              Our 24x7 customer care executives are ready to assist you with delivery changes, returns, or billing queries.
-            </p>
-            <div className="flex flex-col gap-2 pt-1 text-xs font-bold">
-              <a
-                href="https://wa.me/919320001717"
-                target="_blank"
-                rel="noreferrer"
-                className="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="w-4 h-4 text-emerald-600" />
-                  <span>Chat on WhatsApp</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-emerald-600" />
-              </a>
-
-              <a
-                href="tel:+919320001717"
-                className="p-2.5 rounded-xl bg-slate-50 text-slate-800 hover:bg-slate-100 transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <Headphones className="w-4 h-4 text-navy" />
-                  <span>Call Support Hotline</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </a>
-            </div>
-          </div>
+    
         </div>
       </div>
     </div>

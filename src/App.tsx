@@ -359,6 +359,21 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleGoToOrders = (orderId?: string) => {
+    const token = localStorage.getItem('user_access_token');
+    if (!token) {
+      setPostAuthRedirect('profile');
+      setAuthModalMessage('Please log in or register to access your profile and orders');
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setCurrentView('profile');
+    setSelectedProduct(null);
+    const targetUrl = orderId ? `/order?order=${encodeURIComponent(orderId)}` : '/orders';
+    window.history.pushState(null, '', targetUrl);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Listen for global require-auth events fired by any component
   useEffect(() => {
     const handleRequireAuth = (e: Event) => {
@@ -489,6 +504,7 @@ export const App: React.FC = () => {
             <CheckoutPage
               onBackToHome={handleBackToStore}
               onGoToWishlist={handleGoToWishlist}
+              onViewOrders={handleGoToOrders}
             />
           ) : currentView === 'product' ? (
             /* Dedicated Product Detail Page */

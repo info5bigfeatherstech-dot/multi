@@ -150,6 +150,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : 'Product';
       toast.success(`${displayTitle} added to cart!`, {
         id: `cart-add-${product.id}`,
+        position: 'bottom-right',
       });
     }
   };

@@ -477,7 +477,7 @@ export const storefrontCheckoutApi = {
   // Step 3: Establish Authoritative Checkout Quote
   getQuote: async (payload: {
     addressId: string;
-    paymentMethodHint?: "online" | "full_cod" | "advance" | string;
+    paymentMethodHint?: "online" | "full_cod" | "advance" | "cod" | string;
     paymentPlan?: "full" | "advance" | string;
     paymentAdvancePercent?: number;
     balanceCollection?: "online" | "cod" | string;
@@ -485,7 +485,16 @@ export const storefrontCheckoutApi = {
     loyaltyPointsToRedeem?: number;
   }) => {
     try {
-      const res = await apiClient.post("/checkout/quote", payload);
+      const sanitizedPayload = {
+        ...payload,
+        paymentMethodHint:
+          payload.paymentMethodHint === "full_cod"
+            ? "cod"
+            : payload.paymentMethodHint === "advance"
+            ? "online"
+            : payload.paymentMethodHint,
+      };
+      const res = await apiClient.post("/checkout/quote", sanitizedPayload);
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
@@ -495,13 +504,22 @@ export const storefrontCheckoutApi = {
   // Step 4: Lock Payment Choice (Confirm Quote)
   confirmQuote: async (payload: {
     quoteId: string;
-    paymentMethod: "online" | "full_cod" | "advance" | string;
+    paymentMethod: "online" | "full_cod" | "advance" | "cod" | string;
     paymentPlan?: "full" | "advance" | string;
     paymentAdvancePercent?: number;
     balanceCollection?: "online" | "cod" | string;
   }) => {
     try {
-      const res = await apiClient.post("/checkout/confirm", payload);
+      const sanitizedPayload = {
+        ...payload,
+        paymentMethod:
+          payload.paymentMethod === "full_cod"
+            ? "cod"
+            : payload.paymentMethod === "advance"
+            ? "online"
+            : payload.paymentMethod,
+      };
+      const res = await apiClient.post("/checkout/confirm", sanitizedPayload);
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
@@ -519,7 +537,7 @@ export const storefrontCheckoutApi = {
     if (payload.quoteId) {
       return storefrontCheckoutApi.confirmQuote({
         quoteId: payload.quoteId,
-        paymentMethod: isCod ? "full_cod" : "online",
+        paymentMethod: isCod ? "cod" : "online",
         paymentPlan: "full",
         balanceCollection: isCod ? "cod" : "online",
       });
@@ -528,7 +546,7 @@ export const storefrontCheckoutApi = {
     try {
       const res = await apiClient.post("/checkout/confirm", {
         addressId: payload.addressId,
-        paymentMethod: isCod ? "full_cod" : "online",
+        paymentMethod: isCod ? "cod" : "online",
         couponCode: payload.couponCode,
       });
       return res.data?.data || res.data;
@@ -540,7 +558,7 @@ export const storefrontCheckoutApi = {
   // Step 5: Place Order (Two-Phase Commit final execution)
   createOrder: async (payload: {
     addressId: string;
-    paymentMethod: "online" | "full_cod" | "advance" | string;
+    paymentMethod: "online" | "full_cod" | "advance" | "cod" | string;
     onlinePaymentMode?: "full" | "advance" | string;
     balanceCollection?: "online" | "cod" | string;
     paymentAdvancePercent?: number;
@@ -555,7 +573,17 @@ export const storefrontCheckoutApi = {
           ? crypto.randomUUID()
           : `idemp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-      const res = await apiClient.post("/orders/items", payload, {
+      const sanitizedPayload = {
+        ...payload,
+        paymentMethod:
+          payload.paymentMethod === "full_cod"
+            ? "cod"
+            : payload.paymentMethod === "advance"
+            ? "online"
+            : payload.paymentMethod,
+      };
+
+      const res = await apiClient.post("/orders/items", sanitizedPayload, {
         headers: {
           "Idempotency-Key": idempotencyKey,
           "x-storefront": "ecomm",

@@ -7,15 +7,12 @@ import {
   Check, 
   ArrowLeft,
   Truck, 
-  FileText, 
   Plus, 
   Trash2, 
   Gift, 
   ChevronRight,
   Phone,
   Award,
-  X,
-  Clock,
   Loader2,
   LogOut,
   ShoppingBag,
@@ -24,9 +21,7 @@ import {
   Building,
   CheckCircle2,
   Pencil,
-  ChevronUp,
-  Copy,
-  CreditCard
+  Copy
 } from 'lucide-react';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 import { 
@@ -173,17 +168,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
-  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
 
-  // Order Details Expanded State & Cache
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-  const [orderDetailsCache, setOrderDetailsCache] = useState<Record<string, any>>({});
-  const [loadingDetailsId, setLoadingDetailsId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Tracking modal state
-  const [activeTrackingOrder, setActiveTrackingOrder] = useState<any | null>(null);
-  const [trackingLoading, setTrackingLoading] = useState(false);
 
   // Dedicated inside order details page view state
   const [selectedOrderIdForInsideView, setSelectedOrderIdForInsideView] = useState<string | null>(() => {
@@ -215,6 +201,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Auto-resolve MongoDB ObjectId (e.g. 6ad59f5a740cc5d773dae434) to public orderId (OWB-ECOMM-...)
+  useEffect(() => {
+    if (selectedOrderIdForInsideView && orders.length > 0) {
+      const matched = orders.find(
+        (o) => o._id === selectedOrderIdForInsideView || o.id === selectedOrderIdForInsideView || o.orderId === selectedOrderIdForInsideView
+      );
+      const publicId = matched?.orderId || matched?.id;
+      if (publicId && publicId !== selectedOrderIdForInsideView) {
+        setSelectedOrderIdForInsideView(publicId);
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', `/order?order=${encodeURIComponent(publicId)}`);
+        }
+      }
+    }
+  }, [selectedOrderIdForInsideView, orders]);
 
   // Sync profile, addresses and orders from backend storefrontApi
   useEffect(() => {
@@ -303,8 +305,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         if (Array.isArray(orderList) && orderList.length > 0) {
           const mapped = orderList.map((o: any) => {
-            const orderId = o.orderNumber || o._id || o.id;
-            const local = localOrdersMap[orderId] || {};
+            const orderId = o.orderId || o.orderNumber || o.id || o._id;
+            const local = localOrdersMap[orderId] || (o._id ? localOrdersMap[o._id] : {}) || {};
 
             const status = o.orderStatus || o.status || local.status || 'Confirmed';
             let statusColor = 'text-[#A44101] bg-[#A44101]/10 border-[#A44101]/25';
@@ -337,19 +339,59 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             const recipientPhone = addrObj.phone || o.customer?.phone || o.orderIntent?.recipientPhone || local.recipientPhone || '';
             const fullAddress = addrObj.fullAddress || addrObj.addressLine || addrObj.street || addrObj.address || [addrObj.houseNumber, addrObj.addressLine1, addrObj.area, addrObj.city, addrObj.state, addrObj.pincode || addrObj.postalCode].filter(Boolean).join(', ') || local.address || 'Standard Delivery Address';
 
-            // Extract items
+            // Helper to extract items, variants and real product images directly from API response
+            const extractItemsFromApi = (list: any[]) => {
+              if (!Array.isArray(list) || list.length === 0) return [];
+              return list.map((i: any, idx: number) => {
+                const prod = (typeof i.productId === 'object' && i.productId !== null)
+                  ? i.productId
+                  : (typeof i.product === 'object' && i.product !== null ? i.product : {});
+
+                const title = prod.name || prod.title || i.productTitle || i.title || i.name || 'Store Item';
+
+                const matchingVariant = Array.isArray(prod.variants)
+                  ? (prod.variants.find((v: any) => String(v._id || v.id) === String(i.variantId)) || prod.variants[0])
+                  : null;
+
+                const variantImg = matchingVariant?.images?.[0]?.url ||
+                  (typeof matchingVariant?.images?.[0] === 'string' ? matchingVariant?.images?.[0] : null) ||
+                  matchingVariant?.image?.url ||
+                  matchingVariant?.image;
+
+                const prodImg =
+                  (Array.isArray(prod.images) ? (prod.images[0]?.url || (typeof prod.images[0] === 'string' ? prod.images[0] : null)) : null) ||
+                  prod.cardImage?.url ||
+                  prod.image?.url ||
+                  (typeof prod.image === 'string' ? prod.image : null);
+
+                const directImg =
+                  i.image?.url ||
+                  (typeof i.image === 'string' ? i.image : null) ||
+                  (Array.isArray(i.images) ? (i.images[0]?.url || (typeof i.images[0] === 'string' ? i.images[0] : null)) : null) ||
+                  i.thumbnail?.url ||
+                  (typeof i.thumbnail === 'string' ? i.thumbnail : null);
+
+                const image = variantImg || prodImg || directImg || '';
+                const price = Number((i.priceSnapshot?.sale || i.priceSnapshot?.base) ?? (i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? prod.price ?? 0));
+                const qty = Number(i.quantity ?? i.qty ?? i.count ?? 1);
+                const category = prod.category?.name || prod.category || i.category || '';
+
+                return {
+                  id: i.productId?._id || i.productId?.id || i.productId || i.id || `item-${idx}`,
+                  title,
+                  image,
+                  price,
+                  qty,
+                  category,
+                };
+              });
+            };
+
             const rawItems = (o.items && o.items.length > 0) 
               ? o.items 
               : (o.orderItems || o.products || o.cartItems || local.items || []);
 
-            const items = rawItems.map((i: any) => ({
-              id: i.product?.id || i.product?._id || i.productId || i.id || i._id,
-              title: i.product?.title || i.product?.name || i.productTitle || i.title || i.name || 'Product',
-              image: i.product?.images?.[0]?.url || i.product?.images?.[0] || i.product?.image || i.image || i.thumbnail || 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80',
-              price: i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? i.product?.price ?? 0,
-              qty: i.quantity ?? i.qty ?? i.count ?? 1,
-              category: i.product?.category || i.category || '',
-            }));
+            const items = extractItemsFromApi(rawItems);
 
             return {
               id: orderId,
@@ -380,10 +422,79 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 type: addrObj.type || 'Home',
               },
               items,
+              orderId: o.orderId || orderId,
+              _id: o._id,
               raw: o,
             };
           });
           setOrders(mapped);
+
+          // Fetch full live order details from API for each order to get real product images and names
+          orderList.forEach((o: any) => {
+            const oId = o.orderId || o.orderNumber || o.id;
+            if (!oId) return;
+            storefrontCheckoutApi.getOrderDetails(oId)
+              .then((res) => {
+                const detail = res?.order || res?.data || res;
+                const detailItems = detail?.items || detail?.orderItems || detail?.products || [];
+                if (Array.isArray(detailItems) && detailItems.length > 0) {
+                  const parsed = detailItems.map((i: any, idx: number) => {
+                    const prod = (typeof i.productId === 'object' && i.productId !== null)
+                      ? i.productId
+                      : (typeof i.product === 'object' && i.product !== null ? i.product : {});
+
+                    const title = prod.name || prod.title || i.productTitle || i.title || i.name || 'Store Item';
+
+                    const matchingVariant = Array.isArray(prod.variants)
+                      ? (prod.variants.find((v: any) => String(v._id || v.id) === String(i.variantId)) || prod.variants[0])
+                      : null;
+
+                    const variantImg = matchingVariant?.images?.[0]?.url ||
+                      (typeof matchingVariant?.images?.[0] === 'string' ? matchingVariant?.images?.[0] : null) ||
+                      matchingVariant?.image?.url ||
+                      matchingVariant?.image;
+
+                    const prodImg =
+                      (Array.isArray(prod.images) ? (prod.images[0]?.url || (typeof prod.images[0] === 'string' ? prod.images[0] : null)) : null) ||
+                      prod.cardImage?.url ||
+                      prod.image?.url ||
+                      (typeof prod.image === 'string' ? prod.image : null);
+
+                    const directImg =
+                      i.image?.url ||
+                      (typeof i.image === 'string' ? i.image : null) ||
+                      (Array.isArray(i.images) ? (i.images[0]?.url || (typeof i.images[0] === 'string' ? i.images[0] : null)) : null) ||
+                      i.thumbnail?.url ||
+                      (typeof i.thumbnail === 'string' ? i.thumbnail : null);
+
+                    const image = variantImg || prodImg || directImg || '';
+                    const price = Number((i.priceSnapshot?.sale || i.priceSnapshot?.base) ?? (i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? prod.price ?? 0));
+                    const qty = Number(i.quantity ?? i.qty ?? i.count ?? 1);
+                    const category = prod.category?.name || prod.category || i.category || '';
+
+                    return {
+                      id: i.productId?._id || i.productId?.id || i.productId || i.id || `item-${idx}`,
+                      title,
+                      image,
+                      price,
+                      qty,
+                      category,
+                    };
+                  });
+
+                  if (parsed.length > 0) {
+                    setOrders((prev) =>
+                      prev.map((ord) =>
+                        (ord.id === oId || ord.orderId === oId || (o._id && ord._id === o._id))
+                          ? { ...ord, items: parsed, itemCount: parsed.length }
+                          : ord
+                      )
+                    );
+                  }
+                }
+              })
+              .catch(() => {});
+          });
         } else {
           // If server returned 0 orders, check if there are genuine session orders from checkout
           try {
@@ -725,79 +836,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  const handleLiveTrackOrder = async (order: any) => {
-    setTrackingLoading(true);
-    setActiveTrackingOrder({
-      ...order,
-      carrier: 'Blue Dart / Delhivery Express',
-      awb: `BD-${Math.floor(100000000 + Math.random() * 900000000)}`,
-      events: [
-        { time: 'Today, 09:30 AM', desc: 'Package arrived at regional delivery hub (Delhi Hub)' },
-        { time: 'Yesterday, 04:15 PM', desc: 'In Transit from Bhiwandi Central Logistics Facility' },
-        { time: 'Yesterday, 10:00 AM', desc: 'Shipment picked up & scanned by courier partner' },
-        { time: '2 days ago, 06:45 PM', desc: 'Order verified and packed by Apna Bharat Bazaar seller' },
-      ],
-    });
-
-    try {
-      const trackingData = await storefrontCheckoutApi.trackOrder(order.id);
-      if (trackingData) {
-        setActiveTrackingOrder((prev: any) => ({
-          ...prev,
-          carrier: trackingData.carrier || prev.carrier,
-          awb: trackingData.trackingNumber || prev.awb,
-          currentLocation: trackingData.currentLocation || 'In Transit',
-        }));
-      }
-    } catch {
-      // offline fallback
-    } finally {
-      setTrackingLoading(false);
-    }
-  };
-
-  const handleDownloadInvoice = async (orderId: string) => {
-    setDownloadingInvoiceId(orderId);
-    try {
-      const blob = await storefrontCheckoutApi.downloadInvoice(orderId);
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Invoice-${orderId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      alert(`Invoice is being prepared for Order #${orderId}. Please try again shortly or contact support.`);
-    } finally {
-      setDownloadingInvoiceId(null);
-    }
-  };
-
-  const handleToggleOrderDetails = async (orderId: string) => {
-    if (expandedOrderId === orderId) {
-      setExpandedOrderId(null);
-      return;
-    }
-    setExpandedOrderId(orderId);
-
-    if (!orderDetailsCache[orderId]) {
-      setLoadingDetailsId(orderId);
-      try {
-        const res = await storefrontCheckoutApi.getOrderDetails(orderId);
-        if (res) {
-          const detailData = res?.order || res?.data || res;
-          setOrderDetailsCache((prev) => ({ ...prev, [orderId]: detailData }));
-        }
-      } catch (err) {
-        console.warn('Could not fetch server order details, using mapped list data:', err);
-      } finally {
-        setLoadingDetailsId(null);
-      }
-    }
-  };
-
   const handleCopyText = (text: string, id: string) => {
     try {
       navigator.clipboard.writeText(text);
@@ -966,17 +1004,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* TAB 1: ORDERS & TRACKING */}
             {activeTab === 'orders' && (
               selectedOrderIdForInsideView ? (
-                <OrderDetailTrackingView
-                  orderId={selectedOrderIdForInsideView}
-                  initialOrder={orders.find((o) => o.id === selectedOrderIdForInsideView)}
-                  onBack={() => {
-                    setSelectedOrderIdForInsideView(null);
-                    if (typeof window !== 'undefined') {
-                      window.history.pushState(null, '', '/order');
-                    }
-                  }}
-                  onGoToCheckout={onGoToCheckout}
-                />
+                (() => {
+                  const matchedOrder = orders.find(
+                    (o) => o.id === selectedOrderIdForInsideView || o.orderId === selectedOrderIdForInsideView || o._id === selectedOrderIdForInsideView
+                  );
+                  const effectiveId = matchedOrder?.orderId || matchedOrder?.id || selectedOrderIdForInsideView;
+                  return (
+                    <OrderDetailTrackingView
+                      orderId={effectiveId}
+                      initialOrder={matchedOrder}
+                      onBack={() => {
+                        setSelectedOrderIdForInsideView(null);
+                        if (typeof window !== 'undefined') {
+                          window.history.pushState(null, '', '/order');
+                        }
+                      }}
+                      onGoToCheckout={onGoToCheckout}
+                    />
+                  );
+                })()
               ) : (
                 <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -1020,62 +1066,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 ) : (
                   <div className="space-y-5">
                     {orders.map((order) => {
-                      const isExpanded = expandedOrderId === order.id;
-                      const serverDetail = orderDetailsCache[order.id];
-                      
-                      // Combine items with serverDetail or fallbacks
-                      const rawItems = (serverDetail?.items?.length > 0)
-                        ? serverDetail.items
-                        : (order.items && order.items.length > 0)
-                          ? order.items
-                          : (serverDetail?.orderItems || serverDetail?.products || []);
-
-                      const displayItems = (rawItems.length > 0) ? rawItems.map((i: any) => ({
-                        id: i.product?.id || i.product?._id || i.productId || i.id,
-                        title: i.product?.title || i.product?.name || i.productTitle || i.title || i.name || 'Ordered Product',
-                        image: i.product?.images?.[0]?.url || i.product?.images?.[0] || i.product?.image || i.image || i.thumbnail || 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80',
-                        price: i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? i.product?.price ?? 0,
-                        qty: i.quantity ?? i.qty ?? i.count ?? 1,
-                        category: i.product?.category || i.category || 'Standard',
-                      })) : [
-                        {
-                          id: 'item-1',
-                          title: 'Apna Bharat Bazaar Store Item',
-                          image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80',
-                          price: order.total || 0,
-                          qty: 1,
-                          category: 'Store Item',
-                        }
-                      ];
-
-                      // Shipping details from serverDetail or mapped order
-                      const addrObj = serverDetail?.shippingAddress || serverDetail?.shipping?.address || serverDetail?.deliveryAddress || serverDetail?.address || order.shippingAddress || {};
-                      const recipientName = addrObj.name || addrObj.fullName || serverDetail?.customer?.name || order.shippingAddress?.name || userName || 'Customer';
-                      const recipientPhone = addrObj.phone || serverDetail?.customer?.phone || order.shippingAddress?.phone || userPhone || '+91 9876543210';
-                      const fullAddressString = addrObj.address || addrObj.fullAddress || addrObj.addressLine || addrObj.street || [addrObj.houseNumber, addrObj.addressLine1, addrObj.area, addrObj.city, addrObj.state, addrObj.pincode || addrObj.postalCode].filter(Boolean).join(', ') || order.shippingAddress?.address || 'Standard Delivery Address';
-                      const carrierName = serverDetail?.shipping?.carrier || serverDetail?.carrier || order.carrier || 'Blue Dart Express';
-                      const trackingAwb = serverDetail?.shipping?.trackingNumber || serverDetail?.trackingNumber || serverDetail?.awbNumber || order.trackingNumber || `BD-${String(order.id).slice(-8).toUpperCase()}`;
-                      const paymentMethodName = serverDetail?.paymentMethod || serverDetail?.paymentMode || order.paymentMethod || 'Online Payment';
-                      const paymentStatusName = serverDetail?.paymentStatus || serverDetail?.payment?.status || order.paymentStatus || 'Confirmed';
+                      const displayItems = (order.items && order.items.length > 0)
+                        ? order.items
+                        : [
+                            {
+                              id: `order-item-${order.id}`,
+                              title: `Order #${String(order.id).length > 10 ? String(order.id).slice(-6) : order.id}`,
+                              image: '',
+                              price: order.total || 0,
+                              qty: 1,
+                              category: 'Order',
+                            }
+                          ];
 
                       return (
                         <div 
                           key={order.id}
-                          className={`border rounded-2xl transition-all duration-200 overflow-hidden ${
-                            isExpanded 
-                              ? 'border-[#A44101] bg-white shadow-md ring-2 ring-[#A44101]/10' 
-                              : 'border-slate-200 hover:border-slate-300 bg-stone-50/50'
-                          }`}
+                          onClick={() => handleOpenInsideOrder(order.id)}
+                          className="bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition-all duration-200 p-4 sm:p-5 cursor-pointer group"
                         >
-                          {/* Order Header: Clickable row to open inside page */}
-                          <div 
-                            onClick={() => handleOpenInsideOrder(order.id)}
-                            className="p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 cursor-pointer hover:bg-stone-50/80 transition-colors border-b border-slate-200/70 select-none group"
-                          >
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                              <span className="font-mono font-bold text-xs sm:text-sm text-navy flex items-center gap-1.5 group-hover:text-[#A44101] transition-colors">
+                          {/* Row 1: Header (Clean ID, Date, Status Badge, Total Amount) */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono font-bold text-xs sm:text-sm text-navy group-hover:text-[#A44101] transition-colors flex items-center gap-1.5">
                                 <Package className="w-4 h-4 text-[#A44101]" />
-                                <span>{order.id}</span>
+                                <span>#{String(order.id).length > 12 ? `${String(order.id).slice(0, 6)}...${String(order.id).slice(-4)}` : order.id}</span>
                               </span>
                               <button
                                 type="button"
@@ -1083,8 +1098,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                                   e.stopPropagation();
                                   handleCopyText(order.id, `order-${order.id}`);
                                 }}
-                                className="text-slate-400 hover:text-navy p-1 rounded hover:bg-slate-200/60 transition-colors cursor-pointer"
-                                title="Copy Order ID"
+                                className="text-slate-400 hover:text-navy p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Copy full Order ID"
                               >
                                 {copiedId === `order-${order.id}` ? (
                                   <span className="text-[10px] font-bold text-emerald-600">Copied!</span>
@@ -1092,7 +1107,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                                   <Copy className="w-3 h-3" />
                                 )}
                               </button>
-                              <span className="text-xs text-slate-500">• Placed on {order.date}{order.time ? ` at ${order.time}` : ''}</span>
+                              <span className="text-xs text-slate-300">•</span>
+                              <span className="text-xs text-slate-500 font-medium">Placed on {order.date}{order.time ? ` at ${order.time}` : ''}</span>
                             </div>
 
                             <div className="flex items-center gap-3">
@@ -1102,300 +1118,76 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               <span className="text-sm sm:text-base font-black text-navy">
                                 ₹{order.total}
                               </span>
+                            </div>
+                          </div>
 
-                              {/* View Inside Details Trigger Button */}
+                          {/* Row 2: Product Thumbnails, Summary & Actions */}
+                          <div className="pt-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              {/* Product Thumbnails Stack */}
+                              <div className="flex items-center -space-x-2 shrink-0">
+                                {displayItems.slice(0, 3).map((item: any, idx: number) => (
+                                  item.image ? (
+                                    <img
+                                      key={idx}
+                                      src={item.image}
+                                      alt={item.title}
+                                      className="w-12 h-12 rounded-xl object-cover border-2 border-white bg-slate-50 shadow-2xs"
+                                      onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      key={idx}
+                                      className="w-12 h-12 rounded-xl border-2 border-white bg-[#A44101]/10 text-[#A44101] flex items-center justify-center shadow-2xs shrink-0"
+                                      title={item.title}
+                                    >
+                                      <Package className="w-5 h-5" />
+                                    </div>
+                                  )
+                                ))}
+                                {displayItems.length > 3 && (
+                                  <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[11px] font-bold text-slate-600 shadow-2xs">
+                                    +{displayItems.length - 3}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Title, ETA and Item count */}
+                              <div className="min-w-0">
+                                <p className="text-xs sm:text-sm font-bold text-navy truncate">
+                                  {displayItems[0]?.title || 'Order Item'}
+                                  {displayItems.length > 1 && (
+                                    <span className="text-slate-500 font-normal"> +{displayItems.length - 1} more</span>
+                                  )}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                                  <span className="flex items-center gap-1 text-slate-600 font-medium">
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{order.eta}</span>
+                                  </span>
+                                  <span>•</span>
+                                  <span>{displayItems.length} {displayItems.length === 1 ? 'item' : 'items'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Actions on right */}
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenInsideOrder(order.id);
                                 }}
-                                className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-stone-100 hover:bg-[#A44101] text-slate-700 hover:text-white transition-all cursor-pointer shadow-2xs group/btn"
+                                className="px-4 py-2 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-98"
                               >
                                 <span>View Details</span>
-                                <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                                <ChevronRight className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
-
-                          {/* Progress Status Bar (Always visible) */}
-                          <div className="px-4 sm:px-6 py-4 bg-white/60">
-                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-2">
-                              <span className="text-[#A44101] font-bold">1. Order Placed</span>
-                              <span className={order.trackingStep >= 2 ? 'text-[#A44101] font-bold' : 'text-slate-400'}>2. Shipped</span>
-                              <span className={order.trackingStep >= 3 ? 'text-[#A44101] font-bold' : 'text-slate-400'}>3. Out for Delivery</span>
-                              <span className={order.trackingStep >= 4 ? 'text-[#A44101] font-bold' : 'text-slate-400'}>4. Delivered</span>
-                            </div>
-                            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                              <div 
-                                className="bg-[#A44101] h-full rounded-full transition-all duration-500"
-                                style={{ width: `${(order.trackingStep / 4) * 100}%` }}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between mt-2.5 text-xs">
-                              <span className="text-slate-500 flex items-center gap-1.5">
-                                <Truck className="w-3.5 h-3.5 text-navy" />
-                                <span>{order.eta}</span>
-                              </span>
-                              {!isExpanded && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenInsideOrder(order.id)}
-                                  className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer flex items-center gap-1"
-                                >
-                                  <span>Click order to view all product &amp; shipping details</span>
-                                  <span>→</span>
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* EXPANDED SECTION: Rich Product, Shipping, and Payment Details */}
-                          {isExpanded && (
-                            <div className="p-4 sm:p-6 bg-slate-50/70 border-t border-slate-200 space-y-6 animate-fadeIn">
-                              {loadingDetailsId === order.id && (
-                                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-semibold">
-                                  <Loader2 className="w-4 h-4 animate-spin text-[#A44101]" />
-                                  <span>Syncing real-time order & courier details from server...</span>
-                                </div>
-                              )}
-
-                              {/* SECTION 1: PRODUCT DETAILS */}
-                              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                  <h3 className="text-xs sm:text-sm font-bold text-navy flex items-center gap-2">
-                                    <ShoppingBag className="w-4 h-4 text-[#A44101]" />
-                                    <span>Product Details ({displayItems.length} {displayItems.length === 1 ? 'item' : 'items'})</span>
-                                  </h3>
-                                  <span className="text-[11px] text-slate-500">Verified Order Contents</span>
-                                </div>
-
-                                <div className="divide-y divide-slate-100">
-                                  {displayItems.map((item: any, idx: number) => (
-                                    <div key={idx} className="py-3 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                      <div className="flex items-center gap-3.5">
-                                        <img
-                                          src={item.image}
-                                          alt={item.title}
-                                          className="w-14 h-14 rounded-xl object-cover border border-slate-200 bg-white shrink-0"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=300&q=80';
-                                          }}
-                                        />
-                                        <div>
-                                          <h4 className="text-xs sm:text-sm font-bold text-navy line-clamp-1">{item.title}</h4>
-                                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                                            <span className="text-xs font-bold text-[#A44101]">₹{item.price}</span>
-                                            <span className="text-xs text-slate-400">•</span>
-                                            <span className="text-xs text-slate-600 font-medium">Qty: {item.qty}</span>
-                                            <span className="text-xs text-slate-400">•</span>
-                                            <span className="text-xs font-bold text-slate-700">Subtotal: ₹{item.price * item.qty}</span>
-                                            {item.category && (
-                                              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold">
-                                                {item.category}
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-2 self-end sm:self-center">
-                                        <button
-                                          type="button"
-                                          onClick={onGoToCheckout}
-                                          className="px-3.5 py-1.5 rounded-xl bg-[#A44101]/10 hover:bg-[#A44101]/20 text-[#A44101] text-xs font-bold transition-colors cursor-pointer active:scale-98"
-                                        >
-                                          Buy Again
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* SECTION 2: SHIPPING DETAILS & COURIER TRACKING */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Destination Address Card */}
-                                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                                  <h3 className="text-xs sm:text-sm font-bold text-navy flex items-center gap-2 pb-2 border-b border-slate-100">
-                                    <MapPin className="w-4 h-4 text-[#A44101]" />
-                                    <span>Shipping &amp; Delivery Address</span>
-                                  </h3>
-                                  <div className="space-y-1.5 text-xs">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-navy text-sm">{recipientName}</span>
-                                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-stone-200 text-slate-700">
-                                        {addrObj.type || 'Home'}
-                                      </span>
-                                    </div>
-                                    <p className="text-slate-600 leading-relaxed pt-1">
-                                      {fullAddressString}
-                                    </p>
-                                    <div className="pt-2 flex items-center gap-2 text-slate-500 font-medium">
-                                      <Phone className="w-3.5 h-3.5 text-navy shrink-0" />
-                                      <span>{recipientPhone}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Logistics / Courier Partner Card */}
-                                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                                  <h3 className="text-xs sm:text-sm font-bold text-navy flex items-center gap-2 pb-2 border-b border-slate-100">
-                                    <Truck className="w-4 h-4 text-[#A44101]" />
-                                    <span>Courier &amp; Shipment Tracking</span>
-                                  </h3>
-                                  <div className="space-y-2 text-xs">
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-slate-500">Logistics Partner:</span>
-                                      <span className="font-bold text-navy">{carrierName}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-slate-500">AWB / Tracking Number:</span>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="font-mono font-bold text-[#A44101]">{trackingAwb}</span>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopyText(trackingAwb, `awb-${order.id}`)}
-                                          className="text-slate-400 hover:text-navy p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                                          title="Copy AWB Tracking Number"
-                                        >
-                                          {copiedId === `awb-${order.id}` ? (
-                                            <span className="text-[10px] font-bold text-emerald-600">Copied!</span>
-                                          ) : (
-                                            <Copy className="w-3 h-3" />
-                                          )}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                      <span className="text-slate-500">Dispatch Status:</span>
-                                      <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">
-                                        {order.eta}
-                                      </span>
-                                    </div>
-                                    <div className="pt-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleLiveTrackOrder(order)}
-                                        className="w-full py-2 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2 active:scale-98"
-                                      >
-                                        <Truck className="w-3.5 h-3.5" />
-                                        <span>Track Live Shipment Status</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* SECTION 3: BILLING & PAYMENT BREAKDOWN */}
-                              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                                <h3 className="text-xs sm:text-sm font-bold text-navy flex items-center gap-2 pb-2 border-b border-slate-100">
-                                  <CreditCard className="w-4 h-4 text-[#A44101]" />
-                                  <span>Payment &amp; Billing Summary</span>
-                                </h3>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                                  <div className="space-y-1.5">
-                                    <div className="flex justify-between">
-                                      <span className="text-slate-500">Payment Mode:</span>
-                                      <span className="font-bold text-navy capitalize">{paymentMethodName}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-slate-500">Payment Status:</span>
-                                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px] uppercase">
-                                        {paymentStatusName}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-slate-500">Invoice Number:</span>
-                                      <span className="font-mono text-slate-700">INV-{String(order.id).slice(-8).toUpperCase()}</span>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-1.5 border-t sm:border-t-0 sm:border-l sm:pl-4 border-slate-100">
-                                    <div className="flex justify-between">
-                                      <span className="text-slate-500">Items Subtotal:</span>
-                                      <span className="font-bold text-navy">₹{order.subtotal || order.total}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-slate-500">Standard Delivery:</span>
-                                      <span className="font-bold text-emerald-600">FREE</span>
-                                    </div>
-                                    {order.discount > 0 && (
-                                      <div className="flex justify-between text-[#A44101] font-bold">
-                                        <span>Promotion Discount:</span>
-                                        <span>-₹{order.discount}</span>
-                                      </div>
-                                    )}
-                                    <div className="pt-2 border-t border-slate-100 flex justify-between text-sm font-black text-navy">
-                                      <span>Total Amount:</span>
-                                      <span className="text-[#A44101]">₹{order.total}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* SECTION 4: ACTIONS */}
-                              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleOrderDetails(order.id)}
-                                  className="text-xs font-bold text-slate-500 hover:text-navy cursor-pointer flex items-center gap-1"
-                                >
-                                  <ChevronUp className="w-3.5 h-3.5" />
-                                  <span>Collapse Order Details</span>
-                                </button>
-
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownloadInvoice(order.id)}
-                                    disabled={downloadingInvoiceId === order.id}
-                                    className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-stone-50 text-xs font-bold text-navy flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-60"
-                                  >
-                                    {downloadingInvoiceId === order.id ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#A44101]" />
-                                    ) : (
-                                      <FileText className="w-3.5 h-3.5 text-[#A44101]" />
-                                    )}
-                                    <span>Download Tax Invoice (PDF)</span>
-                                  </button>
-                                </div>
-                              </div>
-
-                            </div>
-                          )}
-
-                          {/* Order Action Buttons (Compact Bar) */}
-                          <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 sm:px-5 border-t border-slate-200/70 bg-white">
-                            <span className="text-[11px] text-slate-500">
-                              Order #{order.id} • {order.items?.length || 1} item{order.items?.length === 1 ? '' : 's'}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadInvoice(order.id)}
-                                disabled={downloadingInvoiceId === order.id}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-stone-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                              >
-                                {downloadingInvoiceId === order.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />
-                                ) : (
-                                  <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                )}
-                                <span>Download Invoice</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenInsideOrder(order.id)}
-                                className="px-3.5 py-1.5 rounded-lg bg-navy hover:bg-[#0c1a2d] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                              >
-                                <Truck className="w-3.5 h-3.5" />
-                                <span>Live Track</span>
-                              </button>
-                            </div>
-                          </div>
-
                         </div>
                       );
                     })}
@@ -2019,92 +1811,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
 
 
-      {/* Live Order Courier Tracking Modal */}
-      {activeTrackingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative space-y-5 animate-scaleUp">
-            <button
-              type="button"
-              onClick={() => setActiveTrackingOrder(null)}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-slate-400 hover:text-navy hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
 
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-2xl bg-[#A44101]/10 text-[#A44101] flex items-center justify-center">
-                <Truck className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded-full">
-                  Real-time Tracking
-                </span>
-                <h3 className="text-base font-black text-navy mt-0.5">
-                  Order #{activeTrackingOrder.id}
-                </h3>
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Courier Partner:</span>
-                <span className="font-bold text-navy">{activeTrackingOrder.carrier || 'Blue Dart Express'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">AWB Tracking No:</span>
-                <span className="font-bold font-mono text-slate-800">{activeTrackingOrder.awb || 'BD-847291039'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Current Status:</span>
-                <span className="font-bold text-[#A44101]">{activeTrackingOrder.status || 'In Transit'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Estimated Arrival:</span>
-                <span className="font-bold text-emerald-700">{activeTrackingOrder.eta || 'Within 2-3 Days'}</span>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-navy mb-3 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <span>Shipment Timeline</span>
-              </h4>
-
-              {trackingLoading ? (
-                <div className="py-8 flex items-center justify-center gap-2 text-slate-500 text-xs">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#A44101]" />
-                  <span>Fetching latest GPS scans...</span>
-                </div>
-              ) : (
-                <div className="space-y-4 pl-2 border-l-2 border-navy/20 ml-2">
-                  {(activeTrackingOrder.events || [
-                    { time: 'Today, 09:30 AM', desc: 'Package arrived at regional delivery hub (Delhi Hub)' },
-                    { time: 'Yesterday, 04:15 PM', desc: 'In Transit from Bhiwandi Central Logistics Facility' },
-                    { time: 'Yesterday, 10:00 AM', desc: 'Shipment picked up & scanned by courier partner' },
-                    { time: '2 days ago, 06:45 PM', desc: 'Order verified and packed by Apna Bharat Bazaar seller' },
-                  ]).map((evt: any, i: number) => (
-                    <div key={i} className="relative pl-4">
-                      <div className={`absolute -left-[13px] top-1 w-3 h-3 rounded-full border-2 border-white ${i === 0 ? 'bg-[#A44101] ring-4 ring-[#A44101]/20' : 'bg-slate-300'}`} />
-                      <p className="text-[11px] font-bold text-navy">{evt.desc}</p>
-                      <span className="text-[10px] text-slate-400">{evt.time}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setActiveTrackingOrder(null)}
-                className="px-5 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white font-bold text-xs cursor-pointer shadow-sm"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
