@@ -770,3 +770,97 @@ export const storefrontCheckoutApi = {
     }
   },
 };
+
+/* ============================================================
+   12. PRODUCT REVIEWS APIs
+   ============================================================ */
+export interface PublicReviewItem {
+  id: string;
+  _id?: string;
+  author?: string;
+  displayName?: string;
+  rating: number;
+  comment?: string;
+  images?: Array<string | { url: string; publicId?: string }>;
+  verifiedPurchase: boolean;
+  createdAt: string;
+  source?: 'customer' | 'admin';
+  isActive?: boolean;
+}
+
+export interface ProductReviewSummaryData {
+  averageRating: number | null;
+  reviewCount: number;
+  distribution?: Record<string, number>;
+  starDistribution?: Record<string, number>;
+}
+
+export interface ReviewEligibilityData {
+  canReview?: boolean;
+  canCreate?: boolean;
+  hasPurchased?: boolean;
+  orderId?: string | null;
+}
+
+export const storefrontReviewsApi = {
+  getSummary: async (productId: string) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}/summary`);
+      return res.data?.summary || res.data?.data?.summary || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  list: async (productId: string, params?: { page?: number; limit?: number }) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}`, { params });
+      return res.data || {};
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  getMine: async (productId: string) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/mine/${encodeURIComponent(productId)}`);
+      return res.data?.review || res.data?.data?.review || null;
+    } catch {
+      return null;
+    }
+  },
+  getEligibility: async (productId: string) => {
+    try {
+      const res = await apiClient.get(`/product-reviews/eligibility/${encodeURIComponent(productId)}`);
+      return res.data?.eligibility || res.data?.data?.eligibility || null;
+    } catch {
+      return null;
+    }
+  },
+  submitReview: async (payload: {
+    productId: string;
+    rating: number;
+    comment?: string;
+    orderId?: string;
+    images?: File[];
+  }) => {
+    try {
+      const fd = new FormData();
+      fd.append('productId', payload.productId);
+      fd.append('rating', String(payload.rating));
+      if (payload.comment) fd.append('comment', payload.comment.trim());
+      if (payload.orderId) fd.append('orderId', payload.orderId.trim());
+      if (payload.images && payload.images.length > 0) {
+        payload.images.forEach((file) => {
+          fd.append('reviewImages', file);
+        });
+      }
+
+      const res = await apiClient.post('/product-reviews', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+

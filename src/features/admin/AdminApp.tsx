@@ -43,10 +43,11 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       if (path.includes('products-inventory') || path.includes('/inventory')) return 'products-inventory';
       if (path.includes('products-archived') || path.includes('/archived')) return 'products-archived';
       if (path.includes('products')) return 'products-all';
-      if (path.includes('reviews-customer') || path.includes('/reviews/customer')) return 'reviews-customer';
+      if (path.includes('reviews/submissions') || path.includes('reviews-submissions') || path.includes('reviews-customer') || path.includes('/reviews/customer')) return 'reviews-submissions';
+      if (path.includes('reviews/generated') || path.includes('reviews-generated')) return 'reviews-generated';
       if (path.includes('reviews-management') || path.includes('/reviews/management')) return 'reviews-management';
       if (path.includes('reviews-reports') || path.includes('/reviews/reports')) return 'reviews-reports';
-      if (path.includes('reviews')) return 'reviews-product';
+      if (path.includes('reviews')) return 'reviews-submissions';
       if (path.includes('staff')) return 'staff';
       if (path.includes('growth') || path.includes('leads') || path.includes('abandoned')) return 'abandoned';
       if (path.includes('settings')) return 'settings';
@@ -54,7 +55,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
     return 'dashboard';
   });
 
-  const [orderFilter, setOrderFilter] = useState<string>('All');
+  const [orderFilter, setOrderFilter] = useState<string>('Pending');
 
   // Keep state synced with localStorage updates & token verification
   useEffect(() => {
@@ -124,10 +125,11 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       else if (path.includes('products-inventory') || path.includes('/inventory')) setCurrentTab('products-inventory');
       else if (path.includes('products-archived') || path.includes('/archived')) setCurrentTab('products-archived');
       else if (path.includes('products')) setCurrentTab('products-all');
-      else if (path.includes('reviews-customer')) setCurrentTab('reviews-customer');
+      else if (path.includes('reviews/submissions') || path.includes('reviews-submissions') || path.includes('reviews-customer')) setCurrentTab('reviews-submissions');
+      else if (path.includes('reviews/generated') || path.includes('reviews-generated')) setCurrentTab('reviews-generated');
       else if (path.includes('reviews-management')) setCurrentTab('reviews-management');
       else if (path.includes('reviews-reports')) setCurrentTab('reviews-reports');
-      else if (path.includes('reviews')) setCurrentTab('reviews-product');
+      else if (path.includes('reviews')) setCurrentTab('reviews-submissions');
       else if (path.includes('returns')) setCurrentTab('returns');
       else if (path.includes('rto')) setCurrentTab('rto');
       else if (path.includes('abandoned') || path.includes('growth')) setCurrentTab('abandoned');
@@ -227,7 +229,8 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       {(currentTab === 'reviews' || currentTab.startsWith('reviews-')) && (
         <AdminReviewsView 
           initialSubTab={
-            currentTab === 'reviews-customer' ? 'customer-reviews' :
+            currentTab === 'reviews-customer' || currentTab === 'reviews-submissions' ? 'customer-reviews' :
+            currentTab === 'reviews-generated' ? 'generated' :
             currentTab === 'reviews-management' ? 'review-management' :
             currentTab === 'reviews-reports' ? 'review-reports' :
             'product-reviews'

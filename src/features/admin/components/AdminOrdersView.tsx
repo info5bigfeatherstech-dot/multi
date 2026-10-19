@@ -28,8 +28,7 @@ interface AdminOrdersViewProps {
   initialStatusFilter?: string;
 }
 
-const ORDER_STATUS_TABS: (OrderStatus | 'All')[] = [
-  'All',
+const ORDER_STATUS_TABS: OrderStatus[] = [
   'Pending',
   'Confirmed',
   'Processing',
@@ -41,11 +40,14 @@ const ORDER_STATUS_TABS: (OrderStatus | 'All')[] = [
 ];
 
 export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
-  initialStatusFilter = 'All',
+  initialStatusFilter = 'Pending',
 }) => {
-  const [activeTab, setActiveTab] = useState<OrderStatus | 'All'>(
-    (initialStatusFilter as OrderStatus | 'All') || 'All'
-  );
+  const [activeTab, setActiveTab] = useState<OrderStatus>(() => {
+    if (initialStatusFilter && initialStatusFilter !== 'All') {
+      return initialStatusFilter as OrderStatus;
+    }
+    return 'Pending';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -160,11 +162,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
   }, [activeTab]);
 
   const filteredOrders = useMemo(() => {
-    let list = [...orders];
-
-    if (activeTab !== 'All') {
-      list = list.filter((o) => o.status === activeTab);
-    }
+    let list = orders.filter((o) => o.status === activeTab);
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -271,9 +269,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
         {/* Status Filter Tabs (Scrollable on Mobile) */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-slate-100">
           {ORDER_STATUS_TABS.map((status) => {
-            const count = status === 'All' 
-              ? orders.length 
-              : orders.filter((o) => o.status === status).length;
+            const count = orders.filter((o) => o.status === status).length;
             const isActive = activeTab === status;
 
             return (

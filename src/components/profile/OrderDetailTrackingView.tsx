@@ -407,19 +407,17 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
             {events.map((ev) => (
               <div
                 key={ev.step}
-                className={`p-3.5 rounded-2xl border transition-all ${
-                  ev.isCompleted
+                className={`p-3.5 rounded-2xl border transition-all ${ev.isCompleted
                     ? 'bg-white border-[#A44101]/30 shadow-2xs'
                     : 'bg-stone-50/60 border-slate-200/70 opacity-70'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2 mb-1.5">
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      ev.isCompleted
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${ev.isCompleted
                         ? 'bg-[#A44101] text-white'
                         : 'bg-slate-200 text-slate-500'
-                    }`}
+                      }`}
                   >
                     {ev.isCompleted ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : ev.step}
                   </div>
@@ -523,7 +521,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
           </div>
 
           {/* Customer Assurance Guarantee Banner */}
-    
+
         </div>
 
         {/* RIGHT COLUMN: SHIPPING ADDRESS & FINANCIAL SUMMARY */}
@@ -611,11 +609,11 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               </div>
             </div>
 
-          
+
           </div>
 
           {/* Need Help / Support Accordion */}
-    
+
         </div>
       </div>
     </div>

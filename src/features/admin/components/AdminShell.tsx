@@ -27,7 +27,8 @@ import {
   Star,
   MessageSquare,
   ShieldCheck,
-  BarChart2
+  BarChart2,
+  Sparkles
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
 import { adminOrdersApi, adminProductsApi, adminAnalyticsApi, adminReviewsApi } from '../../../api';
@@ -49,6 +50,8 @@ export type AdminTab =
   | 'reviews'
   | 'reviews-product'
   | 'reviews-customer'
+  | 'reviews-submissions'
+  | 'reviews-generated'
   | 'reviews-management'
   | 'reviews-reports'
   | 'analytics' 
@@ -57,7 +60,7 @@ export type AdminTab =
   | 'abandoned' 
   | 'marketing' 
   | 'staff'
-  | 'settings' 
+  | 'settings'
   | 'settings-general' 
   | 'settings-shipping' 
   | 'settings-staff'
@@ -570,8 +573,31 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       {isReviewsExpanded && (
                         <div className="border-l-2 border-orange-200/70 ml-6 pl-3 space-y-1 my-1">
                           <SidebarSubItem
+                            icon={MessageSquare}
+                            label="Customer Submissions"
+                            isActive={currentTab === 'reviews-customer' || currentTab === 'reviews-submissions'}
+                            onClick={() => handleTabClick('reviews-submissions')}
+                            badge={
+                              counts.pendingReviews > 0 ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                  currentTab === 'reviews-customer' || currentTab === 'reviews-submissions' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200/60'
+                                }`}>
+                                  {counts.pendingReviews}
+                                </span>
+                              ) : undefined
+                            }
+                          />
+
+                          <SidebarSubItem
+                            icon={Sparkles}
+                            label="Generated Reviews"
+                            isActive={currentTab === 'reviews-generated'}
+                            onClick={() => handleTabClick('reviews-generated')}
+                          />
+
+                          <SidebarSubItem
                             icon={Star}
-                            label="Product Reviews"
+                            label="All Product Reviews"
                             isActive={currentTab === 'reviews' || currentTab === 'reviews-product'}
                             onClick={() => handleTabClick('reviews-product')}
                             badge={
@@ -584,31 +610,15 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                           />
 
                           <SidebarSubItem
-                            icon={MessageSquare}
-                            label="Customer Reviews"
-                            isActive={currentTab === 'reviews-customer'}
-                            onClick={() => handleTabClick('reviews-customer')}
-                          />
-
-                          <SidebarSubItem
                             icon={ShieldCheck}
-                            label="Review Management"
+                            label="Moderation Queue"
                             isActive={currentTab === 'reviews-management'}
                             onClick={() => handleTabClick('reviews-management')}
-                            badge={
-                              counts.pendingReviews > 0 ? (
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                                  currentTab === 'reviews-management' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200/60'
-                                }`}>
-                                  {counts.pendingReviews} Pending
-                                </span>
-                              ) : undefined
-                            }
                           />
 
                           <SidebarSubItem
                             icon={BarChart2}
-                            label="Review Reports"
+                            label="Star Analytics"
                             isActive={currentTab === 'reviews-reports'}
                             onClick={() => handleTabClick('reviews-reports')}
                           />
