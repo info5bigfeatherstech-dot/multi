@@ -34,15 +34,18 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ onQuickAdjust }) => 
   const [searchQuery, setSearchQuery] = useState('');
   const [stockStatusFilter, setStockStatusFilter] = useState<'All' | 'low' | 'out' | 'healthy'>('All');
 
+  // Active (non-archived) products for inventory management
+  const activeProducts = useMemo(() => products.filter(p => p.status !== 'Archived'), [products]);
+
   // KPI calculations
-  const totalUnits = useMemo(() => products.reduce((acc, p) => acc + p.stock, 0), [products]);
-  const lowStockCount = useMemo(() => products.filter(p => p.stock > 0 && p.stock <= (p.lowStockThreshold || 10)).length, [products]);
-  const outOfStockCount = useMemo(() => products.filter(p => p.stock === 0).length, [products]);
-  const healthyCount = useMemo(() => products.filter(p => p.stock > (p.lowStockThreshold || 10)).length, [products]);
+  const totalUnits = useMemo(() => activeProducts.reduce((acc, p) => acc + p.stock, 0), [activeProducts]);
+  const lowStockCount = useMemo(() => activeProducts.filter(p => p.stock > 0 && p.stock <= (p.lowStockThreshold || 10)).length, [activeProducts]);
+  const outOfStockCount = useMemo(() => activeProducts.filter(p => p.stock === 0).length, [activeProducts]);
+  const healthyCount = useMemo(() => activeProducts.filter(p => p.stock > (p.lowStockThreshold || 10)).length, [activeProducts]);
 
   // Filtered products for stock table
   const filteredProducts = useMemo(() => {
-    let list = [...products];
+    let list = [...activeProducts];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -62,7 +65,7 @@ export const InventoryTab: React.FC<InventoryTabProps> = ({ onQuickAdjust }) => 
     }
 
     return list;
-  }, [products, searchQuery, stockStatusFilter]);
+  }, [activeProducts, searchQuery, stockStatusFilter]);
 
   // Filtered audit logs
   const filteredLogs = useMemo(() => {

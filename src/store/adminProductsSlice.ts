@@ -82,8 +82,9 @@ export interface AdminProduct {
   gallery?: string[];
   rating: number;
   reviews: number;
-  status: 'Active' | 'Draft' | 'Archived';
+  status: 'Active' | 'Inactive' | 'Draft' | 'Archived';
   tag?: string;
+  isFeatured?: boolean;
   badges?: string[];
   variants?: ProductVariant[];
   tierPricing?: TierPrice[];
@@ -605,7 +606,7 @@ export const adminProductsSlice = createSlice({
 
     // 4. Archive Product: Marks status as 'Archived'
     archiveProduct: (state, action: PayloadAction<string>) => {
-      const prod = state.products.find((p) => p.id === action.payload || p.sku === action.payload);
+      const prod = state.products.find((p) => p.id === action.payload || p.sku === action.payload || (p.slug && p.slug === action.payload));
       if (prod) {
         prod.status = 'Archived';
         prod.updatedAt = new Date().toISOString();
@@ -616,7 +617,7 @@ export const adminProductsSlice = createSlice({
 
     // 4b. Restore Product: Marks status as 'Active'
     restoreProduct: (state, action: PayloadAction<string>) => {
-      const prod = state.products.find((p) => p.id === action.payload || p.sku === action.payload);
+      const prod = state.products.find((p) => p.id === action.payload || p.sku === action.payload || (p.slug && p.slug === action.payload));
       if (prod) {
         prod.status = 'Active';
         prod.updatedAt = new Date().toISOString();

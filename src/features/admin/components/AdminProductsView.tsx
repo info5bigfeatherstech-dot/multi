@@ -210,9 +210,12 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
                 ? p.category.name
                 : (typeof p.category === 'string' ? p.category : 'General');
 
+              const isArchived = p.status === 'archived' || Boolean(p.isArchived) || p.channelStatus?.ecomm === 'archived' || p.channelStatus?.wholesale === 'archived';
+
               return {
                 id: p._id || p.id,
                 sku: firstVariant.sku || p.slug || `SKU-${(p._id || '').slice(-6)}`,
+                slug: p.slug || '',
                 title: p.title || p.name,
                 brand: p.brand || 'Generic',
                 category: categoryName,
@@ -227,8 +230,9 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
                 gallery,
                 rating: p.rating?.average || 4.8,
                 reviews: p.rating?.count || 120,
-                status: p.status === 'active' ? 'Active' : p.status === 'archived' ? 'Archived' : 'Draft',
+                status: isArchived ? 'Archived' : (String(p.status).toLowerCase() === 'active' ? 'Active' : 'Inactive'),
                 tag: p.isFeatured ? 'FEATURED' : undefined,
+                isFeatured: Boolean(p.isFeatured ?? p.isfeatured ?? p.featured ?? (p.tag === 'FEATURED')),
                 badges: p.tags || [],
                 description: p.description || '',
                 dateAdded: p.createdAt || new Date().toISOString(),

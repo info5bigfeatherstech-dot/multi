@@ -276,9 +276,28 @@ export const adminProductsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
-  bulkUpdateStatus: async (ids: string[], status: "Active" | "Draft") => {
+  bulkUpdateStatus: async (
+    payloadOrIds: string[] | { slugs?: string[]; ids?: string[]; status?: string; channelStatus?: { ecomm?: string; wholesale?: string } },
+    maybeStatus?: string
+  ) => {
     try {
-      const res = await apiClient.patch("/admin/products/bulk-status", { ids, status });
+      let body: any = {};
+      if (Array.isArray(payloadOrIds)) {
+        const normStatus = String(maybeStatus || 'draft').toLowerCase();
+        body = {
+          slugs: payloadOrIds,
+          status: normStatus === 'active' ? 'active' : 'draft',
+          channelStatus: { ecomm: normStatus === 'active' ? 'active' : 'draft' },
+        };
+      } else {
+        const normStatus = payloadOrIds.status ? String(payloadOrIds.status).toLowerCase() : undefined;
+        body = {
+          slugs: payloadOrIds.slugs || payloadOrIds.ids || [],
+          ...(normStatus ? { status: normStatus === 'active' ? 'active' : 'draft' } : {}),
+          channelStatus: payloadOrIds.channelStatus || (normStatus ? { ecomm: normStatus === 'active' ? 'active' : 'draft' } : undefined),
+        };
+      }
+      const res = await apiClient.patch("/admin/products/bulk-status", body);
       return res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
@@ -360,6 +379,14 @@ export const adminCategoriesApi = {
   delete: async (id: string) => {
     try {
       const res = await apiClient.delete(`/categories/admin/categories/${encodeURIComponent(id)}`);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  reorder: async (categories: Array<{ id: string; order: number }>) => {
+    try {
+      const res = await apiClient.post("/categories/admin/categories/reorder", { categories });
       return res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
@@ -616,6 +643,28 @@ export const adminOrdersApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  previewPendingOrderEdit: async (orderId: string, itemUpdates: Array<{ productId: string; variantId: string; quantity: number }>) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/items/${encodeURIComponent(cleanId)}/edit-pending/preview`, {
+        itemUpdates,
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  applyPendingOrderEdit: async (orderId: string, itemUpdates: Array<{ productId: string; variantId: string; quantity: number }>) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/items/${encodeURIComponent(cleanId)}/edit-pending`, {
+        itemUpdates,
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
 };
 
 /* ============================================================
@@ -721,3 +770,242 @@ export const adminReviewsApi = {
     } catch (err) { throw new Error(normalizeApiError(err)); }
   },
 };
+
+/* ============================================================
+   12. ADMIN OUT OF STOCK INQUIRIES API
+   ============================================================ */
+export interface AdminOosInquiry {
+  id: string;
+  productId: string;
+  variantId: string;
+  productName: string;
+  productSlug?: string | null;
+  variantSku?: string | null;
+  productImage?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  status: 'pending' | 'notified' | 'closed';
+  storefront: string;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+  notifiedAt?: string | null;
+  closedAt?: string | null;
+  adminNote?: string | null;
+}
+
+export const adminOosInquiriesApi = {
+  list: async (params?: { page?: number; limit?: number; status?: string; search?: string; days?: number }) => {
+    try {
+      const res = await apiClient.get("/admin/oos-inquiries", { params });
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  updateStatus: async (id: string, payload: { status: 'pending' | 'notified' | 'closed'; adminNote?: string }) => {
+    try {
+      const res = await apiClient.patch(`/admin/oos-inquiries/${encodeURIComponent(id)}/status`, payload);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+/* ============================================================
+   13. ADMIN RETURNS & REFUNDS API
+   ============================================================ */
+export interface AdminReturnRequestItem {
+  orderId: string;
+  createdAt: string;
+  updatedAt: string;
+  totalAmount: number;
+  paymentStatus: string;
+  orderStatus: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  returnInfo: {
+    status?: string | null;
+    reasonType?: string | null;
+    refundContext?: string | null;
+    requestedAt?: string | null;
+    approvedAt?: string | null;
+    rejectedAt?: string | null;
+    reverseProviderStatus?: string | null;
+    decisionReason?: string | null;
+    proofs?: string[];
+  };
+}
+
+export const adminReturnsApi = {
+  listRequests: async (params?: { status?: string; page?: number; limit?: number }) => {
+    try {
+      const res = await apiClient.get("/orders/admin/returns/requests", { params });
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  getRequest: async (orderId: string) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.get(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}`);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  decide: async (orderId: string, payload: { decision: 'approve' | 'reject'; decisionReason?: string }) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/decision`, payload);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  initiateRefund: async (orderId: string, payload?: { amountInr?: number }) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/refund`, payload || {});
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  getChat: async (orderId: string) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.get(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/chat`);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  sendChat: async (orderId: string, text: string) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/chat`, { text });
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  retryReversePickup: async (orderId: string) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/reverse-pickup/retry`);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+/* ============================================================
+   14. ADMIN RTO API (Expanded)
+   ============================================================ */
+export interface AdminRtoOrder {
+  orderId: string;
+  orderIdDisplay?: string;
+  customerName?: string;
+  contactPhone?: string;
+  subtotalInr?: number;
+  amountInr?: number;
+  totalAmount?: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  orderStatus?: string;
+  providerStatus?: string | null;
+  rtoStatus: string;
+  rtoStage?: string;
+  rtoReason?: string;
+  rtoReasonCategory?: string;
+  rtoRefundAmount?: number | null;
+  refundCalculation?: {
+    eligible: boolean;
+    maxRefundableInr: number;
+    deductions?: number;
+    netRefund?: number;
+  };
+  warehouseDelivered?: boolean;
+  adminActionRequired?: boolean;
+  shipmentInfo?: any;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export const adminRtoApi = {
+  getOrders: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    section?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    preset?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    try {
+      const res = await apiClient.get("/admin/rto/orders", { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  getAnalytics: async (params?: { from?: string; to?: string; preset?: string }) => {
+    try {
+      const res = await apiClient.get("/admin/rto/analytics", { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  exportReport: async (params?: { format?: 'csv' | 'json'; status?: string; section?: string; preset?: string }) => {
+    try {
+      const res = await apiClient.get("/admin/rto/report", {
+        params,
+        responseType: params?.format === 'json' ? 'json' : 'blob',
+      });
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  autoSyncStatuses: async (params?: { preset?: string; staleMinutes?: number }) => {
+    try {
+      const res = await apiClient.post("/admin/rto/auto-sync-statuses", null, { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  processRefund: async (payload: { orderId: string; rtoShippingOverride?: number }) => {
+    try {
+      const res = await apiClient.post("/admin/rto/refund", payload);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  rejectRefund: async (payload: { orderId: string; note?: string; action?: 'reject' | 'close' }) => {
+    try {
+      const res = await apiClient.post("/admin/rto/reject", payload);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  bulkAction: async (payload: { action: 'refund' | 'reject' | 'close'; orderIds: string[]; note?: string }) => {
+    try {
+      const res = await apiClient.post("/admin/rto/bulk-action", payload);
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+

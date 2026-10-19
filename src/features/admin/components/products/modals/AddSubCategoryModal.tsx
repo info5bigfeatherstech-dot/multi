@@ -117,7 +117,6 @@ export const AddSubCategoryModal: React.FC<AddSubCategoryModalProps> = ({
 
       if (thumbnailFile) {
         formData.append('cardImage', thumbnailFile);
-        formData.append('thumbnail', thumbnailFile);
         formData.append('image', thumbnailFile);
       }
 

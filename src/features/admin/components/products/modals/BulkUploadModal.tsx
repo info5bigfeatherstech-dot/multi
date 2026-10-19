@@ -27,7 +27,7 @@ interface ParsedItem {
   currentPrice: number;
   originalPrice: number;
   stock: number;
-  status: 'Active' | 'Draft';
+  status: 'Active' | 'Inactive';
   isValid: boolean;
   validationErrors: string[];
 }
@@ -186,7 +186,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
               currentPrice: price,
               originalPrice,
               stock,
-              status: (item.status === 'Draft' ? 'Draft' : 'Active') as 'Active' | 'Draft',
+              status: (item.status === 'Inactive' || item.status === 'Draft' ? 'Inactive' : 'Active') as 'Active' | 'Inactive',
               isValid: validationErrors.length === 0,
               validationErrors
             };

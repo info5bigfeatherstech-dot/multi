@@ -22,6 +22,7 @@ import {
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { apiClient } from '../api';
+import { isProductActive } from '../utils/productUtils';
 
 export interface CategorySectionDefinition {
   id: string;
@@ -217,6 +218,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
           const mapped: ProductItem[] = [];
 
           rawList.forEach((p: any) => {
+            if (!isProductActive(p)) return;
             // Find real product image - reject empty/dummy items
             const img = 
               p.variants?.[0]?.images?.[0]?.url ||

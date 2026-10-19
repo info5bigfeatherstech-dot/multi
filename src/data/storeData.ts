@@ -112,6 +112,8 @@ export interface ProductItem {
   isTopDeal?: boolean;
   tag?: string;
   inStock: boolean;
+  status?: string;
+  isActive?: boolean;
 }
 
 export interface CategorySectionInfo {

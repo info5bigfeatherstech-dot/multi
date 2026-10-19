@@ -14,6 +14,7 @@ import { ProductItem, getAllProducts } from '../data/storeData';
 import { storefrontWishlistApi, apiClient } from '../api';
 import { useCart } from '../context/CartContext';
 import { isAuthenticated, requireAuth } from '../utils/authGuard';
+import { isProductActive } from '../utils/productUtils';
 import { toast } from 'react-hot-toast';
 
 interface DealsPageProps {
@@ -107,6 +108,7 @@ export const DealsPage: React.FC<DealsPageProps> = ({
           const raw = res.data?.products || res.data?.data || (Array.isArray(res.data) ? res.data : []);
           if (Array.isArray(raw) && raw.length > 0) {
             apiProducts = raw
+              .filter((p: any) => isProductActive(p))
               .map((p: any) => {
                 const img =
                   p.variants?.[0]?.images?.[0]?.url ||

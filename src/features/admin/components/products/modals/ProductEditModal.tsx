@@ -102,7 +102,9 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
   const [category, setCategory] = useState(isAddMode ? (categories[0]?.name || 'Home & Kitchen') : (product?.category || categories[0]?.name || ''));
   const [subcategory, setSubcategory] = useState(isAddMode ? '' : (product?.subcategory || ''));
   const [description, setDescription] = useState(isAddMode ? '' : (product?.description || ''));
-  const [status, setStatus] = useState<'Active' | 'Draft' | 'Archived'>(isAddMode ? 'Active' : (product?.status || 'Active'));
+  const [status, setStatus] = useState<'Active' | 'Inactive' | 'Archived'>(
+    isAddMode ? 'Active' : (product?.status === 'Active' ? 'Active' : (product?.status === 'Archived' ? 'Archived' : 'Inactive'))
+  );
   const [tag, setTag] = useState(isAddMode ? '' : (product?.tag || ''));
 
   // Pricing
@@ -656,7 +658,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
           trackInventory: v.trackInventory !== false
         },
         channelVisibility: {
-          ecomm: v.ecomVisibility !== false ? 'active' : 'inactive',
+          ecomm: (status === 'Inactive' || v.ecomVisibility === false) ? 'draft' : 'active',
           wholesale: 'active'
         },
         minimumOrderQuantity: Number(v.moq) || 1,
@@ -668,7 +670,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             height: Number(v.dimensions?.height) || 10
           }
         },
-        isActive: v.isActive !== false,
+        isActive: (status !== 'Inactive' && v.isActive !== false),
         attributes: (v.attributes || []).filter((a: any) => a.key?.trim() && a.value?.trim()),
         images: variantImages
       };
@@ -680,6 +682,8 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
       if (s.name.trim()) attributesObj[s.name.trim()] = s.value.trim();
     });
 
+    const backendStatus = status === 'Inactive' ? 'draft' : (status === 'Archived' ? 'archived' : 'active');
+
     if (isAddMode) {
       const newProdId = `prod-${Date.now()}`;
       (async () => {
@@ -688,7 +692,11 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             title: title.trim(),
             name: title.trim(),
             description: description.trim(),
-            status: status.toLowerCase(),
+            status: backendStatus,
+            channelStatus: {
+              ecomm: backendStatus,
+              wholesale: 'active'
+            },
             brand: brand.trim(),
             category,
             subcategory,
@@ -743,11 +751,15 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
     // Edit Mode
     (async () => {
       try {
-        await adminProductsApi.update(product?.sku || product?.id || sku, {
+        await adminProductsApi.update(product?.slug || product?.sku || product?.id || sku, {
           title: title.trim(),
           name: title.trim(),
           description: description.trim(),
-          status: status.toLowerCase(),
+          status: backendStatus,
+          channelStatus: {
+            ecomm: backendStatus,
+            wholesale: 'active'
+          },
           brand: brand.trim(),
           category,
           subcategory,
@@ -997,7 +1009,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Active">Active (Visible in Store)</SelectItem>
-                      <SelectItem value="Draft">Draft (Hidden)</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
                       <SelectItem value="Archived">Archived</SelectItem>
                     </SelectContent>
                   </Select>

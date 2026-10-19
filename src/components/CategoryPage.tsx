@@ -33,6 +33,7 @@ import {
   getAllProducts 
 } from '../data/storeData';
 import { storefrontProductsApi, CATEGORY_SLUG_TO_ID_MAP } from '../api';
+import { isProductActive } from '../utils/productUtils';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
 import { toast } from 'react-hot-toast';
@@ -355,12 +356,14 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
             ? res
             : [];
 
-          const total = Number(res?.total ?? res?.pagination?.total ?? res?.data?.total ?? list.length);
+          const activeList = list.filter((p: any) => isProductActive(p));
+
+          const total = Number(res?.total ?? res?.pagination?.total ?? res?.data?.total ?? activeList.length);
           const totalP = Number(res?.totalPages ?? res?.pagination?.pages ?? res?.data?.totalPages ?? (Math.ceil(total / 50) || 1));
           setTotalProducts(total);
           setTotalPages(Math.max(1, totalP));
 
-          const mapped: ProductItem[] = list.map((p: any) => {
+          const mapped: ProductItem[] = activeList.map((p: any) => {
             const currentPrice = Number(
               p.minPrice ?? 
               p.currentPrice ?? 

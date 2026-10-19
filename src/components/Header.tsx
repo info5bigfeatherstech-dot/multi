@@ -38,7 +38,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import { CATEGORY_SUBCATEGORIES, ProductItem, getAllProducts } from '../data/storeData';
 import { storefrontProductsApi } from '../api';
-import { getProductSlug } from '../utils/productUtils';
+import { getProductSlug, isProductActive } from '../utils/productUtils';
 
 export interface NavCategoryMenuItem {
   id: string;
@@ -505,13 +505,15 @@ export const Header: React.FC<HeaderProps> = ({
         let mappedApiProducts: ProductItem[] = [];
 
         if (Array.isArray(rawResults) && rawResults.length > 0) {
-          mappedApiProducts = rawResults.map(mapBackendSearchProduct);
+          const activeResults = rawResults.filter((p: any) => isProductActive(p));
+          mappedApiProducts = activeResults.map(mapBackendSearchProduct);
         }
 
         // Search local product items for supplemental results
         const qLower = query.toLowerCase();
         const allLocal = getAllProducts();
         const localMatches = allLocal.filter((p) => {
+          if (!isProductActive(p)) return false;
           return (
             p.title.toLowerCase().includes(qLower) ||
             p.category.toLowerCase().includes(qLower) ||
@@ -524,14 +526,14 @@ export const Header: React.FC<HeaderProps> = ({
         const merged: ProductItem[] = [];
 
         for (const p of mappedApiProducts) {
-          if (!seenIds.has(p.id)) {
+          if (!seenIds.has(p.id) && isProductActive(p)) {
             seenIds.add(p.id);
             merged.push(p);
           }
         }
 
         for (const p of localMatches) {
-          if (!seenIds.has(p.id) && merged.length < 12) {
+          if (!seenIds.has(p.id) && isProductActive(p) && merged.length < 12) {
             seenIds.add(p.id);
             merged.push(p);
           }
@@ -542,8 +544,10 @@ export const Header: React.FC<HeaderProps> = ({
         console.warn('Search API error, using local fallback:', err);
         const qLower = query.toLowerCase();
         const localMatches = getAllProducts().filter((p) =>
-          p.title.toLowerCase().includes(qLower) ||
-          p.category.toLowerCase().includes(qLower)
+          isProductActive(p) && (
+            p.title.toLowerCase().includes(qLower) ||
+            p.category.toLowerCase().includes(qLower)
+          )
         ).slice(0, 10);
         setSearchResults(localMatches);
       } finally {

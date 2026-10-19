@@ -28,11 +28,14 @@ export const ArchiveConfirmDialog: React.FC<ArchiveConfirmDialogProps> = ({ prod
   }, [onClose]);
 
   const handleArchive = () => {
+    const slug = product.slug || product.sku || product.id;
     (async () => {
       try {
-        await adminProductsApi.archive(product.sku || product.id);
-      } catch {
-        // fallback
+        if (slug) {
+          await adminProductsApi.archive(slug);
+        }
+      } catch (err) {
+        console.warn('Backend archive failed, fallback to local state:', err);
       }
     })();
     dispatch(archiveProduct(product.id));
@@ -41,11 +44,14 @@ export const ArchiveConfirmDialog: React.FC<ArchiveConfirmDialogProps> = ({ prod
   };
 
   const handleDeletePermanent = () => {
+    const slug = product.slug || product.sku || product.id;
     (async () => {
       try {
-        await adminProductsApi.archive(product.sku || product.id);
-      } catch {
-        // fallback
+        if (slug) {
+          await adminProductsApi.archive(slug);
+        }
+      } catch (err) {
+        console.warn('Backend delete failed, fallback to local state:', err);
       }
     })();
     dispatch(deleteProduct(product.id));

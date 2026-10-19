@@ -28,16 +28,27 @@ import {
   MessageSquare,
   ShieldCheck,
   BarChart2,
-  Sparkles
+  Sparkles,
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
-import { adminOrdersApi, adminProductsApi, adminAnalyticsApi, adminReviewsApi } from '../../../api';
+import {
+  adminOrdersApi,
+  adminProductsApi,
+  adminAnalyticsApi,
+  adminReviewsApi,
+  adminOosInquiriesApi,
+  adminReturnsApi,
+  adminRtoApi
+} from '../../../api';
 
 export type AdminTab = 
   | 'dashboard' 
   | 'orders' 
   | 'returns' 
   | 'rto' 
+  | 'outofstock-query' 
   | 'products' 
   | 'products-all'
   | 'products-add'
@@ -206,6 +217,9 @@ export const AdminShell: React.FC<AdminShellProps> = ({
 
   const [counts, setCounts] = useState({
     orders: mockAdminStore.getOrders().length,
+    returns: 0,
+    rto: 0,
+    oosInquiries: 0,
     products: mockAdminStore.getProducts().length,
     abandoned: mockAdminStore.getAbandonedCarts().length,
     archived: 0,
@@ -216,12 +230,15 @@ export const AdminShell: React.FC<AdminShellProps> = ({
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [ordRes, prodRes, anaRes, archRes, revRes] = await Promise.allSettled([
+        const [ordRes, prodRes, anaRes, archRes, revRes, retRes, rtoRes, oosRes] = await Promise.allSettled([
           adminOrdersApi.getSummary(),
           adminProductsApi.getAll({ limit: 1 }),
           adminAnalyticsApi.getSummary('30d'),
           adminProductsApi.getArchived({ limit: 1 }),
           adminReviewsApi.list({ limit: 100 }),
+          adminReturnsApi.listRequests({ status: 'requested', limit: 1 }),
+          adminRtoApi.getOrders({ limit: 1 }),
+          adminOosInquiriesApi.list({ status: 'pending', limit: 1 }),
         ]);
 
         let ordersCount = counts.orders;
@@ -259,8 +276,26 @@ export const AdminShell: React.FC<AdminShellProps> = ({
           pendingReviewsCount = rList.filter((r: any) => !r.isActive).length;
         }
 
+        let returnsCount = 0;
+        if (retRes.status === 'fulfilled' && retRes.value) {
+          returnsCount = retRes.value?.pagination?.total ?? (Array.isArray(retRes.value?.data) ? retRes.value.data.length : 0);
+        }
+
+        let rtoCount = 0;
+        if (rtoRes.status === 'fulfilled' && rtoRes.value) {
+          rtoCount = rtoRes.value?.pagination?.total ?? (Array.isArray(rtoRes.value?.orders) ? rtoRes.value.orders.length : 0);
+        }
+
+        let oosCount = 0;
+        if (oosRes.status === 'fulfilled' && oosRes.value) {
+          oosCount = oosRes.value?.pagination?.total ?? (Array.isArray(oosRes.value?.data) ? oosRes.value.data.length : 0);
+        }
+
         setCounts({
           orders: ordersCount,
+          returns: returnsCount,
+          rto: rtoCount,
+          oosInquiries: oosCount,
           products: productsCount,
           abandoned: abandonedCount,
           archived: archivedCount,
@@ -293,11 +328,11 @@ export const AdminShell: React.FC<AdminShellProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/80 flex flex-col font-roboto text-slate-800 antialiased selection:bg-[#A44101] selection:text-white">
+    <div className="h-screen max-h-screen overflow-hidden bg-slate-100/80 flex flex-col font-roboto text-slate-800 antialiased selection:bg-[#A44101] selection:text-white">
       {/* =========================================================================
           TOP ADMIN HEADER BAR
          ========================================================================= */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs h-16 flex items-center px-4 sm:px-6 justify-between">
+      <header className="shrink-0 z-40 bg-white border-b border-slate-200/90 shadow-2xs h-16 flex items-center px-4 sm:px-6 justify-between">
         <div className="flex items-center gap-3">
           {/* Mobile Menu Toggle */}
           <button
@@ -364,15 +399,15 @@ export const AdminShell: React.FC<AdminShellProps> = ({
       {/* =========================================================================
           MAIN CONTAINER: SIDEBAR + CONTENT VIEW
          ========================================================================= */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
         {/* SIDEBAR (Desktop & Mobile Drawer with Light Gray Background) */}
         <aside
-          className={`fixed inset-y-0 left-0 top-16 z-30 w-64 bg-slate-100/95 border-r border-slate-200/90 text-slate-700 flex flex-col justify-between transition-transform duration-300 lg:static lg:translate-x-0 ${
-            isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+          className={`fixed inset-y-0 left-0 top-16 z-30 w-64 bg-slate-100/95 border-r border-slate-200/90 text-slate-700 flex flex-col justify-between transition-transform duration-300 lg:static lg:top-0 lg:h-full lg:max-h-full lg:translate-x-0 shrink-0 overflow-hidden ${
+            isMobileMenuOpen ? 'translate-x-0 shadow-2xl h-[calc(100vh-4rem)]' : '-translate-x-full'
           }`}
         >
           {/* 1. Sidebar Navigation Links */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          <div className="flex-1 overflow-y-auto min-h-0 p-4 space-y-6 sidebar-scroll">
             {isSettingsMode ? (
               /* Dedicated Settings Mode Navigation */
               <div className="space-y-4 animate-fadeIn">
@@ -452,6 +487,57 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                         }`}>
                           {counts.orders}
                         </span>
+                      }
+                    />
+
+                    {/* Returns & Refunds */}
+                    <SidebarNavItem
+                      icon={RotateCcw}
+                      label="Returns & Refunds"
+                      isActive={currentTab === 'returns'}
+                      onClick={() => handleTabClick('returns')}
+                      badge={
+                        counts.returns > 0 ? (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                            currentTab === 'returns' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200/60'
+                          }`}>
+                            {counts.returns}
+                          </span>
+                        ) : undefined
+                      }
+                    />
+
+                    {/* RTO */}
+                    <SidebarNavItem
+                      icon={Truck}
+                      label="RTO"
+                      isActive={currentTab === 'rto'}
+                      onClick={() => handleTabClick('rto')}
+                      badge={
+                        counts.rto > 0 ? (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                            currentTab === 'rto' ? 'bg-white/25 text-white' : 'bg-rose-100 text-rose-800 border border-rose-200/60'
+                          }`}>
+                            {counts.rto}
+                          </span>
+                        ) : undefined
+                      }
+                    />
+
+                    {/* Out of Stock Query */}
+                    <SidebarNavItem
+                      icon={AlertTriangle}
+                      label="Out of Stock Query"
+                      isActive={currentTab === 'outofstock-query' || currentTab === 'outofstock'}
+                      onClick={() => handleTabClick('outofstock-query')}
+                      badge={
+                        counts.oosInquiries > 0 ? (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                            currentTab === 'outofstock-query' || currentTab === 'outofstock' ? 'bg-white/25 text-white' : 'bg-amber-100 text-amber-900 border border-amber-200/60'
+                          }`}>
+                            {counts.oosInquiries}
+                          </span>
+                        ) : undefined
                       }
                     />
 
@@ -748,8 +834,8 @@ export const AdminShell: React.FC<AdminShellProps> = ({
         )}
 
         {/* MAIN VIEWPORT CONTENT */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-[1400px] mx-auto">
+        <main className="flex-1 h-full overflow-y-auto min-h-0 p-4 sm:p-6 lg:p-8">
+          <div className="max-w-[1400px] mx-auto pb-16">
             {children}
           </div>
         </main>

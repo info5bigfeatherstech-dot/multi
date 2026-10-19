@@ -48,6 +48,44 @@ export const getProductSlug = (product: {
 };
 
 /**
+ * Validates whether a product is currently active and eligible for storefront display.
+ */
+export const isProductActive = (p: any): boolean => {
+  if (!p) return false;
+
+  // Status check
+  const status = String(p.status || '').trim().toLowerCase();
+  if (status === 'inactive' || status === 'draft' || status === 'archived') {
+    return false;
+  }
+
+  // Explicit flags
+  if (p.isActive === false || p.isArchived === true) {
+    return false;
+  }
+
+  // Channel status checks (ecommerce)
+  const ecommStatus = String(
+    p.channelStatus?.ecomm ||
+    p.channelVisibility?.ecomm ||
+    (typeof p.channelStatus === 'string' ? p.channelStatus : '')
+  ).trim().toLowerCase();
+  if (ecommStatus === 'inactive' || ecommStatus === 'draft' || ecommStatus === 'archived') {
+    return false;
+  }
+
+  // Category status check
+  if (p.category && typeof p.category === 'object') {
+    const catStatus = String(p.category.status || '').trim().toLowerCase();
+    if (catStatus === 'inactive' || catStatus === 'draft' || catStatus === 'archived') {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+/**
  * Normalizes raw backend product data into the standard ProductItem interface.
  */
 export const mapBackendProductToItem = (p: any): ProductItem => {
@@ -106,6 +144,8 @@ export const mapBackendProductToItem = (p: any): ProductItem => {
     inStock: p.inStock !== undefined ? p.inStock : true,
     isTopDeal: discountPercentage >= 40,
     tag: p.appliedTags?.[0] || (discountPercentage >= 50 ? 'MEGA DEAL' : undefined),
+    status: p.status,
+    isActive: isProductActive(p),
   };
 };
 
@@ -144,7 +184,7 @@ export const getCachedProduct = (identifier: string): ProductItem | null => {
 
   // 1. Direct ID match in storeData
   const localDirect = getProductById(identifier) || getProductById(rawClean);
-  if (localDirect) return localDirect;
+  if (localDirect && isProductActive(localDirect)) return localDirect;
 
   // 2. Check all products in catalog
   const all = getAllProducts();
@@ -159,7 +199,7 @@ export const getCachedProduct = (identifier: string): ProductItem | null => {
       (pTitleSlug && slugClean && (pTitleSlug.includes(slugClean) || slugClean.includes(pTitleSlug)))
     );
   });
-  if (foundLocal) return foundLocal;
+  if (foundLocal && isProductActive(foundLocal)) return foundLocal;
 
   // 3. Check sessionStorage
   try {
@@ -168,7 +208,14 @@ export const getCachedProduct = (identifier: string): ProductItem | null => {
       sessionStorage.getItem(`abb_prod_${rawClean}`) ||
       sessionStorage.getItem(`abb_prod_${identifier}`);
     if (specific) {
-      return JSON.parse(specific);
+      const parsed = JSON.parse(specific);
+      if (isProductActive(parsed)) {
+        return parsed;
+      } else {
+        sessionStorage.removeItem(`abb_prod_${slugClean}`);
+        sessionStorage.removeItem(`abb_prod_${rawClean}`);
+        sessionStorage.removeItem(`abb_prod_${identifier}`);
+      }
     }
 
     const last = sessionStorage.getItem('abb_selected_product');
@@ -183,7 +230,11 @@ export const getCachedProduct = (identifier: string): ProductItem | null => {
         parsedTitleSlug === slugClean ||
         (parsedTitleSlug && slugClean && (parsedTitleSlug.includes(slugClean) || slugClean.includes(parsedTitleSlug)))
       ) {
-        return parsed;
+        if (isProductActive(parsed)) {
+          return parsed;
+        } else {
+          sessionStorage.removeItem('abb_selected_product');
+        }
       }
     }
   } catch (err) {
@@ -201,7 +252,7 @@ export const fetchProductByIdentifier = async (identifier: string): Promise<Prod
 
   // 1. Fast path: check synchronous cache first
   const cached = getCachedProduct(identifier);
-  if (cached) return cached;
+  if (cached && isProductActive(cached)) return cached;
 
   const cleanSlug = slugify(identifier);
   const rawParam = identifier.trim();
@@ -211,6 +262,7 @@ export const fetchProductByIdentifier = async (identifier: string): Promise<Prod
     const res = await storefrontProductsApi.getBySlug(cleanSlug);
     const detail = res?.product || res?.data || res;
     if (detail && (detail._id || detail.id || detail.title || detail.name)) {
+      if (!isProductActive(detail)) return null;
       const mapped = mapBackendProductToItem(detail);
       cacheProduct(mapped);
       return mapped;
@@ -224,6 +276,7 @@ export const fetchProductByIdentifier = async (identifier: string): Promise<Prod
       const res = await storefrontProductsApi.getBySlug(rawParam);
       const detail = res?.product || res?.data || res;
       if (detail && (detail._id || detail.id || detail.title || detail.name)) {
+        if (!isProductActive(detail)) return null;
         const mapped = mapBackendProductToItem(detail);
         cacheProduct(mapped);
         return mapped;
@@ -237,6 +290,7 @@ export const fetchProductByIdentifier = async (identifier: string): Promise<Prod
     const rawList = listRes.data?.products || listRes.data?.data || (Array.isArray(listRes.data) ? listRes.data : []);
     if (Array.isArray(rawList) && rawList.length > 0) {
       const match = rawList.find((p: any) => {
+        if (!isProductActive(p)) return false;
         const pSlug = slugify(p.slug || '');
         const pTitleSlug = slugify(p.title || p.name || '');
         return (
@@ -280,6 +334,7 @@ export const fetchProductByIdentifier = async (identifier: string): Promise<Prod
       if (list.length > 0) {
         const match =
           list.find((p: any) => {
+            if (!isProductActive(p)) return false;
             const pSlug = slugify(p.slug || '');
             const pTitleSlug = slugify(p.title || p.name || '');
             return (
@@ -287,7 +342,7 @@ export const fetchProductByIdentifier = async (identifier: string): Promise<Prod
               pTitleSlug === cleanSlug ||
               (pTitleSlug && cleanSlug && (pTitleSlug.includes(cleanSlug) || cleanSlug.includes(pTitleSlug)))
             );
-          }) || list[0];
+          });
 
         if (match) {
           const mapped = mapBackendProductToItem(match);

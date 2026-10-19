@@ -33,7 +33,6 @@ import {
 } from '../../../../components/ui/dropdown-menu';
 import {
   AdminProduct,
-  toggleProductStatus,
   toggleSelectProduct,
   selectAllProducts,
   clearSelection,
@@ -42,6 +41,7 @@ import {
   updateProduct,
   resetToDefaultStore
 } from '../../../../store/adminProductsSlice';
+import { adminProductsApi } from '../../../../api/adminApi';
 import toast from 'react-hot-toast';
 
 interface AllProductsTabProps {
@@ -70,7 +70,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [stockFilter, setStockFilter] = useState<'All' | 'in_stock' | 'low_stock' | 'out_of_stock'>('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Draft' | 'Archived'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive' | 'Archived'>('All');
   const [sortBy, setSortBy] = useState<'date' | 'price_asc' | 'price_desc' | 'stock' | 'name'>('date');
 
   // Pagination state
@@ -112,7 +112,11 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
     }
 
     // Status filter
-    if (statusFilter !== 'All') {
+    if (statusFilter === 'All') {
+      list = list.filter((p) => p.status !== 'Archived');
+    } else if (statusFilter === 'Inactive') {
+      list = list.filter((p) => p.status === 'Inactive' || p.status === 'Draft');
+    } else {
       list = list.filter((p) => p.status === statusFilter);
     }
 
@@ -154,23 +158,73 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
     }
   };
 
-  const handleToggleStatus = (id: string, currentStatus: string) => {
-    dispatch(toggleProductStatus(id));
-    const nextStatus = currentStatus === 'Active' ? 'Draft' : 'Active';
-    toast.success(`Product status switched to ${nextStatus}`);
-  };
 
 
 
-  const handleSetEcomStatus = (status: 'Active' | 'Draft' | 'Archived') => {
+  const handleSetEcomStatus = async (status: 'Active' | 'Inactive') => {
     selectedProductIds.forEach((id) => {
       dispatch(updateProduct({ id, updates: { status } }));
     });
-    toast.success(`Set Ecom status to ${status} for ${selectedProductIds.length} products`);
+
+    const backendStatus = status === 'Active' ? 'active' : 'draft';
+    const selectedSlugs = selectedProductIds
+      .map((id) => {
+        const p = products.find((prod) => prod.id === id);
+        return p?.slug || p?.sku || id;
+      })
+      .filter(Boolean);
+
+    try {
+      if (selectedSlugs.length > 0) {
+        await adminProductsApi.bulkUpdateStatus({
+          slugs: selectedSlugs,
+          status: backendStatus,
+          channelStatus: { ecomm: backendStatus }
+        });
+      }
+      toast.success(`Set Ecom status to ${status} for ${selectedProductIds.length} products`);
+    } catch (err: any) {
+      console.warn('Bulk status update failed, attempting per-product update:', err);
+      for (const slug of selectedSlugs) {
+        try {
+          await adminProductsApi.update(slug, {
+            status: backendStatus,
+            channelStatus: { ecomm: backendStatus }
+          });
+        } catch {}
+      }
+      toast.success(`Set Ecom status to ${status} for ${selectedProductIds.length} products`);
+    }
   };
 
-  const handleSetWholesaleStatus = (status: 'Active' | 'Draft' | 'Archived') => {
-    toast.success(`Set Wholesale channel to ${status} for ${selectedProductIds.length} products`);
+  const handleSetWholesaleStatus = async (status: 'Active' | 'Inactive') => {
+    const backendStatus = status === 'Active' ? 'active' : 'draft';
+    const selectedSlugs = selectedProductIds
+      .map((id) => {
+        const p = products.find((prod) => prod.id === id);
+        return p?.slug || p?.sku || id;
+      })
+      .filter(Boolean);
+
+    try {
+      if (selectedSlugs.length > 0) {
+        await adminProductsApi.bulkUpdateStatus({
+          slugs: selectedSlugs,
+          channelStatus: { wholesale: backendStatus }
+        });
+      }
+      toast.success(`Set Wholesale channel to ${status} for ${selectedProductIds.length} products`);
+    } catch (err: any) {
+      console.warn('Bulk wholesale status update failed:', err);
+      for (const slug of selectedSlugs) {
+        try {
+          await adminProductsApi.update(slug, {
+            channelStatus: { wholesale: backendStatus }
+          });
+        } catch {}
+      }
+      toast.success(`Set Wholesale channel to ${status} for ${selectedProductIds.length} products`);
+    }
   };
 
   const handleApplyLabel = () => {
@@ -339,7 +393,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
               <SelectContent>
                 <SelectItem value="All">All Statuses</SelectItem>
                 <SelectItem value="Active">Active only</SelectItem>
-                <SelectItem value="Draft">Draft only</SelectItem>
+                <SelectItem value="Inactive">Inactive only</SelectItem>
                 <SelectItem value="Archived">Archived only</SelectItem>
               </SelectContent>
             </Select>
@@ -440,11 +494,8 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                 <DropdownMenuItem onClick={() => handleSetEcomStatus('Active')} className="text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer">
                   Active
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSetEcomStatus('Draft')} className="text-slate-700 hover:text-amber-700 hover:bg-amber-50 cursor-pointer">
-                  Draft
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSetEcomStatus('Archived')} className="text-slate-700 hover:text-rose-700 hover:bg-rose-50 cursor-pointer">
-                  Archived
+                <DropdownMenuItem onClick={() => handleSetEcomStatus('Inactive')} className="text-slate-700 hover:text-amber-700 hover:bg-amber-50 cursor-pointer">
+                  Inactive
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -464,11 +515,8 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                 <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Active')} className="text-slate-700 hover:text-purple-700 hover:bg-purple-50 cursor-pointer">
                   Active
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Draft')} className="text-slate-700 hover:text-amber-700 hover:bg-amber-50 cursor-pointer">
-                  Draft
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Archived')} className="text-slate-700 hover:text-rose-700 hover:bg-rose-50 cursor-pointer">
-                  Archived
+                <DropdownMenuItem onClick={() => handleSetWholesaleStatus('Inactive')} className="text-slate-700 hover:text-amber-700 hover:bg-amber-50 cursor-pointer">
+                  Inactive
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -482,7 +530,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                 value={selectedLabel || '__none__'}
                 onValueChange={(val) => setSelectedLabel(val === '__none__' ? '' : val)}
               >
-                <SelectTrigger className="h-8 px-3 bg-white border-slate-200 rounded-xl text-xs">
+                <SelectTrigger className={`h-8 px-3 bg-white ${selectedLabel ? 'border-[#A44101] text-slate-900 font-medium' : 'border-slate-200 text-slate-600'} rounded-xl text-xs transition-colors`}>
                   <SelectValue placeholder="Choose label..." />
                 </SelectTrigger>
                 <SelectContent align="end">
@@ -499,7 +547,11 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
             {/* Apply label Button */}
             <button
               onClick={handleApplyLabel}
-              className="bg-[#FBA588] hover:bg-[#fa9472] text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-colors shadow-2xs whitespace-nowrap"
+              className={`text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all duration-200 shadow-2xs whitespace-nowrap cursor-pointer ${
+                selectedLabel
+                  ? 'bg-[#A44101] hover:bg-[#8F3700] active:scale-95 shadow-sm shadow-orange-950/20'
+                  : 'bg-[#FBA588] hover:bg-[#fa9472]'
+              }`}
             >
               Apply label
             </button>
@@ -507,7 +559,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
             {/* Remove label Button */}
             <button
               onClick={handleRemoveLabel}
-              className="border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-medium px-3.5 py-1.5 rounded-xl transition-colors whitespace-nowrap"
+              className="border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-medium px-3.5 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer"
             >
               Remove label
             </button>
@@ -551,13 +603,14 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                 <th className="py-3.5 px-4 text-center">Stock Level</th>
                 <th className="py-3.5 px-4 text-right">Price</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-center">Featured</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm font-semibold text-slate-700">No products found</p>
                     <p className="text-xs text-slate-400 mt-1">Try adjusting your search terms or filters</p>
@@ -699,20 +752,38 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
 
                       {/* Status */}
                       <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => handleToggleStatus(product.id, product.status)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold cursor-pointer transition-all hover:scale-105 ${product.status === 'Active'
-                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                              : product.status === 'Draft'
-                                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            }`}
-                          title="Click to toggle status (Active / Draft)"
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold select-none ${
+                            product.status === 'Active'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : product.status === 'Archived'
+                                ? 'bg-slate-200 text-slate-700'
+                                : 'bg-amber-100 text-amber-800'
+                          }`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'Active' ? 'bg-emerald-500' : product.status === 'Draft' ? 'bg-amber-500' : 'bg-slate-500'
-                            }`} />
-                          {product.status}
-                        </button>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              product.status === 'Active'
+                                ? 'bg-emerald-500'
+                                : product.status === 'Archived'
+                                  ? 'bg-slate-500'
+                                  : 'bg-amber-500'
+                            }`}
+                          />
+                          {product.status === 'Active' ? 'Active' : (product.status === 'Archived' ? 'Archived' : 'Inactive')}
+                        </span>
+                      </td>
+
+                      {/* Featured */}
+                      <td className="py-3 px-4 text-center">
+                        {Boolean(product.isFeatured || product.tag === 'FEATURED' || product.badges?.includes('Featured')) ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]/60 shadow-2xs select-none">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" />
+                            <span>Featured</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-300 font-medium">-</span>
+                        )}
                       </td>
 
                       {/* Actions */}

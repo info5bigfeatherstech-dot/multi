@@ -971,13 +971,13 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
         gallery: finalVariantsList.flatMap(v => v.images.map(img => img.url)).slice(0, 8),
         rating: 4.8,
         reviews: 0,
-        status: publishStatus === 'active' ? 'Active' : 'Draft',
+        status: publishStatus === 'active' ? 'Active' : 'Inactive',
         description: finalDescription,
         dateAdded: new Date().toISOString()
       };
 
       dispatch(addProduct(localReduxProduct));
-      toast.success(publishStatus === 'active' ? 'Product published to catalog!' : 'Product draft saved!');
+      toast.success(publishStatus === 'active' ? 'Product published to catalog!' : 'Product saved as inactive!');
       onSuccess();
     } catch (err: any) {
       console.error('Failed to create product:', err);
@@ -1023,7 +1023,7 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
             disabled={isSubmitting}
             className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
-            Save Draft
+            Save as Inactive
           </button>
           <button
             type="button"

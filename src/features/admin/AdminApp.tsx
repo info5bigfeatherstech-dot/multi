@@ -5,11 +5,16 @@ import { AdminShell, AdminTab } from './components/AdminShell';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { AdminOrdersView } from './components/AdminOrdersView';
 import { AdminProductsView } from './components/AdminProductsView';
-import { AdminGrowthView } from './components/AdminGrowthView';
 import { AdminSettingsView } from './components/AdminSettingsView';
 import { AdminAnalyticsView } from './components/AdminAnalyticsView';
 import { AdminStaffView } from './components/AdminStaffView';
 import { AdminReviewsView } from './components/reviews/AdminReviewsView';
+import { AdminReturnsRefundsView } from './components/AdminReturnsRefundsView';
+import { AdminRtoView } from './components/AdminRtoView';
+import { AdminOutOfStockInquiriesView } from './components/AdminOutOfStockInquiriesView';
+import { AdminCustomerLeadsView } from './components/AdminCustomerLeadsView';
+import { AdminAbandonedCartsView } from './components/AdminAbandonedCartsView';
+import { AdminMarketingCouponsView } from './components/AdminMarketingCouponsView';
 
 import { ensureAdminToken } from '../../api';
 
@@ -36,6 +41,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       if (path.includes('orders')) return 'orders';
+      if (path.includes('returns')) return 'returns';
+      if (path.includes('rto')) return 'rto';
+      if (path.includes('outofstock-query') || path.includes('oos-inquiries') || path.includes('stock-query')) return 'outofstock-query';
       if (path.includes('analytics')) return 'analytics';
       if (path.includes('products-add') || path.includes('/add-product')) return 'products-add';
       if (path.includes('products-categories') || path.includes('/categories')) return 'products-categories';
@@ -49,7 +57,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       if (path.includes('reviews-reports') || path.includes('/reviews/reports')) return 'reviews-reports';
       if (path.includes('reviews')) return 'reviews-submissions';
       if (path.includes('staff')) return 'staff';
-      if (path.includes('growth') || path.includes('leads') || path.includes('abandoned')) return 'abandoned';
+      if (path.includes('leads')) return 'leads';
+      if (path.includes('marketing') || path.includes('coupons')) return 'marketing';
+      if (path.includes('growth') || path.includes('abandoned')) return 'abandoned';
       if (path.includes('settings')) return 'settings';
     }
     return 'dashboard';
@@ -132,8 +142,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       else if (path.includes('reviews')) setCurrentTab('reviews-submissions');
       else if (path.includes('returns')) setCurrentTab('returns');
       else if (path.includes('rto')) setCurrentTab('rto');
-      else if (path.includes('abandoned') || path.includes('growth')) setCurrentTab('abandoned');
+      else if (path.includes('outofstock-query') || path.includes('oos-inquiries') || path.includes('stock-query')) setCurrentTab('outofstock-query');
+      else if (path.includes('marketing') || path.includes('coupons')) setCurrentTab('marketing');
       else if (path.includes('leads')) setCurrentTab('leads');
+      else if (path.includes('abandoned') || path.includes('growth')) setCurrentTab('abandoned');
       else if (path.includes('staff')) setCurrentTab('staff');
       else if (path.includes('settings')) setCurrentTab('settings');
       else if (path.includes('dashboard') || path === '/admin') setCurrentTab('dashboard');
@@ -202,24 +214,28 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       )}
 
       {currentTab === 'returns' && (
-        <AdminOrdersView initialStatusFilter="Returned" />
+        <AdminReturnsRefundsView />
       )}
 
       {currentTab === 'rto' && (
-        <AdminOrdersView initialStatusFilter="RTO" />
+        <AdminRtoView />
+      )}
+
+      {(currentTab === 'outofstock-query' || currentTab === 'outofstock') && (
+        <AdminOutOfStockInquiriesView />
       )}
 
       {currentTab === 'analytics' && (
         <AdminAnalyticsView />
       )}
 
-      {(currentTab === 'products' || currentTab.startsWith('products-') || currentTab === 'outofstock' || currentTab === 'archived') && (
+      {(currentTab === 'products' || currentTab.startsWith('products-') || currentTab === 'archived') && currentTab !== 'outofstock-query' && currentTab !== 'outofstock' && (
         <AdminProductsView 
           initialSubTab={
             currentTab === 'products-add' ? 'add' :
             currentTab === 'products-categories' ? 'categories' :
             currentTab === 'products-labels' ? 'labels' :
-            currentTab === 'products-inventory' || currentTab === 'outofstock' ? 'inventory' :
+            currentTab === 'products-inventory' ? 'inventory' :
             currentTab === 'products-bulkupload' ? 'bulk-upload' :
             currentTab === 'products-archived' || currentTab === 'archived' ? 'archived' : 'all'
           }
@@ -238,8 +254,16 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
         />
       )}
 
-      {(currentTab === 'abandoned' || currentTab === 'leads' || currentTab === 'marketing') && (
-        <AdminGrowthView initialSubTab={currentTab as 'abandoned' | 'leads' | 'marketing'} />
+      {currentTab === 'leads' && (
+        <AdminCustomerLeadsView />
+      )}
+
+      {currentTab === 'abandoned' && (
+        <AdminAbandonedCartsView />
+      )}
+
+      {currentTab === 'marketing' && (
+        <AdminMarketingCouponsView />
       )}
 
       {(currentTab === 'staff' || currentTab === 'settings-staff') && (

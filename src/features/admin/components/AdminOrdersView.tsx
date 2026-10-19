@@ -2,27 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   ShoppingBag, 
-  Gift, 
-  ChevronDown, 
-  ChevronUp, 
-  User, 
-  MapPin, 
-  Package,
   RefreshCw,
   ExternalLink
 } from 'lucide-react';
 import { mockAdminStore, OrderStatus, AdminOrder } from '../mockAdminStore';
 import { adminOrdersApi } from '../../../api';
-import { AdminGiftIntentPanel } from './AdminGiftIntentPanel';
 import { AdminOrderDetailView } from './AdminOrderDetailView';
-import toast from 'react-hot-toast';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '../../../components/ui/select';
 
 interface AdminOrdersViewProps {
   initialStatusFilter?: string;
@@ -49,7 +34,6 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
     return 'Pending';
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orders, setOrders] = useState<AdminOrder[]>(() => mockAdminStore.getOrders());
   const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +79,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
       }
 
       const res = await adminOrdersApi.getAll({
-        status: activeTab !== 'All' ? activeTab.toLowerCase() : undefined,
+        status: activeTab.toLowerCase(),
         search: searchQuery.trim() || undefined,
       });
 
@@ -178,26 +162,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
     return list;
   }, [orders, activeTab, searchQuery]);
 
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
-    try {
-      await adminOrdersApi.updateFulfillmentStatus(orderId, newStatus.toLowerCase());
-      toast.success(`Order status updated to ${newStatus}`);
-    } catch {
-      // Offline fallback
-      mockAdminStore.updateOrderStatus(orderId, newStatus);
-    }
-    setOrders((prev) =>
-      prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus } : ord))
-    );
-  };
 
-  const handleRefresh = () => {
-    fetchLiveOrders();
-  };
-
-  const toggleExpand = (orderId: string) => {
-    setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
-  };
 
   if (selectedOrderId) {
     return (
@@ -312,7 +277,6 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                 <tr>
                   <th className="py-3.5 px-4">Order #</th>
                   <th className="py-3.5 px-4">Customer</th>
-                  <th className="py-3.5 px-4">Gift Intent</th>
                   <th className="py-3.5 px-4">Total</th>
                   <th className="py-3.5 px-4">Payment</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -320,217 +284,81 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredOrders.map((order) => {
-                  const isExpanded = expandedOrderId === order.id;
-                  const isGift = order.isGiftOrder;
+                {filteredOrders.map((order) => (
+                  <tr 
+                    key={order.id} 
+                    onClick={() => setSelectedOrderId(order.orderNumber || order.id)}
+                    className="hover:bg-amber-50/30 cursor-pointer transition-colors group"
+                    title="Click to view order details"
+                  >
+                    {/* Order Number & Timestamp */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-navy">
+                      <span className="text-[#A44101] group-hover:underline font-bold text-left block">
+                        {order.orderNumber}
+                      </span>
+                      <div className="text-[10px] text-slate-400 font-sans mt-0.5">
+                        {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </td>
 
-                  return (
-                    <React.Fragment key={order.id}>
-                      {/* Primary Row */}
-                      <tr className={`hover:bg-slate-50/70 transition-colors ${isExpanded ? 'bg-amber-50/20' : ''}`}>
-                        {/* Order Number & Timestamp */}
-                        <td className="py-3.5 px-4 font-mono font-bold text-navy">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOrderId(order.orderNumber || order.id)}
-                            className="text-[#A44101] hover:underline font-bold text-left cursor-pointer"
-                            title="Open order details"
-                          >
-                            {order.orderNumber}
-                          </button>
-                          <div className="text-[10px] text-slate-400 font-sans mt-0.5">
-                            {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </div>
-                        </td>
+                    {/* Customer Info */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-navy">{order.customerName}</div>
+                      <div className="text-[11px] text-slate-500">{order.customerPhone}</div>
+                    </td>
 
-                        {/* Customer Info */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-navy">{order.customerName}</div>
-                          <div className="text-[11px] text-slate-500">{order.customerPhone}</div>
-                        </td>
+                    {/* Total Amount */}
+                    <td className="py-3.5 px-4 font-black text-navy font-roboto text-sm">
+                      ₹{order.totalAmount}
+                    </td>
 
-                        {/* Gift Intent Pill */}
-                        <td className="py-3.5 px-4">
-                          {isGift ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-[#A44101] font-black text-xs border border-amber-200 shadow-2xs">
-                              <Gift className="w-3.5 h-3.5 text-[#A44101]" />
-                              <span>{order.giftIntent?.occasion || 'Gift Order'}</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 font-medium">
-                              For Myself
-                            </span>
-                          )}
-                        </td>
+                    {/* Payment Method & Status */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-700">{order.paymentMethod}</div>
+                      <span className={`text-[10px] font-bold ${
+                        order.paymentStatus === 'Paid' ? 'text-emerald-600' : 'text-amber-600'
+                      }`}>
+                        {order.paymentStatus}
+                      </span>
+                    </td>
 
-                        {/* Total Amount */}
-                        <td className="py-3.5 px-4 font-black text-navy font-roboto text-sm">
-                          ₹{order.totalAmount}
-                        </td>
+                    {/* Status Badge */}
+                    <td className="py-3.5 px-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider border shadow-2xs ${
+                          order.status === 'Pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                          order.status === 'Confirmed' ? 'bg-blue-50 text-blue-800 border-blue-300' :
+                          order.status === 'Processing' ? 'bg-purple-50 text-purple-800 border-purple-300' :
+                          order.status === 'Shipped' ? 'bg-indigo-50 text-indigo-800 border-indigo-300' :
+                          order.status === 'Delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                          order.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                          order.status === 'Returned' ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                          'bg-amber-100 text-amber-900 border-amber-400'
+                        }`}
+                      >
+                        {order.status}
+                      </span>
+                    </td>
 
-                        {/* Payment Method & Status */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-700">{order.paymentMethod}</div>
-                          <span className={`text-[10px] font-bold ${
-                            order.paymentStatus === 'Paid' ? 'text-emerald-600' : 'text-amber-600'
-                          }`}>
-                            {order.paymentStatus}
-                          </span>
-                        </td>
-
-                        {/* Live Status Selector with Shadcn Select */}
-                        <td className="py-3.5 px-4">
-                          <Select
-                            value={order.status}
-                            onValueChange={(val) => handleStatusChange(order.id, val as OrderStatus)}
-                          >
-                            <SelectTrigger
-                              className={`h-7 px-2.5 rounded-lg text-[11px] font-black uppercase tracking-wider border shadow-2xs w-[130px] ${
-                                order.status === 'Pending' ? 'bg-amber-50 text-amber-800 border-amber-300' :
-                                order.status === 'Confirmed' ? 'bg-blue-50 text-blue-800 border-blue-300' :
-                                order.status === 'Processing' ? 'bg-purple-50 text-purple-800 border-purple-300' :
-                                order.status === 'Shipped' ? 'bg-indigo-50 text-indigo-800 border-indigo-300' :
-                                order.status === 'Delivered' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                                order.status === 'Cancelled' ? 'bg-rose-50 text-rose-800 border-rose-300' :
-                                order.status === 'Returned' ? 'bg-slate-100 text-slate-700 border-slate-300' :
-                                'bg-amber-100 text-amber-900 border-amber-400'
-                              }`}
-                            >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent align="end" className="w-[145px]">
-                              <SelectItem value="Pending">Pending</SelectItem>
-                              <SelectItem value="Confirmed">Confirmed</SelectItem>
-                              <SelectItem value="Processing">Processing</SelectItem>
-                              <SelectItem value="Shipped">Shipped</SelectItem>
-                              <SelectItem value="Delivered">Delivered</SelectItem>
-                              <SelectItem value="Cancelled">Cancelled</SelectItem>
-                              <SelectItem value="Returned">Returned</SelectItem>
-                              <SelectItem value="RTO">RTO</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-
-                        {/* Expand / Details Action */}
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedOrderId(order.orderNumber || order.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all cursor-pointer text-xs"
-                              title="Open order page"
-                            >
-                              <span>Details</span>
-                              <ExternalLink className="w-3 h-3 text-slate-500" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => toggleExpand(order.id)}
-                              className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all cursor-pointer"
-                              title={isExpanded ? "Collapse inline preview" : "Expand inline preview"}
-                            >
-                              {isExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              ) : (
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Expanded Order Detail Drawer Row */}
-                      {isExpanded && (
-                        <tr className="bg-slate-50/50">
-                          <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-200">
-                            <div className="space-y-6">
-                              {/* 1. Integrated AdminGiftIntentPanel */}
-                              <div>
-                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2.5 flex items-center gap-1.5">
-                                  <Gift className="w-3.5 h-3.5 text-[#A44101]" />
-                                  <span>Gift Intent &amp; Packaging Specs</span>
-                                </h4>
-                                <AdminGiftIntentPanel
-                                  order={order}
-                                  onUpdate={handleRefresh}
-                                />
-                              </div>
-
-                              {/* 2. Customer & Shipping Details Grid */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
-                                  <h4 className="text-xs font-bold text-navy uppercase mb-2 flex items-center gap-1.5">
-                                    <User className="w-3.5 h-3.5 text-[#A44101]" />
-                                    <span>Customer Contact Info</span>
-                                  </h4>
-                                  <div className="space-y-1 text-xs text-slate-600">
-                                    <p><strong>Name:</strong> {order.customerName}</p>
-                                    <p><strong>Phone:</strong> {order.customerPhone}</p>
-                                    <p><strong>Email:</strong> {order.customerEmail}</p>
-                                    <p><strong>Payment:</strong> {order.paymentMethod} ({order.paymentStatus})</p>
-                                  </div>
-                                </div>
-
-                                <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
-                                  <h4 className="text-xs font-bold text-navy uppercase mb-2 flex items-center gap-1.5">
-                                    <MapPin className="w-3.5 h-3.5 text-[#A44101]" />
-                                    <span>Delivery Destination Address</span>
-                                  </h4>
-                                  <p className="text-xs text-slate-600 leading-relaxed">
-                                    {order.shippingAddress}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* 3. Purchased Items List */}
-                              <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs">
-                                <h4 className="text-xs font-bold text-navy uppercase mb-3 flex items-center gap-1.5">
-                                  <Package className="w-3.5 h-3.5 text-[#A44101]" />
-                                  <span>Order Items ({order.items.length})</span>
-                                </h4>
-                                <div className="divide-y divide-slate-100">
-                                  {order.items.map((item) => (
-                                    <div key={item.id} className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
-                                      <div className="flex items-center gap-3">
-                                        <img
-                                          src={item.image}
-                                          alt={item.title}
-                                          className="w-12 h-12 rounded-lg object-cover border border-slate-200"
-                                        />
-                                        <div>
-                                          <h5 className="font-bold text-navy text-xs sm:text-sm">
-                                            {item.title}
-                                          </h5>
-                                          <span className="text-[11px] text-slate-400 font-mono">
-                                            SKU: {item.sku} • Qty: {item.quantity}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="text-right">
-                                        <div className="font-black text-navy text-xs sm:text-sm font-roboto">
-                                          ₹{item.price * item.quantity}
-                                        </div>
-                                        <span className="text-[10px] text-slate-400">
-                                          ₹{item.price} each
-                                        </span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
+                    {/* Details Action */}
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end">
+                        <span
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 group-hover:bg-[#A44101] group-hover:text-white text-slate-700 font-bold transition-all text-xs shadow-2xs"
+                        >
+                          <span>Details</span>
+                          <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-white" />
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

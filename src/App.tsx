@@ -21,7 +21,7 @@ import { BulkOrdersPage } from './components/BulkOrdersPage';
 import { AuthModal } from './components/AuthModal';
 import { DealsPage } from './components/DealsPage';
 import { Loader2, PackageX } from 'lucide-react';
-import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug } from './utils/productUtils';
+import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
 
 type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals';
 
@@ -88,7 +88,8 @@ export const App: React.FC = () => {
       target = decodeURIComponent(hash.replace('#product-', '')).replace(/^\/+|\/+$/g, '');
     }
     if (!target) return null;
-    return getCachedProduct(target);
+    const prod = getCachedProduct(target);
+    return prod && isProductActive(prod) ? prod : null;
   });
 
   const [isProductLoading, setIsProductLoading] = useState<boolean>(() => {
@@ -100,7 +101,8 @@ export const App: React.FC = () => {
         path.startsWith('/product/') ? path.replace('/product/', '') : hash.replace('#product-', '')
       ).replace(/^\/+|\/+$/g, '');
       if (!target) return false;
-      return !getCachedProduct(target);
+      const prod = getCachedProduct(target);
+      return !prod || !isProductActive(prod);
     }
     return false;
   });
@@ -201,7 +203,7 @@ export const App: React.FC = () => {
         const prodId = decodeURIComponent(window.location.pathname.replace('/product/', '')).replace(/^\/+|\/+$/g, '');
         setCurrentView('product');
         const cached = getCachedProduct(prodId);
-        if (cached) {
+        if (cached && isProductActive(cached)) {
           setSelectedProduct(cached);
           setIsProductLoading(false);
           const canonicalSlug = getProductSlug(cached);
@@ -213,7 +215,7 @@ export const App: React.FC = () => {
           setIsProductLoading(true);
           fetchProductByIdentifier(prodId)
             .then((prod) => {
-              if (prod) {
+              if (prod && isProductActive(prod)) {
                 setSelectedProduct(prod);
                 cacheProduct(prod);
                 const canonicalSlug = getProductSlug(prod);
@@ -529,9 +531,9 @@ export const App: React.FC = () => {
                 <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-4 border border-slate-200">
                   <PackageX className="w-8 h-8 text-slate-400" />
                 </div>
-                <h2 className="text-xl font-bold text-navy mb-2">Product Not Found</h2>
+                <h2 className="text-xl font-bold text-navy mb-2">Product Not Available</h2>
                 <p className="text-sm text-slate-500 max-w-md mb-6">
-                  The product you requested might have been sold out, moved, or is temporarily unavailable.
+                  The product you requested is currently inactive or not available in the store catalog.
                 </p>
                 <button
                   type="button"

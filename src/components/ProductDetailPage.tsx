@@ -27,6 +27,7 @@ import {
   storefrontCheckoutApi
 } from '../api';
 import { ProductReviewsSection } from '../features/reviews';
+import { isProductActive } from '../utils/productUtils';
 
 const mapBackendProductToItem = (p: any): ProductItem => {
   const img =
@@ -512,7 +513,15 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     setProductImages([product.image]);
     setQuantity(1);
     setIsAddedToCart(false);
+  }, [product.image]);
 
+  const [isInactiveProduct, setIsInactiveProduct] = useState<boolean>(() => !isProductActive(product));
+
+  useEffect(() => {
+    setIsInactiveProduct(!isProductActive(product));
+  }, [product]);
+
+  useEffect(() => {
     let isCurrent = true;
     const loadProductDetails = async () => {
       try {
@@ -530,7 +539,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
         const res = await storefrontProductsApi.getBySlug(slug);
         const detail = res?.product || res?.data || res;
-        if (!isCurrent || !detail) return;
+        if (!isCurrent) return;
+
+        if (!detail || !isProductActive(detail)) {
+          setIsInactiveProduct(true);
+          return;
+        }
 
         setBackendDetail(detail);
 
@@ -560,8 +574,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           setProductImages(collectedImgs);
           setSelectedImage(collectedImgs[0]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn('Failed to load detailed product images:', err);
+        if (err?.message?.includes('404') || err?.message?.toLowerCase().includes('not found')) {
+          if (isCurrent) setIsInactiveProduct(true);
+        }
       }
     };
 
@@ -761,6 +778,37 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       setOrderSuccess(false);
     }, 2500);
   };
+
+  if (isInactiveProduct || !isProductActive(product) || (backendDetail && !isProductActive(backendDetail))) {
+    return (
+      <div className="bg-[#F8FAFC] min-h-[70vh] py-16 sm:py-24 flex items-center justify-center font-sans animate-fadeIn select-none px-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 sm:p-10 border border-slate-200/90 shadow-sm text-center flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 border border-amber-100 shadow-xs">
+            <Tag className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-2">
+            Product Currently Unavailable
+          </h2>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+            This product is currently inactive or not available for online purchase. Please explore other available items in our store catalog.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (onBack) onBack();
+              else {
+                window.history.pushState(null, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
+            }}
+            className="w-full sm:w-auto px-7 py-3 bg-[#A44101] hover:bg-[#8B3701] text-white text-sm font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            Explore Other Products
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#F8FAFC] min-h-screen py-5 sm:py-8 font-sans animate-fadeIn select-none">
