@@ -101,6 +101,15 @@ export const adminStaffApi = {
     }
   },
 
+  updateMyProfile: async (payload: { name?: string; phone?: string; email?: string; [key: string]: any }) => {
+    try {
+      const res = await apiClient.put("/admin/staff/profile/me", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
   // 9. Initiate Self Reset (POST /admin/staff/profile/me/initiate-password-reset)
   initiateSelfReset: async () => {
     try {
@@ -1052,9 +1061,19 @@ export const adminShippingSettingsApi = {
     warehouseId?: string;
     pickupPincode?: string;
     enabled?: boolean;
+    shipmozo?: any;
   }) => {
     try {
-      const res = await apiClient.put("/shipping-provider/admin/settings", payload);
+      const body: any = {};
+      if (payload.activeProvider !== undefined) {
+        body.activeProvider = payload.activeProvider;
+      }
+      body.shipmozo = payload.shipmozo || {
+        warehouseId: payload.warehouseId || undefined,
+        pickupPincode: payload.pickupPincode ? payload.pickupPincode.replace(/\D/g, '').slice(0, 6) : undefined,
+        enabled: payload.enabled ?? true,
+      };
+      const res = await apiClient.put("/shipping-provider/admin/settings", body);
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
