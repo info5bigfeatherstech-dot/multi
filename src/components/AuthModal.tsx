@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { authApi } from "../api/authApi";
 import { GoogleSignInButton } from "./GoogleSignInButton";
+import toast from "react-hot-toast";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -78,6 +79,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const handleSuccessfulAuth = (user: any) => {
+    const rawUser = user?.user || user;
+    const phone = rawUser?.phone || rawUser?.phoneNumber || rawUser?.mobile;
+    if (phone) {
+      localStorage.setItem("abb_user_profile_phone", phone);
+    }
+    if (rawUser?.email) {
+      localStorage.setItem("abb_user_profile_email", rawUser.email);
+    }
+    if (rawUser?.name) {
+      localStorage.setItem("abb_user_profile_name", rawUser.name);
+    }
     window.dispatchEvent(new Event("abb_auth_change"));
     onAuthSuccess?.(user);
     onSuccess?.();
@@ -117,6 +129,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
       handleSuccessfulAuth(data?.user || data);
     } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg && !msg.includes("Network Error") && !msg.includes("500") && !msg.includes("ECONNREFUSED")) {
+        const friendlyError = "Your email or password, either of it is wrong. Please check and try again.";
+        setError(friendlyError);
+        toast.error(friendlyError, { position: "top-center" });
+        setLoading(false);
+        return;
+      }
       // In offline/demo environment, allow fallback login
       console.warn("API Login Notice (Offline Fallback enabled):", err?.message);
       const fallbackToken = "abb_usr_session_" + Date.now();

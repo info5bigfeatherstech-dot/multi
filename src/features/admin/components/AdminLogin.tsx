@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { mockAdminStore, AdminUser } from '../mockAdminStore';
 import { adminAuthApi } from '../../../api';
+import toast from 'react-hot-toast';
 
 interface AdminLoginProps {
   onLoginSuccess: (user: AdminUser) => void;
@@ -91,13 +92,23 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
           return;
         }
 
-        setError('Invalid admin credentials. Account not found. (Use authorized Email or Mobile: admin@store.com / 8580403506)');
+        const friendlyError = "Your email or password, either of it is wrong. Please check and try again.";
+        setError(friendlyError);
+        toast.error(friendlyError, {
+          duration: 4000,
+          position: 'top-center',
+        });
         setIsLoading(false);
         return;
       }
 
       // Backend active but returned 401, 403, 400
-      setError(msg || 'Invalid administrator email or password. Access denied.');
+      const friendlyError = "Your email or password, either of it is wrong. Please check and try again.";
+      setError(friendlyError);
+      toast.error(friendlyError, {
+        duration: 4000,
+        position: 'top-center',
+      });
       setIsLoading(false);
       return;
     }

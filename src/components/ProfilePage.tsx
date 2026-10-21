@@ -30,6 +30,7 @@ import {
   storefrontCheckoutApi 
 } from '../api';
 import { OrderDetailTrackingView } from './profile/OrderDetailTrackingView';
+import { persistUserPhone, getPersistedUserPhone } from '../utils/authGuard';
 
 interface ProfilePageProps {
   onBackToHome?: () => void;
@@ -88,9 +89,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   });
   const [userPhone, setUserPhone] = useState(() => {
     try {
-      return localStorage.getItem('abb_user_profile_phone') || '+91 98765 43210';
+      const email = localStorage.getItem('abb_user_profile_email') || '';
+      return getPersistedUserPhone(email) || localStorage.getItem('abb_user_profile_phone') || '';
     } catch {
-      return '+91 98765 43210';
+      return '';
     }
   });
   const [isSavedNotice, setIsSavedNotice] = useState(false);
@@ -529,20 +531,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     try {
       localStorage.setItem('abb_user_profile_name', userName);
       localStorage.setItem('abb_user_profile_email', userEmail);
-      localStorage.setItem('abb_user_profile_phone', userPhone);
+      persistUserPhone(userEmail, userPhone);
       await storefrontAuthApi.updateProfile({
         name: userName,
         email: userEmail,
         phone: userPhone,
       });
+      window.dispatchEvent(new Event('abb_auth_change'));
     } catch {
       // offline fallback
+      persistUserPhone(userEmail, userPhone);
+      window.dispatchEvent(new Event('abb_auth_change'));
     } finally {
       setIsSavingProfile(false);
       setIsSavedNotice(true);
       setTimeout(() => setIsSavedNotice(false), 2500);
     }
   };
+
+  // Sync profile fields automatically whenever auth or phone updates anywhere in the app
+  useEffect(() => {
+    const handlePhoneUpdate = () => {
+      const em = localStorage.getItem('abb_user_profile_email') || '';
+      const ph = getPersistedUserPhone(em) || localStorage.getItem('abb_user_profile_phone') || '';
+      if (ph) setUserPhone(ph);
+      const nameVal = localStorage.getItem('abb_user_profile_name');
+      if (nameVal) setUserName(nameVal);
+      const emailVal = localStorage.getItem('abb_user_profile_email');
+      if (emailVal) setUserEmail(emailVal);
+    };
+    window.addEventListener('abb_auth_change', handlePhoneUpdate);
+    return () => window.removeEventListener('abb_auth_change', handlePhoneUpdate);
+  }, []);
 
   useEffect(() => {
     if (userName && !addrFullName) setAddrFullName(userName);
@@ -1239,8 +1259,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <input
                       type="tel"
                       value={userPhone}
-                      onChange={(e) => setUserPhone(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                      onChange={(e) => setUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="e.g. 9876543210"
+                      maxLength={10}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-medium tracking-wide"
                       required
                     />
                   </div>

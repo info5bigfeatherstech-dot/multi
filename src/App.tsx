@@ -19,9 +19,11 @@ import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
 import { BulkOrdersPage } from './components/BulkOrdersPage';
 import { AuthModal } from './components/AuthModal';
+import { PhonePromptModal } from './components/PhonePromptModal';
 import { DealsPage } from './components/DealsPage';
 import { Loader2, PackageX } from 'lucide-react';
 import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
+import { getPersistedUserPhone } from './utils/authGuard';
 
 type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals';
 
@@ -29,6 +31,15 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [postAuthRedirect, setPostAuthRedirect] = useState<ViewType | null>(null);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+
+  // Phone Gate Lock State: triggers only if user is logged in but has NEVER provided a phone number
+  const [isPhonePromptOpen, setIsPhonePromptOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const token = localStorage.getItem('user_access_token');
+    const email = localStorage.getItem('abb_user_profile_email');
+    const phone = getPersistedUserPhone(email || '');
+    return Boolean((token || email) && (!phone || phone.trim() === ''));
+  });
 
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     if (typeof window === 'undefined') return 'home';
@@ -376,7 +387,7 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Listen for global require-auth events fired by any component
+  // Listen for global require-auth and auth-change events
   useEffect(() => {
     const handleRequireAuth = (e: Event) => {
       const detail = (e as CustomEvent<{ message?: string; redirectTo?: string }>).detail;
@@ -384,8 +395,25 @@ export const App: React.FC = () => {
       setAuthModalMessage(detail?.message || 'Please log in or register to continue');
       setIsAuthModalOpen(true);
     };
+
+    // Gate Lock verification: If user is authenticated but missing a phone number, gate locks immediately
+    const checkPhoneGate = () => {
+      const token = localStorage.getItem('user_access_token');
+      const email = localStorage.getItem('abb_user_profile_email');
+      const phone = getPersistedUserPhone(email || '');
+      if ((token || email) && (!phone || phone.trim() === '')) {
+        setIsPhonePromptOpen(true);
+      } else {
+        setIsPhonePromptOpen(false);
+      }
+    };
+
     window.addEventListener('abb_require_auth', handleRequireAuth);
-    return () => window.removeEventListener('abb_require_auth', handleRequireAuth);
+    window.addEventListener('abb_auth_change', checkPhoneGate);
+    return () => {
+      window.removeEventListener('abb_require_auth', handleRequireAuth);
+      window.removeEventListener('abb_auth_change', checkPhoneGate);
+    };
   }, []);
 
   const handleAuthSuccess = () => {
@@ -605,6 +633,20 @@ export const App: React.FC = () => {
           onSuccess={handleAuthSuccess}
           onAuthSuccess={handleAuthSuccess}
           message={authModalMessage}
+        />
+
+        {/* Mandatory Phone Number Collection Gate Lock Modal */}
+        <PhonePromptModal
+          isOpen={isPhonePromptOpen}
+          onSuccess={(_phone) => {
+            setIsPhonePromptOpen(false);
+            handleAuthSuccess();
+          }}
+          onUseAnotherAccount={() => {
+            setIsPhonePromptOpen(false);
+            setAuthModalMessage('Please sign in with another account');
+            setIsAuthModalOpen(true);
+          }}
         />
       </div>
     </CartProvider>
