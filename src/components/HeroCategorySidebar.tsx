@@ -165,11 +165,7 @@ export const FALLBACK_SIDEBAR_CATEGORIES: CategorySidebarItem[] = [
     name: 'Mix Items',
     targetSectionId: 'section-mix-items',
     icon: Package,
-    subcategories: CATEGORY_SUBCATEGORIES['mix-items'] || [
-      'Clearance Stock',
-      'Bulk Combo Offers',
-      'Assorted Wholesale Lots'
-    ],
+    subcategories: [],
   },
 ];
 
@@ -223,16 +219,19 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
               f => f.name.toLowerCase() === cat.name.toLowerCase() || f.id === catId || f.id === cat.slug
             );
 
-            const subcats: string[] = Array.isArray(cat.children) && cat.children.length > 0
-              ? cat.children.map((c: any) => (typeof c === 'string' ? c : c.name || c.title))
-              : (matchedFallback?.subcategories ||
-                 CATEGORY_SUBCATEGORIES[cat.slug] || 
-                 CATEGORY_SUBCATEGORIES[normSlug] || [
-                  `All ${cat.name}`,
-                  'Bestsellers',
-                  'New Arrivals',
-                  'Trending Deals'
-                ]);
+            const isMixItems = cat.slug === 'mix-items' || cat.slug === 'mix-item' || (cat.name && cat.name.toLowerCase().includes('mix'));
+            const subcats: string[] = isMixItems
+              ? []
+              : (Array.isArray(cat.children) && cat.children.length > 0
+                  ? cat.children.map((c: any) => (typeof c === 'string' ? c : c.name || c.title))
+                  : (matchedFallback?.subcategories ||
+                     CATEGORY_SUBCATEGORIES[cat.slug] || 
+                     CATEGORY_SUBCATEGORIES[normSlug] || [
+                      `All ${cat.name}`,
+                      'Bestsellers',
+                      'New Arrivals',
+                      'Trending Deals'
+                    ]));
 
             return {
               id: catId,

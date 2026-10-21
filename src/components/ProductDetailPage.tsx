@@ -13,7 +13,8 @@ import {
   ShoppingCart,
   Check,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
@@ -816,9 +817,54 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     <div className="bg-[#F8FAFC] min-h-screen py-5 sm:py-8 font-sans animate-fadeIn select-none">
       <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
-        {/* =========================================================================
-            MAIN PRODUCT STAGE: Exact Match to Reference Design
-           ========================================================================= */}
+        {/* Top Navigation & Back Button */}
+        <div className="flex items-center justify-between gap-4 flex-wrap pb-1">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                window.history.back();
+              } else if (onBack) {
+                onBack();
+              } else {
+                window.history.pushState(null, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200/90 hover:border-orange-300 text-slate-700 hover:text-[#A44101] hover:bg-orange-50/50 text-xs sm:text-sm font-semibold transition-all shadow-2xs group cursor-pointer"
+            title="Go back to previous page"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:text-[#A44101] group-hover:-translate-x-1 transition-transform" />
+            <span>Back</span>
+          </button>
+
+          {/* Breadcrumbs */}
+          <nav aria-label="Breadcrumbs" className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <button
+              type="button"
+              onClick={() => {
+                if (onBack) onBack();
+                else {
+                  window.history.pushState(null, '', '/');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="hover:text-[#A44101] transition-colors cursor-pointer"
+            >
+              Home
+            </button>
+            {product.category && (
+              <>
+                <span className="text-slate-300">/</span>
+                <span className="text-slate-600 capitalize">{product.category}</span>
+              </>
+            )}
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-800 font-semibold truncate max-w-[260px] md:max-w-md">
+              {product.title}
+            </span>
+          </nav>
+        </div>
 
         {/* =========================================================================
             MAIN PRODUCT STAGE: Exact Match to Reference Design

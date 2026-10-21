@@ -191,7 +191,7 @@ export const ALL_CATEGORIES_MENU: NavCategoryMenuItem[] = [
     icon: PackageCheck,
     imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=200&q=80",
     description: "Combo packs & overstock",
-    subcategories: CATEGORY_SUBCATEGORIES["mix-item"],
+    subcategories: [],
   },
 ];
 
@@ -324,14 +324,17 @@ export const Header: React.FC<HeaderProps> = ({
         if (Array.isArray(res) && res.length > 0) {
           const dynamicMenu: NavCategoryMenuItem[] = res.map((cat: any, idx: number) => {
             const catId = cat.slug || cat._id || cat.id;
-            const subcats: string[] = Array.isArray(cat.children) && cat.children.length > 0
-              ? cat.children.map((c: any) => typeof c === 'string' ? c : c.name || c.title)
-              : (CATEGORY_SUBCATEGORIES[cat.slug] || [
-                  `All ${cat.name}`,
-                  'Bestsellers',
-                  'New Arrivals',
-                  'Trending Deals'
-                ]);
+            const isMixItems = cat.slug === 'mix-items' || cat.slug === 'mix-item' || (cat.name && cat.name.toLowerCase().includes('mix'));
+            const subcats: string[] = isMixItems
+              ? []
+              : (Array.isArray(cat.children) && cat.children.length > 0
+                  ? cat.children.map((c: any) => typeof c === 'string' ? c : c.name || c.title)
+                  : (CATEGORY_SUBCATEGORIES[cat.slug] || [
+                      `All ${cat.name}`,
+                      'Bestsellers',
+                      'New Arrivals',
+                      'Trending Deals'
+                    ]));
 
             return {
               id: catId,
@@ -1161,24 +1164,43 @@ export const Header: React.FC<HeaderProps> = ({
                           {hoveredNavCat?.description}
                         </p>
 
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                            Subcategories
-                          </span>
-                          <div className="grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto pr-1">
-                            {hoveredNavCat?.subcategories?.map((sub, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => handleCategorySelect(hoveredNavCat.id, sub)}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#A44101] bg-white hover:bg-white border border-slate-200/80 hover:border-[#A44101]/30 transition-all flex items-center justify-between group cursor-pointer shadow-2xs hover:shadow-xs"
-                              >
-                                <span className="truncate">{sub}</span>
-                                <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
-                              </button>
-                            ))}
+                        {hoveredNavCat?.subcategories && hoveredNavCat.subcategories.length > 0 ? (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                              Subcategories
+                            </span>
+                            <div className="grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto pr-1">
+                              {hoveredNavCat.subcategories.map((sub, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => handleCategorySelect(hoveredNavCat.id, sub)}
+                                  className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#A44101] bg-white hover:bg-white border border-slate-200/80 hover:border-[#A44101]/30 transition-all flex items-center justify-between group cursor-pointer shadow-2xs hover:shadow-xs"
+                                >
+                                  <span className="truncate">{sub}</span>
+                                  <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="py-6 px-4 text-center bg-white rounded-xl border border-slate-200/70 shadow-2xs space-y-2">
+                            <PackageCheck className="w-8 h-8 text-[#A44101] mx-auto opacity-80" />
+                            <p className="text-xs font-bold text-navy">
+                              Direct Catalog
+                            </p>
+                            <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">
+                              All items in {hoveredNavCat?.name || 'this category'} are organized without subcategories.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleCategorySelect(hoveredNavCat?.id || 'all')}
+                              className="inline-block px-3.5 py-1.5 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer shadow-2xs mt-1"
+                            >
+                              Browse All Items →
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-2.5 border-t border-slate-200/80 mt-2.5">

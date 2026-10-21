@@ -22,6 +22,7 @@ import {
   Palette,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
   Loader2,
   RotateCcw as ResetIcon
 } from 'lucide-react';
@@ -1265,30 +1266,51 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
       {/* Category Text Header (Clean text showing current category, no banner) */}
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs">
-          {/* Breadcrumb Navigation */}
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-2 font-medium flex-wrap">
+          {/* Breadcrumb & Back Navigation */}
+          <div className="flex items-center gap-2.5 mb-2.5 flex-wrap">
             <button
               type="button"
               onClick={() => {
-                if (onBackToHome) onBackToHome();
-                else {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else if (onBackToHome) {
+                  onBackToHome();
+                } else {
                   window.history.pushState(null, '', '/');
                   window.dispatchEvent(new PopStateEvent('popstate'));
                 }
               }}
-              className="hover:text-[#A44101] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 hover:text-[#A44101] text-xs font-semibold transition-all shadow-2xs group cursor-pointer"
+              title="Go back to previous page"
             >
-              Home
+              <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#A44101] group-hover:-translate-x-0.5 transition-transform" />
+              <span>Back</span>
             </button>
-            <span className="text-slate-300">/</span>
-            <span className="text-slate-700 font-semibold">{metadata.name}</span>
-            {selectedSubcategories.length === 1 && (
-              <>
-                <span className="text-slate-300">/</span>
-                <span className="text-[#A44101] font-bold">{selectedSubcategories[0]}</span>
-              </>
-            )}
-          </nav>
+
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 font-medium flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onBackToHome) onBackToHome();
+                  else {
+                    window.history.pushState(null, '', '/');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                className="hover:text-[#A44101] transition-colors cursor-pointer"
+              >
+                Home
+              </button>
+              <span className="text-slate-300">/</span>
+              <span className="text-slate-700 font-semibold">{metadata.name}</span>
+              {selectedSubcategories.length === 1 && (
+                <>
+                  <span className="text-slate-300">/</span>
+                  <span className="text-[#A44101] font-bold">{selectedSubcategories[0]}</span>
+                </>
+              )}
+            </nav>
+          </div>
 
           {/* Category Title & Item Count */}
           <div className="flex flex-wrap items-center justify-between gap-3">

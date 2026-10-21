@@ -38,8 +38,8 @@ export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = {
   'sports-and-fitness': ['Resistance Bands & Dumbbells', 'Yoga Mats & Water Shakers', 'Badminton & Cricket Accessories'],
   'sports-fitness': ['Resistance Bands & Dumbbells', 'Yoga Mats & Water Shakers', 'Badminton & Cricket Accessories'],
   'beauty-and-personal-care': ['Skincare & Face Wash', 'Beauty & Makeup Tools', 'Hair Trimmers & Shavers', 'Personal Care & Hygiene'],
-  'mix-items': ['Clearance Stock', 'Bulk Combo Offers', 'Assorted Wholesale Lots'],
-  'mix-item': ['Clearance Stock', 'Bulk Combo Offers', 'Assorted Wholesale Lots'],
+  'mix-items': [],
+  'mix-item': [],
   
   // Legacy aliases
   'home-kitchen': ['Kitchen', 'Cookware', 'Storage', 'Dining', 'Home Utility'],
