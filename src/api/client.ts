@@ -13,53 +13,221 @@ export const apiClient = axios.create({
   },
 });
 
-let adminLoginPromise: Promise<string | null> | null = null;
+// ============================================================
+// TOKEN MANAGEMENT HELPERS
+// ============================================================
+export const getAdminAccessToken = (): string | null =>
+  typeof window !== "undefined" ? localStorage.getItem("admin_access_token") : null;
 
-export async function ensureAdminToken(): Promise<string | null> {
-  const existing = localStorage.getItem("admin_access_token");
-  if (existing) return existing;
+export const getAdminRefreshToken = (): string | null =>
+  typeof window !== "undefined" ? localStorage.getItem("admin_refresh_token") : null;
 
-  if (adminLoginPromise) return adminLoginPromise;
+export const setAdminTokens = (accessToken: string, refreshToken?: string | null): void => {
+  if (typeof window === "undefined") return;
+  if (accessToken) {
+    localStorage.setItem("admin_access_token", accessToken);
+  }
+  if (refreshToken) {
+    localStorage.setItem("admin_refresh_token", refreshToken);
+  }
+};
 
-  adminLoginPromise = (async () => {
+export const clearAdminTokens = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("admin_access_token");
+  localStorage.removeItem("admin_refresh_token");
+};
+
+export const getUserAccessToken = (): string | null =>
+  typeof window !== "undefined" ? localStorage.getItem("user_access_token") : null;
+
+export const getUserRefreshToken = (): string | null =>
+  typeof window !== "undefined" ? localStorage.getItem("user_refresh_token") : null;
+
+export const setUserTokens = (accessToken: string, refreshToken?: string | null): void => {
+  if (typeof window === "undefined") return;
+  if (accessToken) {
+    localStorage.setItem("user_access_token", accessToken);
+  }
+  if (refreshToken) {
+    localStorage.setItem("user_refresh_token", refreshToken);
+  }
+};
+
+export const clearUserTokens = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("user_access_token");
+  localStorage.removeItem("user_refresh_token");
+};
+
+// ============================================================
+// SECURE TOKEN REFRESH PROMISES (CONCURRENCY-SAFE)
+// ============================================================
+let adminRefreshPromise: Promise<string | null> | null = null;
+let userRefreshPromise: Promise<string | null> | null = null;
+
+/**
+ * Attempts to refresh the Admin Access Token using the stored Admin Refresh Token.
+ * NEVER uses hardcoded credentials. If refresh token is missing or invalid, clears tokens and prompts login.
+ */
+export async function refreshAdminAccessToken(): Promise<string | null> {
+  const refreshToken = getAdminRefreshToken();
+  if (!refreshToken) {
+    clearAdminTokens();
+    return null;
+  }
+
+  if (adminRefreshPromise) return adminRefreshPromise;
+
+  adminRefreshPromise = (async () => {
     try {
-      const res = await axios.post(
-        `${BASE_API_URL}/auth/login`,
-        {
-          identifier: "admin@store.com",
-          password: "admin123",
-          portal: "admin-ecomm",
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "x-storefront": "ecomm",
-          },
-          timeout: 8000,
+      // Primary refresh route
+      let res;
+      try {
+        res = await axios.post(
+          `${BASE_API_URL}/auth/refresh-token`,
+          { refreshToken, portal: "admin-ecomm" },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "x-storefront": "ecomm",
+            },
+            timeout: 10000,
+          }
+        );
+      } catch (err: any) {
+        // Fallback endpoint if route is /auth/refresh
+        if (err.response?.status === 404) {
+          res = await axios.post(
+            `${BASE_API_URL}/auth/refresh`,
+            { refreshToken, portal: "admin-ecomm" },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "x-storefront": "ecomm",
+              },
+              timeout: 10000,
+            }
+          );
+        } else {
+          throw err;
         }
-      );
+      }
 
-      const token =
+      const freshAccess =
         res.data?.accessToken ||
         res.data?.token ||
-        res.data?.data?.accessToken;
-      if (token) {
-        localStorage.setItem("admin_access_token", token);
+        res.data?.data?.accessToken ||
+        res.data?.data?.token;
+
+      const freshRefresh =
+        res.data?.refreshToken ||
+        res.data?.data?.refreshToken;
+
+      if (freshAccess) {
+        setAdminTokens(freshAccess, freshRefresh);
         window.dispatchEvent(new Event("abb_admin_auth_success"));
-        return token;
+        return freshAccess;
       }
     } catch (e) {
-      console.warn("Silent admin auto-login failed:", e);
+      console.warn("Admin token refresh failed:", e);
+      clearAdminTokens();
+      window.dispatchEvent(new Event("abb_admin_forbidden"));
     } finally {
-      adminLoginPromise = null;
+      adminRefreshPromise = null;
     }
     return null;
   })();
 
-  return adminLoginPromise;
+  return adminRefreshPromise;
 }
 
-// Automatic Token & Storefront Interceptor: Injects Customer Token or Admin Token and x-storefront header
+/**
+ * Proactively ensures admin token exists:
+ * Returns current access token if available, or attempts a clean refresh via refresh token.
+ * No hardcoded auto-login fallback.
+ */
+export async function ensureAdminToken(): Promise<string | null> {
+  const existing = getAdminAccessToken();
+  if (existing) return existing;
+  return refreshAdminAccessToken();
+}
+
+/**
+ * Attempts to refresh the Customer Access Token using the stored Customer Refresh Token.
+ */
+export async function refreshCustomerAccessToken(): Promise<string | null> {
+  const refreshToken = getUserRefreshToken();
+  if (!refreshToken) {
+    clearUserTokens();
+    return null;
+  }
+
+  if (userRefreshPromise) return userRefreshPromise;
+
+  userRefreshPromise = (async () => {
+    try {
+      let res;
+      try {
+        res = await axios.post(
+          `${BASE_API_URL}/auth/refresh-token`,
+          { refreshToken, portal: "ecomm" },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "x-storefront": "ecomm",
+            },
+            timeout: 10000,
+          }
+        );
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          res = await axios.post(
+            `${BASE_API_URL}/auth/refresh`,
+            { refreshToken, portal: "ecomm" },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "x-storefront": "ecomm",
+              },
+              timeout: 10000,
+            }
+          );
+        } else {
+          throw err;
+        }
+      }
+
+      const freshAccess =
+        res.data?.accessToken ||
+        res.data?.token ||
+        res.data?.data?.accessToken;
+
+      const freshRefresh =
+        res.data?.refreshToken ||
+        res.data?.data?.refreshToken;
+
+      if (freshAccess) {
+        setUserTokens(freshAccess, freshRefresh);
+        window.dispatchEvent(new Event("abb_auth_change"));
+        return freshAccess;
+      }
+    } catch (e) {
+      console.warn("Customer token refresh failed:", e);
+      clearUserTokens();
+      window.dispatchEvent(new Event("abb_auth_change"));
+    } finally {
+      userRefreshPromise = null;
+    }
+    return null;
+  })();
+
+  return userRefreshPromise;
+}
+
+// ============================================================
+// REQUEST INTERCEPTOR: Inject Bearer Tokens & Storefront Headers
+// ============================================================
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig & { useAdminAuth?: boolean }) => {
     const url = config.url || "";
@@ -71,13 +239,20 @@ apiClient.interceptors.request.use(
 
     let token: string | null = null;
     if (isAdminRoute) {
-      // Admin endpoints MUST strictly use admin_access_token (never customer tokens)
-      token = localStorage.getItem("admin_access_token");
-      if (!token && !url.includes("/auth/login")) {
-        token = await ensureAdminToken();
+      // Admin endpoints strictly use admin_access_token (never customer tokens)
+      token = getAdminAccessToken();
+      // If access token is absent but refresh token exists and not login call, attempt refresh
+      if (!token && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {
+        token = await refreshAdminAccessToken();
       }
     } else {
-      token = localStorage.getItem("user_access_token");
+      token = getUserAccessToken();
+      if (!token && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {
+        // If customer access token absent, check if refresh token exists
+        if (getUserRefreshToken()) {
+          token = await refreshCustomerAccessToken();
+        }
+      }
     }
 
     if (token && config.headers) {
@@ -93,12 +268,20 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Automatic 401 & 403 Handler: Recovers admin tokens and handles customer session expiry
+// ============================================================
+// RESPONSE INTERCEPTOR: Handle 401 / 403 with Automatic Refresh & Retry
+// ============================================================
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalConfig = error.config as (InternalAxiosRequestConfig & { _retryAdminAuth?: boolean; useAdminAuth?: boolean }) | undefined;
+    const originalConfig = error.config as (InternalAxiosRequestConfig & {
+      _retryAdminAuth?: boolean;
+      _retryUserAuth?: boolean;
+      useAdminAuth?: boolean;
+    }) | undefined;
+
     const url = originalConfig?.url || "";
+    const isLoginOrRefreshRoute = url.includes("/auth/login") || url.includes("/auth/refresh");
     const isAdminRoute =
       Boolean((originalConfig as any)?.useAdminAuth) ||
       url.includes("/admin") ||
@@ -106,62 +289,80 @@ apiClient.interceptors.response.use(
       (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
     const status = error.response?.status;
 
-    // Handle Admin Auth issues (401 UNAUTHORIZED or 403 FORBIDDEN)
+    // Handle Admin Auth Session Expired or Forbidden (401 or 403)
     if (isAdminRoute && (status === 401 || status === 403)) {
-      localStorage.removeItem("admin_access_token");
-
-      if (originalConfig && !originalConfig._retryAdminAuth) {
+      if (!isLoginOrRefreshRoute && originalConfig && !originalConfig._retryAdminAuth) {
         originalConfig._retryAdminAuth = true;
-        try {
-          const freshToken = await ensureAdminToken();
-          if (freshToken) {
-            if (originalConfig.headers) {
-              originalConfig.headers.Authorization = `Bearer ${freshToken}`;
-            }
-            return apiClient(originalConfig);
+        const freshToken = await refreshAdminAccessToken();
+        if (freshToken) {
+          if (originalConfig.headers) {
+            originalConfig.headers.Authorization = `Bearer ${freshToken}`;
           }
-        } catch {
-          // Re-auth failed
+          return apiClient(originalConfig);
         }
       }
 
-      window.dispatchEvent(new Event("abb_admin_forbidden"));
+      // If refresh failed or was login/refresh route, clear admin tokens and lock dashboard
+      if (!isLoginOrRefreshRoute) {
+        clearAdminTokens();
+        window.dispatchEvent(new Event("abb_admin_forbidden"));
+      }
       return Promise.reject(error);
     }
 
-    // Handle Customer 401
+    // Handle Customer 401 Session Expired
     if (status === 401 && !isAdminRoute) {
-      const code = error.response?.data?.code;
-      const msg = error.response?.data?.message;
-      const isTokenIssue = 
-        code === "INVALID_TOKEN" ||
-        code === "TOKEN_EXPIRED" ||
-        code === "UNAUTHORIZED" ||
-        code === "MISSING_AUTH_HEADER" ||
-        (typeof msg === "string" && msg.toLowerCase().includes("token"));
+      if (!isLoginOrRefreshRoute && originalConfig && !originalConfig._retryUserAuth) {
+        originalConfig._retryUserAuth = true;
+        const freshToken = await refreshCustomerAccessToken();
+        if (freshToken) {
+          if (originalConfig.headers) {
+            originalConfig.headers.Authorization = `Bearer ${freshToken}`;
+          }
+          return apiClient(originalConfig);
+        }
+      }
 
-      if (isTokenIssue) {
-        localStorage.removeItem("user_access_token");
+      // If refresh failed, clear user tokens
+      if (!isLoginOrRefreshRoute) {
+        clearUserTokens();
         window.dispatchEvent(new Event("abb_auth_change"));
       }
     }
+
     return Promise.reject(error);
   }
 );
 
-// Unified Error Formatter
+// ============================================================
+// ERROR NORMALIZER & SCRIPTS
+// ============================================================
 export function normalizeApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
     const serverMessage =
       error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message;
-    return typeof serverMessage === "string" ? serverMessage : "Request failed";
+      error.response?.data?.error;
+    if (typeof serverMessage === "string" && serverMessage.trim()) {
+      return serverMessage;
+    }
+    if (status === 500) {
+      return "Backend service error (500). Please verify server connection.";
+    }
+    if (status === 401) {
+      return "Invalid email or password. Access denied.";
+    }
+    if (status === 403) {
+      return "Access denied. Insufficient permissions.";
+    }
+    if (status === 404) {
+      return "Requested resource or endpoint not found.";
+    }
+    return error.message || "Request failed";
   }
   return error instanceof Error ? error.message : "An unexpected error occurred";
 }
 
-// Razorpay SDK Script Loader Utility
 export function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
     if ((window as any).Razorpay) {

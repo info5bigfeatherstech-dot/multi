@@ -1,4 +1,4 @@
-import { apiClient, normalizeApiError } from "./client";
+import { apiClient, normalizeApiError, setUserTokens, clearUserTokens, refreshCustomerAccessToken } from "./client";
 
 export const authApi = {
   // 1. Password Login
@@ -10,8 +10,10 @@ export const authApi = {
         portal: "ecomm",
       });
       const data = res.data?.data || res.data;
-      if (data?.accessToken || data?.token) {
-        localStorage.setItem("user_access_token", data.accessToken || data.token);
+      const accessToken = data?.accessToken || data?.token || res.data?.accessToken;
+      const refreshToken = data?.refreshToken || data?.refresh_token || res.data?.refreshToken;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
       }
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
@@ -35,7 +37,13 @@ export const authApi = {
   }) => {
     try {
       const res = await apiClient.post("/auth/register", payload);
-      return res.data?.data || res.data;
+      const data = res.data?.data || res.data;
+      const accessToken = data?.accessToken || data?.token;
+      const refreshToken = data?.refreshToken || data?.refresh_token;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
+      }
+      return data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
@@ -46,8 +54,10 @@ export const authApi = {
     try {
       const res = await apiClient.post("/auth/otp-verify-login", payload);
       const data = res.data?.data || res.data;
-      if (data?.accessToken || data?.token) {
-        localStorage.setItem("user_access_token", data.accessToken || data.token);
+      const accessToken = data?.accessToken || data?.token;
+      const refreshToken = data?.refreshToken || data?.refresh_token;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
       }
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
@@ -65,8 +75,10 @@ export const authApi = {
     try {
       const res = await apiClient.post("/auth/google", { idToken, portal: "ecomm" });
       const data = res.data?.data || res.data;
-      if (data?.accessToken || data?.token) {
-        localStorage.setItem("user_access_token", data.accessToken || data.token);
+      const accessToken = data?.accessToken || data?.token;
+      const refreshToken = data?.refreshToken || data?.refresh_token;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
       }
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
@@ -88,7 +100,7 @@ export const authApi = {
           );
           const payload = JSON.parse(jsonPayload);
           if (payload?.email || payload?.name) {
-            localStorage.setItem("user_access_token", idToken);
+            setUserTokens(idToken, null);
             if (payload.name) localStorage.setItem("abb_user_profile_name", payload.name);
             if (payload.email) localStorage.setItem("abb_user_profile_email", payload.email);
             return {
@@ -108,13 +120,30 @@ export const authApi = {
     }
   },
 
-  // 5. Get current profile
+  // 5. Refresh token
+  refreshToken: async () => {
+    return refreshCustomerAccessToken();
+  },
+
+  // 6. Get current profile
   getMe: async () => {
     try {
       const res = await apiClient.get("/auth/profile");
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
+    }
+  },
+
+  // 7. Logout
+  logout: async () => {
+    try {
+      await apiClient.post("/auth/logout");
+    } catch {
+      // ignore network errors on logout
+    } finally {
+      clearUserTokens();
+      window.dispatchEvent(new Event("abb_auth_change"));
     }
   },
 };

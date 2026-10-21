@@ -1,4 +1,4 @@
-import { apiClient, normalizeApiError } from "./client";
+import { apiClient, normalizeApiError, setAdminTokens, clearAdminTokens, refreshAdminAccessToken } from "./client";
 
 /* ============================================================
    1. ADMIN AUTH & STAFF MANAGEMENT (10 Full API Endpoints)
@@ -132,28 +132,38 @@ export const adminStaffApi = {
 };
 
 export const adminAuthApi = {
-  login: async (credentials: { email: string; password: string }) => {
+  login: async (credentials: { email?: string; identifier?: string; phone?: string; password: string }) => {
     try {
+      const clean = (credentials.identifier || credentials.email || credentials.phone || "").trim();
+      const isDigitsOnly = /^[0-9+() -]{7,15}$/.test(clean);
       const res = await apiClient.post("/auth/login", {
-        identifier: credentials.email.trim(),
+        identifier: clean,
+        email: !isDigitsOnly ? clean : undefined,
+        phone: isDigitsOnly ? clean : undefined,
         password: credentials.password,
         portal: "admin-ecomm",
       });
       const data = res.data?.data || res.data;
-      const token = data?.accessToken || data?.token;
-      if (token) {
-        localStorage.setItem("admin_access_token", token);
+      const accessToken = data?.accessToken || data?.token || res.data?.accessToken;
+      const refreshToken = data?.refreshToken || data?.refresh_token || res.data?.refreshToken;
+      if (accessToken) {
+        setAdminTokens(accessToken, refreshToken);
       }
       return {
         ...data,
-        token,
+        accessToken,
+        refreshToken,
+        token: accessToken,
       };
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
+  refreshToken: async () => {
+    return refreshAdminAccessToken();
+  },
   logout: () => {
-    localStorage.removeItem("admin_access_token");
+    clearAdminTokens();
   },
   getStaffMembers: async (params?: any) => {
     try {

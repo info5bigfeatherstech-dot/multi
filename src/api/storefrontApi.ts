@@ -1,4 +1,4 @@
-import { apiClient, normalizeApiError, loadRazorpayScript } from "./client";
+import { apiClient, normalizeApiError, loadRazorpayScript, setUserTokens, clearUserTokens } from "./client";
 
 /* ============================================================
    1. CUSTOMER AUTHENTICATION & PROFILE APIs
@@ -7,7 +7,13 @@ export const storefrontAuthApi = {
   register: async (data: { name: string; email: string; phone: string; password?: string }) => {
     try {
       const res = await apiClient.post("/auth/register", data);
-      return res.data?.data || res.data;
+      const resData = res.data?.data || res.data;
+      const accessToken = resData?.accessToken || resData?.token;
+      const refreshToken = resData?.refreshToken || resData?.refresh_token;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
+      }
+      return resData;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
@@ -16,8 +22,10 @@ export const storefrontAuthApi = {
     try {
       const res = await apiClient.post("/auth/login", credentials);
       const data = res.data?.data || res.data;
-      if (data?.token) {
-        localStorage.setItem("user_access_token", data.token);
+      const accessToken = data?.accessToken || data?.token;
+      const refreshToken = data?.refreshToken || data?.refresh_token;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
       }
       return data;
     } catch (err) {
@@ -28,8 +36,10 @@ export const storefrontAuthApi = {
     try {
       const res = await apiClient.post("/auth/otp-verify-login", payload);
       const data = res.data?.data || res.data;
-      if (data?.token) {
-        localStorage.setItem("user_access_token", data.token);
+      const accessToken = data?.accessToken || data?.token;
+      const refreshToken = data?.refreshToken || data?.refresh_token;
+      if (accessToken) {
+        setUserTokens(accessToken, refreshToken);
       }
       return data;
     } catch (err) {
@@ -56,7 +66,7 @@ export const storefrontAuthApi = {
     try {
       await apiClient.post("/auth/logout");
     } finally {
-      localStorage.removeItem("user_access_token");
+      clearUserTokens();
     }
   },
 };

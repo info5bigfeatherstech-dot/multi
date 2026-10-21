@@ -1006,24 +1006,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </div>
               </button>
-
-              {/* Admin Portal Shortcut */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onGoToAdmin) onGoToAdmin();
-                  else {
-                    window.history.pushState(null, '', '/admin/dashboard');
-                    window.dispatchEvent(new PopStateEvent('popstate'));
-                  }
-                }}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-300 text-amber-900 transition-all text-xs font-bold cursor-pointer group shadow-xs active:scale-95"
-                title="Open Store Admin Panel"
-                aria-label="Admin Portal"
-              >
-                <ShieldCheck className="w-4 h-4 text-[#A44101] group-hover:scale-110 transition-transform" />
-                <span className="hidden md:inline">Admin</span>
-              </button>
             </div>
           </div>
 

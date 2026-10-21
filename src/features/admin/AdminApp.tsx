@@ -16,7 +16,7 @@ import { AdminCustomerLeadsView } from './components/AdminCustomerLeadsView';
 import { AdminAbandonedCartsView } from './components/AdminAbandonedCartsView';
 import { AdminMarketingCouponsView } from './components/AdminMarketingCouponsView';
 
-import { ensureAdminToken } from '../../api';
+import { refreshAdminAccessToken, clearAdminTokens } from '../../api';
 
 interface AdminAppProps {
   onBackToStore?: () => void;
@@ -24,14 +24,11 @@ interface AdminAppProps {
 
 export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(() => {
-    const existing = mockAdminStore.getCurrentUser();
-    if (existing) return existing;
-
-    // Direct dashboard navigation auto-seeds demo admin session
     if (typeof window !== 'undefined') {
-      const path = window.location.pathname.toLowerCase();
-      if (path.includes('dashboard') || (path === '/admin' && !path.includes('login'))) {
-        return mockAdminStore.login('admin@store.com', 'admin123');
+      const hasToken = localStorage.getItem('admin_access_token');
+      const existing = mockAdminStore.getCurrentUser();
+      if (hasToken && existing) {
+        return existing;
       }
     }
     return null;
@@ -85,7 +82,12 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   // Keep state synced with localStorage updates & token verification
   useEffect(() => {
     const unsubscribe = mockAdminStore.subscribe(() => {
-      setCurrentUser(mockAdminStore.getCurrentUser());
+      const hasToken = localStorage.getItem('admin_access_token');
+      if (hasToken) {
+        setCurrentUser(mockAdminStore.getCurrentUser());
+      } else {
+        setCurrentUser(null);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -93,6 +95,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   // Listen to 403 Forbidden or auth success events across the admin shell
   useEffect(() => {
     const handleAdminForbidden = () => {
+      clearAdminTokens();
       mockAdminStore.logout();
       setCurrentUser(null);
     };
@@ -105,11 +108,12 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
     window.addEventListener('abb_admin_forbidden', handleAdminForbidden);
     window.addEventListener('abb_admin_auth_success', handleAdminAuthSuccess);
 
-    // If currentUser exists or user opened admin, proactively guarantee admin token
+    // If currentUser exists but access token is missing, attempt refresh via refresh token
     if (currentUser && !localStorage.getItem('admin_access_token')) {
-      ensureAdminToken().then((token) => {
+      refreshAdminAccessToken().then((token) => {
         if (!token) {
-          // If auto acquisition failed, prompt login
+          // If refresh failed, force logout
+          clearAdminTokens();
           mockAdminStore.logout();
           setCurrentUser(null);
         }
@@ -131,6 +135,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   };
 
   const handleSignOut = () => {
+    clearAdminTokens();
     mockAdminStore.logout();
     setCurrentUser(null);
     if (typeof window !== 'undefined') {
