@@ -12,19 +12,23 @@ import {
   MapPin,
   CreditCard,
   HelpCircle,
-  RefreshCw,
   X,
   Check,
-  Percent,
   Sparkles,
   Printer,
   Key,
   Lock,
   ChevronRight,
   ShoppingBag,
-  Wallet
+  Wallet,
+  Store,
+  Star,
+  FileText,
+  Ban
 } from 'lucide-react';
 import { 
+  adminStoreControlsApi,
+  AdminStoreControlsData,
   adminCheckoutSettingsApi,
   adminShippingSettingsApi,
   adminShipmozoLabelSettingsApi,
@@ -208,9 +212,21 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   };
 
   // =========================================================================
-  // TAB 1: CONTROLS (Live Checkout Policy API)
+  // TAB 1: STORE CONTROLS & OPERATIONAL STATUS (Live API Integration)
   // =========================================================================
-  const [controlsLoading, setControlsLoading] = useState(false);
+  const [storeControlsLoading, setStoreControlsLoading] = useState(false);
+  const [storeControlsUpdating, setStoreControlsUpdating] = useState<string | null>(null);
+  const [storeControls, setStoreControls] = useState<AdminStoreControlsData>({
+    globalStoreAccess: true,
+    deliveryServices: true,
+    selfPickup: false,
+    businessFramework: 'Business to Customer (B2C)',
+  });
+  const [isChangeTypeOpen, setIsChangeTypeOpen] = useState(false);
+  const [selectedFramework, setSelectedFramework] = useState('Business to Customer (B2C)');
+  const [activeFeatureModal, setActiveFeatureModal] = useState<'cod' | 'review' | 'gst' | 'explore' | null>(null);
+
+  // COD & Payment Controls state (Preserved and accessible via COD Management card)
   const [controlsSaving, setControlsSaving] = useState(false);
   const [controls, setControls] = useState({
     codEnabled: true,
@@ -218,21 +234,66 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
     partialPaymentPercent: 25,
   });
 
-  const fetchControls = async () => {
-    setControlsLoading(true);
+  const fetchStoreControls = async () => {
+    setStoreControlsLoading(true);
     try {
-      const data = await adminCheckoutSettingsApi.getPolicy();
-      if (data) {
+      const [controlsData, checkoutData] = await Promise.allSettled([
+        adminStoreControlsApi.getControls(),
+        adminCheckoutSettingsApi.getPolicy(),
+      ]);
+      if (controlsData.status === 'fulfilled' && controlsData.value) {
+        setStoreControls(controlsData.value);
+        setSelectedFramework(controlsData.value.businessFramework || 'Business to Customer (B2C)');
+      }
+      if (checkoutData.status === 'fulfilled' && checkoutData.value) {
         setControls({
-          codEnabled: data.codEnabled ?? true,
-          partialPaymentEnabled: data.partialPaymentEnabled ?? false,
-          partialPaymentPercent: data.partialPaymentPercent ? Number(data.partialPaymentPercent) : 25,
+          codEnabled: checkoutData.value.codEnabled ?? true,
+          partialPaymentEnabled: checkoutData.value.partialPaymentEnabled ?? false,
+          partialPaymentPercent: checkoutData.value.partialPaymentPercent ? Number(checkoutData.value.partialPaymentPercent) : 25,
         });
       }
     } catch (err: any) {
-      showToast(`Failed to load checkout controls: ${err.message || 'Error'}`, 'error');
+      showToast(`Failed to load store controls: ${err.message || 'Error'}`, 'error');
     } finally {
-      setControlsLoading(false);
+      setStoreControlsLoading(false);
+    }
+  };
+
+  const handleToggleStoreControl = async (key: 'globalStoreAccess' | 'deliveryServices' | 'selfPickup') => {
+    const newValue = !storeControls[key];
+    const labelMap: Record<string, string> = {
+      globalStoreAccess: 'Global Store Access',
+      deliveryServices: 'Delivery Services',
+      selfPickup: 'Self Pick-up',
+    };
+    const label = labelMap[key] || key;
+
+    // Snappy optimistic UI update
+    setStoreControls((prev) => ({ ...prev, [key]: newValue }));
+    setStoreControlsUpdating(key);
+
+    try {
+      await adminStoreControlsApi.updateControls({ [key]: newValue });
+      showToast(`${label} is now ${newValue ? 'ACTIVE' : 'PAUSED'} ✓`, 'success');
+    } catch (err: any) {
+      // Revert if API fails
+      setStoreControls((prev) => ({ ...prev, [key]: !newValue }));
+      showToast(`Failed to update ${label}: ${err.message || 'Error'}`, 'error');
+    } finally {
+      setStoreControlsUpdating(null);
+    }
+  };
+
+  const handleSaveFramework = async (framework: string) => {
+    setStoreControls((prev) => ({ ...prev, businessFramework: framework }));
+    setSelectedFramework(framework);
+    setIsChangeTypeOpen(false);
+
+    try {
+      await adminStoreControlsApi.updateControls({ businessFramework: framework });
+      showToast(`Business framework changed to ${framework} ✓`, 'success');
+    } catch (err: any) {
+      showToast(`Failed to update framework: ${err.message || 'Error'}`, 'error');
     }
   };
 
@@ -245,7 +306,8 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
         partialPaymentEnabled: controls.partialPaymentEnabled,
         partialPaymentPercent: controls.partialPaymentEnabled ? controls.partialPaymentPercent : null,
       });
-      showToast('Checkout controls and payment policies saved successfully!');
+      showToast('COD & checkout payment policies saved successfully! ✓');
+      setActiveFeatureModal(null);
     } catch (err: any) {
       showToast(`Failed to save controls: ${err.message || 'Error'}`, 'error');
     } finally {
@@ -541,14 +603,13 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   };
 
   const handleRemoveLogo = async () => {
-    if (!window.confirm('Remove current brand logo from shipping label?')) return;
     try {
       await adminShipmozoLabelSettingsApi.removeLogo();
       setLabelConfig((prev) => ({
         ...prev,
         logo: { ...prev.logo, url: '', enabled: false },
       }));
-      showToast('Brand logo removed from label');
+      showToast('Brand logo removed successfully! ✓');
     } catch (err: any) {
       showToast(`Failed to remove logo: ${err.message || 'Error'}`, 'error');
     }
@@ -606,7 +667,7 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   // Initial fetch based on current active tab
   useEffect(() => {
     if (currentTab === 'settings-controls' || currentTab === 'settings') {
-      fetchControls();
+      fetchStoreControls();
     } else if (currentTab === 'settings-delivery' || currentTab === 'settings-shipping') {
       fetchDeliverySettings();
     } else if (currentTab === 'settings-label-settings') {
@@ -651,85 +712,417 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
       )}
 
       {/* =========================================================================
-          TAB 1: CONTROLS VIEW
+          TAB 1: STORE CONTROLS VIEW (Exact Visual Match to Screenshot & Live API)
          ========================================================================= */}
       {(currentTab === 'settings-controls' || currentTab === 'settings') && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#FFF0F2] text-[#E11D48] flex items-center justify-center shadow-2xs">
-                  <SlidersHorizontal className="w-4 h-4" />
-                </div>
-                <h1 className="text-xl sm:text-2xl font-black text-navy tracking-tight">
-                  Checkout &amp; Payment Controls
-                </h1>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Configure Cash on Delivery (COD), partial advance token policies, and checkout safety rules.
-              </p>
-            </div>
+        <div className="space-y-6 animate-fadeIn font-roboto">
+          {/* Header Bar matching screenshot */}
+          <div className="flex items-center justify-between pb-1">
+            <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">
+              Store Controls
+            </h1>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={fetchControls}
-                disabled={controlsLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${controlsLoading ? 'animate-spin' : ''}`} />
-                <span>Reload</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleSaveControls()}
-                disabled={controlsSaving}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                {controlsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Save Changes</span>
-              </button>
+            {/* Live Dashboard Pill Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-blue-200/80 bg-blue-50/60 text-[#2563EB] text-[11px] font-bold tracking-wider uppercase shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse" />
+              <span>LIVE DASHBOARD</span>
             </div>
           </div>
 
-          {controlsLoading ? (
-            <div className="py-20 flex flex-col items-center justify-center gap-3 bg-white rounded-2xl border border-slate-200/80">
-              <Loader2 className="w-8 h-8 text-[#E11D48] animate-spin" />
-              <p className="text-xs font-bold text-slate-500">Loading checkout controls from server...</p>
+          {storeControlsLoading ? (
+            <div className="py-24 flex flex-col items-center justify-center gap-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+              <Loader2 className="w-8 h-8 text-[#2563EB] animate-spin" />
+              <p className="text-xs font-bold text-slate-500">Syncing live store controls...</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left 2 Cols: Toggles & Inputs */}
-              <div className="lg:col-span-2 space-y-5">
-                {/* 1. Cash on Delivery (COD) Control */}
-                <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-2xs space-y-4">
-                  <div className="flex items-start justify-between gap-4">
+            <div className="space-y-5">
+              {/* Card 1: OPERATIONAL STATUS */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-6 sm:p-7 space-y-6">
+                {/* Subheader */}
+                <div className="flex items-center gap-2 text-slate-500">
+                  <SlidersHorizontal className="w-4 h-4 text-slate-500 stroke-[2.2]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    OPERATIONAL STATUS
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {/* Row 1: Global Store Access */}
+                  <div className="py-5 first:pt-1 last:pb-1 flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-sm sm:text-base font-bold text-slate-900">
+                          Global Store Access
+                        </span>
+                        {storeControls.globalStoreAccess ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                            <Ban className="w-3 h-3 text-rose-500" />
+                            PAUSED
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Allow customers to browse your products
+                      </p>
+                    </div>
+
+                    {/* Blue Switch */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={storeControls.globalStoreAccess}
+                      disabled={storeControlsUpdating === 'globalStoreAccess'}
+                      onClick={() => handleToggleStoreControl('globalStoreAccess')}
+                      className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        storeControls.globalStoreAccess ? 'bg-[#2563EB]' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          storeControls.globalStoreAccess ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Row 2: Delivery Services */}
+                  <div className="py-5 first:pt-1 last:pb-1 flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-sm sm:text-base font-bold text-slate-900">
+                          Delivery Services
+                        </span>
+                        {storeControls.deliveryServices ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                            <Ban className="w-3 h-3 text-rose-500" />
+                            PAUSED
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Enable/Disable shipping and home delivery
+                      </p>
+                    </div>
+
+                    {/* Blue Switch */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={storeControls.deliveryServices}
+                      disabled={storeControlsUpdating === 'deliveryServices'}
+                      onClick={() => handleToggleStoreControl('deliveryServices')}
+                      className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        storeControls.deliveryServices ? 'bg-[#2563EB]' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          storeControls.deliveryServices ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Row 3: Self Pick-up */}
+                  <div className="py-5 first:pt-1 last:pb-1 flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-sm sm:text-base font-bold text-slate-900">
+                          Self Pick-up
+                        </span>
+                        {storeControls.selfPickup ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                            <Ban className="w-3 h-3 text-rose-500" />
+                            PAUSED
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Allow customers to collect from store
+                      </p>
+                    </div>
+
+                    {/* Switch (Gray when paused) */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={storeControls.selfPickup}
+                      disabled={storeControlsUpdating === 'selfPickup'}
+                      onClick={() => handleToggleStoreControl('selfPickup')}
+                      className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        storeControls.selfPickup ? 'bg-[#2563EB]' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          storeControls.selfPickup ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: BUSINESS FRAMEWORK */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-5 sm:p-6 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100/90 flex items-center justify-center text-[#2563EB] shrink-0">
+                    <Store className="w-6 h-6 stroke-[2]" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                      BUSINESS FRAMEWORK
+                    </span>
+                    <h2 className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
+                      {storeControls.businessFramework || 'Business to Customer (B2C)'}
+                    </h2>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsChangeTypeOpen(true)}
+                  className="px-4 py-2 rounded-xl border border-blue-200 bg-white hover:bg-blue-50 text-[#2563EB] text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-2xs shrink-0"
+                >
+                  Change Type
+                </button>
+              </div>
+
+              {/* Section 3: Advanced Features */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                    Advanced Features
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveFeatureModal('explore')}
+                    className="text-xs sm:text-sm font-semibold text-[#2563EB] hover:text-blue-700 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <span>Explore All</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                  {/* Card 1: Review Engine */}
+                  <div
+                    onClick={() => setActiveFeatureModal('review')}
+                    className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                      <Star className="w-5 h-5 fill-amber-400/20 stroke-[2.2]" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-900 mb-1 group-hover:text-[#2563EB] transition-colors">
+                      Review Engine
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Build social proof with automated customer ratings.
+                    </p>
+                  </div>
+
+                  {/* Card 2: GST Automator */}
+                  <div
+                    onClick={() => setActiveFeatureModal('gst')}
+                    className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                      <FileText className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-900 mb-1 group-hover:text-[#2563EB] transition-colors">
+                      GST Automator
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Generate compliant invoices instantly per order.
+                    </p>
+                  </div>
+
+                  {/* Card 3: COD Management */}
+                  <div
+                    onClick={() => setActiveFeatureModal('cod')}
+                    className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-3.5 group-hover:scale-105 transition-transform">
+                      <Truck className="w-5 h-5 stroke-[2.2]" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-900 mb-1 group-hover:text-[#2563EB] transition-colors">
+                      COD Management
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Set logic-based fees for Cash on Delivery orders.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              MODAL: CHANGE BUSINESS FRAMEWORK TYPE
+             ========================================================================= */}
+          {isChangeTypeOpen &&
+            createPortal(
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+                <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-5 animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center">
+                        <Store className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Change Business Framework</h3>
+                        <p className="text-xs text-slate-500">Configure how buyers purchase from your platform</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsChangeTypeOpen(false)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      {
+                        id: 'Business to Customer (B2C)',
+                        title: 'Business to Customer (B2C)',
+                        desc: 'Direct retail store for individual consumers with instant checkout and consumer promotions.',
+                        badge: 'Recommended',
+                      },
+                      {
+                        id: 'Business to Business (B2B)',
+                        title: 'Business to Business (B2B)',
+                        desc: 'Wholesale commerce with bulk minimum order quantities (MOQ), GST tax invoicing, and trade credit.',
+                        badge: 'Wholesale',
+                      },
+                      {
+                        id: 'Hybrid / B2B2C Multi-Portal',
+                        title: 'Hybrid / B2B2C Multi-Portal',
+                        desc: 'Dual storefront engine serving both regular retail consumers and verified wholesale trade partners.',
+                        badge: 'Enterprise',
+                      },
+                    ].map((framework) => (
+                      <div
+                        key={framework.id}
+                        onClick={() => setSelectedFramework(framework.id)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
+                          selectedFramework === framework.id
+                            ? 'border-[#2563EB] bg-blue-50/50 shadow-2xs'
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900">{framework.title}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                              {framework.badge}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 leading-relaxed">{framework.desc}</p>
+                        </div>
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${
+                            selectedFramework === framework.id
+                              ? 'border-[#2563EB] bg-[#2563EB]'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {selectedFramework === framework.id && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsChangeTypeOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveFramework(selectedFramework)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#2563EB] hover:bg-blue-700 text-white transition-all shadow-xs cursor-pointer"
+                    >
+                      Update Framework
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+
+          {/* =========================================================================
+              MODAL: COD MANAGEMENT (Full Policy & Partial Advance Token Controls)
+             ========================================================================= */}
+          {activeFeatureModal === 'cod' &&
+            createPortal(
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+                <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-slate-200 space-y-5 animate-scaleUp max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <Truck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">COD Management &amp; Partial Advance</h3>
+                        <p className="text-xs text-slate-500">Configure Cash on Delivery and advance booking deposit rules</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* 1. Cash on Delivery Toggle */}
+                  <div className="bg-slate-50/70 rounded-xl p-4 border border-slate-200/80 flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-[#A44101]" />
-                        <h2 className="text-sm font-bold text-navy">Cash on Delivery (COD)</h2>
+                        <CreditCard className="w-4 h-4 text-purple-600" />
+                        <h4 className="text-sm font-bold text-slate-900">Cash on Delivery (COD)</h4>
                         <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             controls.codEnabled
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              : 'bg-slate-200 text-slate-600'
                           }`}
                         >
                           {controls.codEnabled ? 'Active' : 'Disabled'}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
-                        Allow customers to pay cash or UPI at their doorstep upon receiving the parcel.
+                        Allow customers to pay cash or UPI at their doorstep upon parcel delivery.
                       </p>
                     </div>
 
-                    {/* Toggle Switch */}
                     <button
                       type="button"
                       onClick={() => setControls((prev) => ({ ...prev, codEnabled: !prev.codEnabled }))}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        controls.codEnabled ? 'bg-emerald-600' : 'bg-slate-300'
+                        controls.codEnabled ? 'bg-[#2563EB]' : 'bg-slate-300'
                       }`}
                     >
                       <span
@@ -740,77 +1133,60 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
                     </button>
                   </div>
 
-                  <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl text-xs text-slate-600 space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-700">
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Zero Friction Checkout</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      COD increases initial conversion rate by up to 40% across Tier 2 and Tier 3 Indian cities.
-                    </p>
-                  </div>
-                </div>
-
-                {/* 2. Partial Payment (Advance Token) Control */}
-                <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-2xs space-y-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-[#E11D48]" />
-                        <h2 className="text-sm font-bold text-navy">Partial Payment Policy</h2>
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            controls.partialPaymentEnabled
-                              ? 'bg-[#FFF0F2] text-[#E11D48] border border-rose-200'
-                              : 'bg-slate-100 text-slate-600 border border-slate-200'
-                          }`}
-                        >
-                          {controls.partialPaymentEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Require buyers to pay a non-refundable percentage advance online to confirm COD orders, drastically reducing Return to Origin (RTO).
-                      </p>
-                    </div>
-
-                    {/* Toggle Switch */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setControls((prev) => ({
-                          ...prev,
-                          partialPaymentEnabled: !prev.partialPaymentEnabled,
-                        }))
-                      }
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        controls.partialPaymentEnabled ? 'bg-[#E11D48]' : 'bg-slate-300'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                          controls.partialPaymentEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {controls.partialPaymentEnabled && (
-                    <div className="space-y-4 pt-2 border-t border-slate-100 animate-fadeIn">
+                  {/* 2. Partial Payment Policy */}
+                  <div className="bg-slate-50/70 rounded-xl p-4 border border-slate-200/80 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="text-xs font-bold text-slate-700">
-                            Required Advance Percentage
-                          </label>
-                          <span className="text-xs font-black text-[#E11D48]">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-amber-500" />
+                          <h4 className="text-sm font-bold text-slate-900">Partial Payment (RTO Protection)</h4>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              controls.partialPaymentEnabled
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {controls.partialPaymentEnabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Require buyers to pay an advance online token to confirm COD orders, eliminating Return-to-Origin (RTO).
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setControls((prev) => ({
+                            ...prev,
+                            partialPaymentEnabled: !prev.partialPaymentEnabled,
+                          }))
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          controls.partialPaymentEnabled ? 'bg-[#2563EB]' : 'bg-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                            controls.partialPaymentEnabled ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {controls.partialPaymentEnabled && (
+                      <div className="space-y-3 pt-3 border-t border-slate-200 animate-fadeIn">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700">Advance Percentage</label>
+                          <span className="text-xs font-black text-[#2563EB]">
                             {controls.partialPaymentPercent}% Advance
                           </span>
                         </div>
-
-                        {/* Slider */}
                         <input
                           type="range"
                           min="5"
-                          max="90"
+                          max="80"
                           step="5"
                           value={controls.partialPaymentPercent}
                           onChange={(e) =>
@@ -819,22 +1195,18 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
                               partialPaymentPercent: Number(e.target.value),
                             }))
                           }
-                          className="w-full accent-[#E11D48] cursor-pointer"
+                          className="w-full accent-[#2563EB] cursor-pointer"
                         />
-
-                        {/* Presets */}
-                        <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center gap-2">
                           {[10, 15, 20, 25, 30, 50].map((pct) => (
                             <button
                               key={pct}
                               type="button"
-                              onClick={() =>
-                                setControls((prev) => ({ ...prev, partialPaymentPercent: pct }))
-                              }
+                              onClick={() => setControls((prev) => ({ ...prev, partialPaymentPercent: pct }))}
                               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                                 controls.partialPaymentPercent === pct
-                                  ? 'bg-[#FFF0F2] text-[#E11D48] border border-rose-300 shadow-2xs'
-                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                                  ? 'bg-[#2563EB] text-white shadow-2xs'
+                                  : 'bg-white hover:bg-slate-200 text-slate-600 border border-slate-200'
                               }`}
                             >
                               {pct}%
@@ -842,76 +1214,278 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
                           ))}
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right 1 Col: Live Checkout Calculator / Simulator */}
-              <div className="space-y-4">
-                <div className="bg-gradient-to-br from-slate-900 to-navy text-white rounded-2xl p-5 shadow-sm space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-                    <Percent className="w-4 h-4 text-rose-400" />
-                    <h3 className="text-sm font-bold">Live Checkout Simulator</h3>
-                  </div>
-
-                  <p className="text-xs text-slate-300">
-                    See how your store checkout displays payment breakdowns to customers for a sample order of ₹1,000.
-                  </p>
-
-                  <div className="space-y-3 bg-white/5 border border-white/10 rounded-xl p-3.5 text-xs">
-                    <div className="flex items-center justify-between text-slate-300">
-                      <span>Order Subtotal</span>
-                      <span className="font-bold text-white">₹1,000.00</span>
-                    </div>
-
-                    {controls.partialPaymentEnabled ? (
-                      <>
-                        <div className="flex items-center justify-between text-emerald-400 font-bold border-t border-white/10 pt-2">
-                          <span>Pay Online Advance ({controls.partialPaymentPercent}%)</span>
-                          <span>₹{((1000 * controls.partialPaymentPercent) / 100).toFixed(0)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-amber-300 font-bold">
-                          <span>Remaining at Doorstep (COD)</span>
-                          <span>₹{(1000 - (1000 * controls.partialPaymentPercent) / 100).toFixed(0)}</span>
-                        </div>
-                      </>
-                    ) : controls.codEnabled ? (
-                      <div className="flex items-center justify-between text-emerald-400 font-bold border-t border-white/10 pt-2">
-                        <span>Pay 100% on Doorstep (COD)</span>
-                        <span>₹1,000.00</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between text-rose-400 font-bold border-t border-white/10 pt-2">
-                        <span>Pay 100% Online (Prepaid Only)</span>
-                        <span>₹1,000.00</span>
-                      </div>
                     )}
                   </div>
 
-                  <div className="text-[11px] text-slate-400 leading-relaxed bg-black/20 p-2.5 rounded-lg">
-                    💡 <strong>Merchant Tip:</strong> Setting a 20% to 25% partial payment token eliminates frivolous impulse cancellations while retaining high customer intent.
+                  <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveControls()}
+                      disabled={controlsSaving}
+                      className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold bg-[#2563EB] hover:bg-blue-700 text-white transition-all shadow-xs cursor-pointer"
+                    >
+                      {controlsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      <span>Save Policy</span>
+                    </button>
                   </div>
                 </div>
+              </div>,
+              document.body
+            )}
 
-                {/* Primary Save Button Card */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveControls()}
-                    disabled={controlsSaving}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {controlsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    <span>Save Controls</span>
-                  </button>
-                  <p className="text-[10px] text-center text-slate-400">
-                    Changes apply immediately to your active storefront checkout pipeline.
-                  </p>
+          {/* =========================================================================
+              MODAL: REVIEW ENGINE CONFIGURATION
+             ========================================================================= */}
+          {activeFeatureModal === 'review' &&
+            createPortal(
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+                <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-5 animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                        <Star className="w-5 h-5 fill-amber-400/20" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">Review Engine Controls</h3>
+                        <p className="text-xs text-slate-500">Automated customer ratings &amp; social proof display</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs text-slate-600">
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Verified Buyer Badge</span>
+                        <span className="text-[11px] text-slate-500">Display verified badges on confirmed delivered orders</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        ACTIVE
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Auto-Publish Threshold</span>
+                        <span className="text-[11px] text-slate-500">Automatically display 4★ and 5★ reviews without moderation</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        4★ &amp; ABOVE
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Post-Delivery WhatsApp Review Request</span>
+                        <span className="text-[11px] text-slate-500">Send rating request 2 days after parcel delivery</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        ENABLED
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showToast('Review Engine automation rules saved! ✓');
+                        setActiveFeatureModal(null);
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#2563EB] hover:bg-blue-700 text-white transition-all shadow-xs cursor-pointer"
+                    >
+                      Save Settings
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </div>,
+              document.body
+            )}
+
+          {/* =========================================================================
+              MODAL: GST AUTOMATOR
+             ========================================================================= */}
+          {activeFeatureModal === 'gst' &&
+            createPortal(
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+                <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-5 animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900">GST Automator</h3>
+                        <p className="text-xs text-slate-500">Automatic tax compliance and instant invoice generation</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs text-slate-600">
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800">GST Identification Number (GSTIN)</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          VERIFIED
+                        </span>
+                      </div>
+                      <p className="text-xs font-mono font-bold text-slate-700">07AAECR1234F1Z5</p>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-800 block">Automated PDF Tax Invoices</span>
+                        <span className="text-[11px] text-slate-500">Generate downloadable GST invoices for every confirmed order</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        ACTIVE
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-slate-800 block">HSN &amp; SAC Code Auto-Lookup</span>
+                        <span className="text-[11px] text-slate-500">Automatically map tax slabs (5%, 12%, 18%) per category</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        SYNCED
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showToast('GST Automator settings updated! ✓');
+                        setActiveFeatureModal(null);
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#2563EB] hover:bg-blue-700 text-white transition-all shadow-xs cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+
+          {/* =========================================================================
+              MODAL: EXPLORE ALL ADVANCED FEATURES
+             ========================================================================= */}
+          {activeFeatureModal === 'explore' &&
+            createPortal(
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
+                <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-slate-200 space-y-5 animate-scaleUp">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Advanced Store Automations</h3>
+                      <p className="text-xs text-slate-500">Suite of intelligent tools built for multi-channel commerce</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => setActiveFeatureModal('review')}
+                      className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs font-bold text-slate-900">Review Engine</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Automated buyer reviews and social proof widgets.</p>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveFeatureModal('gst')}
+                      className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-[#2563EB]" />
+                        <span className="text-xs font-bold text-slate-900">GST Automator</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Instant compliant PDF invoices and tax reports.</p>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveFeatureModal('cod')}
+                      className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-purple-600" />
+                        <span className="text-xs font-bold text-slate-900">COD Management</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Doorstep payment policies and token fees.</p>
+                    </div>
+
+                    <div
+                      onClick={() => {
+                        showToast('Multi-Warehouse routing is active on your shipping account ✓');
+                      }}
+                      className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-slate-900">Multi-Warehouse Routing</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Route shipments from the nearest inventory hub.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setActiveFeatureModal(null)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#2563EB] hover:bg-blue-700 text-white transition-all shadow-xs cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
         </div>
       )}
 

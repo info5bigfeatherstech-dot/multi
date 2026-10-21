@@ -19,9 +19,9 @@ export interface ProductVariant {
   moq?: number;
   weight?: number;
   dimensions?: {
-    length: number;
-    width: number;
-    height: number;
+    length?: number;
+    width?: number;
+    height?: number;
   };
   isActive?: boolean;
   ecomVisibility?: boolean;
@@ -69,6 +69,7 @@ export interface AdminProduct {
   title: string;
   brand?: string;
   category: string;
+  categoryId?: string;
   subcategory?: string;
   slug?: string;
   currentPrice: number;
@@ -92,8 +93,19 @@ export interface AdminProduct {
   specifications?: Array<{ name: string; value: string }>;
   hsnCode?: string;
   gstRate?: number | string;
+  taxRate?: number;
+  tax?: number;
   trackInventory?: boolean;
   description?: string;
+  shipping?: {
+    weight?: number;
+    dimensions?: {
+      length?: number;
+      width?: number;
+      height?: number;
+    };
+  };
+  isFragile?: boolean;
   dateAdded: string;
   createdAt?: string;
   updatedAt?: string;

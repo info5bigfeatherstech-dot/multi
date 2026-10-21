@@ -10,21 +10,28 @@ import {
   Copy, 
   X, 
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Pencil
 } from 'lucide-react';
 import { adminCouponsApi } from '../../../api';
 import toast from 'react-hot-toast';
+import { DatePicker } from '../../../components/ui/calendar';
 
 export interface AdminCouponItem {
   id: string;
   code: string;
+  name?: string;
+  description?: string;
   discountType: 'percentage' | 'fixed';
   discountValue: number;
+  maxDiscountAmount?: number | null;
   minOrderValue: number;
   usageCount: number;
   maxUsage: number;
+  perUserLimit?: number;
   expiresAt: string;
   status: 'Active' | 'Expired';
+  isActive?: boolean;
 }
 
 export const AdminMarketingCouponsView: React.FC = () => {
@@ -44,8 +51,25 @@ export const AdminMarketingCouponsView: React.FC = () => {
   const [newExpiryDays, setNewExpiryDays] = useState<number>(30);
   const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
 
-  // Deleting State
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Edit Coupon Modal (matching screenshot)
+  const [editingCoupon, setEditingCoupon] = useState<AdminCouponItem | null>(null);
+  const [editCode, setEditCode] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDiscountType, setEditDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [editDiscountValue, setEditDiscountValue] = useState<number>(10);
+  const [editMaxDiscount, setEditMaxDiscount] = useState<number | string>('');
+  const [editMinOrder, setEditMinOrder] = useState<number>(0);
+  const [editUsageLimit, setEditUsageLimit] = useState<number | string>(100);
+  const [editPerUserLimit, setEditPerUserLimit] = useState<number>(1);
+  const [editExpiryDate, setEditExpiryDate] = useState<string>('');
+  const [editIsActive, setEditIsActive] = useState<boolean>(true);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  // Toggling & Deleting State
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [couponToDelete, setCouponToDelete] = useState<AdminCouponItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchCoupons = async () => {
     setIsLoading(true);
@@ -56,13 +80,18 @@ export const AdminMarketingCouponsView: React.FC = () => {
         const mapped: AdminCouponItem[] = rawCoupons.map((cp: any) => ({
           id: cp._id || cp.id || String(Math.random()),
           code: cp.code || 'COUPON',
+          name: cp.name || cp.code || '',
+          description: cp.description || '',
           discountType: cp.discountType === 'fixed' ? 'fixed' : 'percentage',
           discountValue: cp.discountValue || 10,
+          maxDiscountAmount: cp.maxDiscountAmount ?? null,
           minOrderValue: cp.minOrderValue || 0,
           usageCount: cp.usedCount || cp.usageCount || 0,
           maxUsage: cp.usageLimit || cp.perUserLimit || 100,
+          perUserLimit: cp.perUserLimit || 1,
           expiresAt: cp.expiryDate || cp.expiresAt || new Date(Date.now() + 86400000 * 30).toISOString(),
           status: cp.isActive !== false ? 'Active' : 'Expired',
+          isActive: cp.isActive !== false,
         }));
         setCoupons(mapped);
       }
@@ -84,17 +113,18 @@ export const AdminMarketingCouponsView: React.FC = () => {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const handleDeleteCoupon = async (id: string, code: string) => {
-    if (!window.confirm(`Are you sure you want to delete coupon "${code}"?`)) return;
+  const handleConfirmDelete = async () => {
+    if (!couponToDelete) return;
     try {
-      setDeletingId(id);
-      await adminCouponsApi.delete(id);
-      setCoupons((prev) => prev.filter((c) => c.id !== id));
-      toast.success(`Coupon ${code} deleted successfully`);
+      setIsDeleting(true);
+      await adminCouponsApi.delete(couponToDelete.id);
+      setCoupons((prev) => prev.filter((c) => c.id !== couponToDelete.id));
+      toast.success(`Coupon "${couponToDelete.code}" deleted successfully`);
+      setCouponToDelete(null);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to delete coupon');
     } finally {
-      setDeletingId(null);
+      setIsDeleting(false);
     }
   };
 
@@ -134,12 +164,144 @@ export const AdminMarketingCouponsView: React.FC = () => {
     }
   };
 
+  const handleOpenEdit = (c: AdminCouponItem) => {
+    setEditingCoupon(c);
+    setEditCode(c.code || '');
+    setEditName(c.name || c.code || '');
+    setEditDescription(c.description || '');
+    setEditDiscountType(c.discountType === 'fixed' ? 'fixed' : 'percentage');
+    setEditDiscountValue(c.discountValue || 0);
+    setEditMaxDiscount(c.maxDiscountAmount != null ? c.maxDiscountAmount : '');
+    setEditMinOrder(c.minOrderValue || 0);
+    setEditUsageLimit(c.maxUsage != null ? c.maxUsage : 100);
+    setEditPerUserLimit(c.perUserLimit || 1);
+
+    // Format expiry date as YYYY-MM-DD for standard date input
+    let formattedDate = '';
+    if (c.expiresAt) {
+      try {
+        formattedDate = new Date(c.expiresAt).toISOString().split('T')[0];
+      } catch {
+        formattedDate = c.expiresAt.split('T')[0] || '';
+      }
+    }
+    setEditExpiryDate(formattedDate);
+    setEditIsActive(c.isActive !== false);
+  };
+
+  const handleUpdateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCoupon) return;
+    if (!editCode.trim()) {
+      toast.error('Please enter a coupon code');
+      return;
+    }
+    if (!editExpiryDate) {
+      toast.error('Please select an expiry date');
+      return;
+    }
+
+    try {
+      setIsSubmittingEdit(true);
+      const payload: any = {
+        code: editCode.trim().toUpperCase(),
+        name: editName.trim() || editCode.trim().toUpperCase(),
+        description: editDescription.trim(),
+        discountType: editDiscountType,
+        discountValue: Number(editDiscountValue),
+        maxDiscountAmount: editMaxDiscount !== '' ? Number(editMaxDiscount) : null,
+        minOrderValue: Number(editMinOrder) || 0,
+        usageLimit: editUsageLimit !== '' ? Number(editUsageLimit) : null,
+        perUserLimit: Number(editPerUserLimit) || 1,
+        expiryDate: new Date(editExpiryDate).toISOString(),
+        isActive: editIsActive,
+      };
+
+      await adminCouponsApi.update(editingCoupon.id, payload);
+
+      setCoupons((prev) =>
+        prev.map((c) =>
+          c.id === editingCoupon.id
+            ? {
+                ...c,
+                code: payload.code,
+                name: payload.name,
+                description: payload.description,
+                discountType: payload.discountType,
+                discountValue: payload.discountValue,
+                maxDiscountAmount: payload.maxDiscountAmount,
+                minOrderValue: payload.minOrderValue,
+                maxUsage: payload.usageLimit || 100,
+                perUserLimit: payload.perUserLimit,
+                expiresAt: payload.expiryDate,
+                isActive: payload.isActive,
+                status: payload.isActive ? 'Active' : 'Expired',
+              }
+            : c
+        )
+      );
+
+      toast.success(`Coupon ${payload.code} updated successfully! ✓`);
+      setEditingCoupon(null);
+      // Re-fetch all coupons from API
+      await fetchCoupons();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update coupon');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const handleToggleStatus = async (coupon: AdminCouponItem) => {
+    const newActive = !coupon.isActive;
+    setTogglingId(coupon.id);
+
+    // Optimistic UI toggle for immediate responsiveness
+    setCoupons((prev) =>
+      prev.map((c) =>
+        c.id === coupon.id
+          ? {
+              ...c,
+              isActive: newActive,
+              status: newActive ? 'Active' : 'Expired',
+            }
+          : c
+      )
+    );
+
+    try {
+      // 1. Send update/toggle request to API
+      await adminCouponsApi.toggleStatus(coupon.id, newActive);
+      toast.success(`Coupon ${coupon.code} is now ${newActive ? 'Active' : 'Inactive'} ✓`);
+
+      // 2. Hit http://localhost:5173/api/admin/coupons right after toggling off/on
+      await fetchCoupons();
+    } catch (err: any) {
+      // Revert if API fails
+      setCoupons((prev) =>
+        prev.map((c) =>
+          c.id === coupon.id
+            ? {
+                ...c,
+                isActive: !newActive,
+                status: !newActive ? 'Active' : 'Expired',
+              }
+            : c
+        )
+      );
+      toast.error(err?.message || 'Failed to toggle coupon status');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const filteredCoupons = useMemo(() => {
     return coupons.filter((c) => {
-      if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+      if (statusFilter === 'Active' && (!c.isActive || c.status !== 'Active')) return false;
+      if (statusFilter === 'Expired' && (c.isActive && c.status === 'Active')) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        return c.code.toLowerCase().includes(q);
+        return c.code.toLowerCase().includes(q) || (c.name && c.name.toLowerCase().includes(q));
       }
       return true;
     });
@@ -330,28 +492,61 @@ export const AdminMarketingCouponsView: React.FC = () => {
                         {c.expiresAt ? c.expiresAt.split('T')[0] : 'No expiry'}
                       </td>
 
-                      {/* Status */}
+                      {/* Status & Active/Inactive Toggle */}
                       <td className="py-3.5 px-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                          c.status === 'Active' && !isDepleted
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : 'bg-rose-100 text-rose-800 border border-rose-200'
-                        }`}>
-                          {isDepleted ? 'Exhausted' : c.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={c.isActive}
+                            disabled={togglingId === c.id}
+                            onClick={() => handleToggleStatus(c)}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              c.isActive ? 'bg-emerald-600' : 'bg-slate-300'
+                            } ${togglingId === c.id ? 'opacity-60 cursor-wait' : ''}`}
+                            title={`Click to ${c.isActive ? 'deactivate' : 'activate'} coupon`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                c.isActive ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+
+                          <span 
+                            onClick={() => handleToggleStatus(c)}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase cursor-pointer select-none transition-colors ${
+                              c.isActive && !isDepleted
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200/80'
+                                : 'bg-rose-100 text-rose-800 border border-rose-200 hover:bg-rose-200/80'
+                            }`}
+                            title="Toggle Status"
+                          >
+                            {isDepleted ? 'Exhausted' : c.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
                       </td>
 
-                      {/* Delete Action */}
+                      {/* Actions: Edit & Delete */}
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCoupon(c.id, c.code)}
-                          disabled={deletingId === c.id}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
-                          title="Delete Coupon"
-                        >
-                          {deletingId === c.id ? <Loader2 className="w-4 h-4 animate-spin text-rose-500" /> : <Trash2 className="w-4 h-4" />}
-                        </button>
+                        <div className="inline-flex items-center gap-1 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(c)}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                            title="Edit Coupon"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCouponToDelete(c)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Delete Coupon"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -494,6 +689,267 @@ export const AdminMarketingCouponsView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 6. EDIT COUPON MODAL (Matching exact visual design from screenshot) */}
+      {editingCoupon && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn overflow-y-auto"
+          onClick={() => setEditingCoupon(null)}
+        >
+          <div 
+            className="bg-[#FAF8F5] text-slate-900 rounded-2xl max-w-2xl w-full border border-slate-200/90 shadow-2xl p-6 sm:p-8 space-y-6 animate-scaleUp my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-1">
+              <h2 className="text-2xl sm:text-3xl font-serif font-black text-slate-900 tracking-tight">
+                Edit coupon
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditingCoupon(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-black/5 cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCoupon} className="space-y-4 text-xs">
+              {/* Row 1: Code & Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Coupon code *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCode}
+                    onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="e.g. B2BSAVE15"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Coupon name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    placeholder="e.g. B2B Wholesale Saver"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Description */}
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">Description</label>
+                <input
+                  type="text"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="Wholesale 15% discount for bulk shoppers"
+                />
+              </div>
+
+              {/* Row 3: Discount type & value */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Discount type</label>
+                  <select
+                    value={editDiscountType}
+                    onChange={(e) => setEditDiscountType(e.target.value as 'percentage' | 'fixed')}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black cursor-pointer"
+                  >
+                    <option value="percentage">Percentage</option>
+                    <option value="fixed">Fixed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Discount value *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editDiscountValue}
+                    onChange={(e) => setEditDiscountValue(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Max discount & Min order value */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Max discount (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder=""
+                    value={editMaxDiscount}
+                    onChange={(e) => setEditMaxDiscount(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Min order value (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editMinOrder}
+                    onChange={(e) => setEditMinOrder(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Usage limit, Per user limit, Expiry date */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Usage limit</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editUsageLimit}
+                    onChange={(e) => setEditUsageLimit(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Per user limit</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editPerUserLimit}
+                    onChange={(e) => setEditPerUserLimit(Number(e.target.value))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Expiry date *</label>
+                  <DatePicker
+                    value={editExpiryDate}
+                    onChange={(val) => setEditExpiryDate(val)}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Loyalty Badge Targeting */}
+              <div className="pt-2 space-y-1">
+                <h4 className="text-[11px] font-bold tracking-wider uppercase text-slate-900">
+                  LOYALTY BADGE TARGETING
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Leave all unchecked = every customer. Check badges to limit (e.g. Diwali Gold-only offer).
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  No active loyalty badges yet. Create them under Marketing → Loyalty badges.
+                </p>
+              </div>
+
+              {/* Active Checkbox */}
+              <div className="pt-1">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editIsActive}
+                    onChange={(e) => setEditIsActive(e.target.checked)}
+                    className="w-4 h-4 rounded text-black border-slate-300 focus:ring-black accent-black cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">Active</span>
+                </label>
+              </div>
+
+              {/* Footer buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingCoupon(null)}
+                  className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="px-6 py-2.5 text-xs font-bold uppercase tracking-wider bg-[#141414] hover:bg-black text-white rounded-md shadow-sm transition-all cursor-pointer flex items-center gap-2"
+                >
+                  {isSubmittingEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>UPDATE COUPON</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 7. DELETE CONFIRMATION MODAL */}
+      {couponToDelete && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => !isDeleting && setCouponToDelete(null)}
+        >
+          <div 
+            className="bg-white text-slate-900 rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-5 animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-slate-900">Delete Coupon</h3>
+                <p className="text-xs text-slate-500 mt-0.5">This action cannot be undone.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isDeleting && setCouponToDelete(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                disabled={isDeleting}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Description & Coupon Summary */}
+            <div className="text-xs text-slate-600 space-y-2">
+              <p>
+                Are you sure you want to delete coupon <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{couponToDelete.code}</span>?
+              </p>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>Discount: <strong className="text-slate-800">{couponToDelete.discountType === 'percentage' ? `${couponToDelete.discountValue}% OFF` : `₹${couponToDelete.discountValue} FLAT OFF`}</strong></span>
+                <span>Expires: <strong className="text-slate-800">{couponToDelete.expiresAt ? couponToDelete.expiresAt.split('T')[0] : 'Never'}</strong></span>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCouponToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isDeleting ? 'Deleting...' : 'Delete Coupon'}</span>
+              </button>
+            </div>
           </div>
         </div>,
         document.body

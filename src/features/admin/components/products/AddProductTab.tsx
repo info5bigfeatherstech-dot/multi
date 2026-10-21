@@ -194,7 +194,7 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
   const [moq, setMoq] = useState<number | ''>(10);
   const [lowStockAlert, setLowStockAlert] = useState<number | ''>(5);
   const [hsnCode, setHsnCode] = useState('1324');
-  const [gstRate, setGstRate] = useState('3% (Precious Items)');
+  const [gstRate, setGstRate] = useState('3');
   const [trackInventory, setTrackInventory] = useState(true);
 
   // 3. Default Shipping
@@ -927,8 +927,14 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
       formData.append('shipping', JSON.stringify(rootShipping));
       formData.append('attributes', JSON.stringify(attributesObj));
       formData.append('variants', JSON.stringify(serializedVariants));
+      const numericTaxRate = (() => {
+        const match = String(gstRate).match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
+      })();
       formData.append('hsnCode', hsnCode.trim());
-      formData.append('gstRate', gstRate);
+      formData.append('taxRate', String(numericTaxRate));
+      formData.append('gstRate', String(numericTaxRate));
+      formData.append('tax', String(numericTaxRate));
       formData.append('trackInventory', String(trackInventory));
 
       // Append image files to indexed buckets: variantImages_0, variantImages_1, etc.
@@ -949,9 +955,7 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
         console.warn('Backend API upload returned error, proceeding with local catalog sync:', apiErr);
       }
 
-      // Update Redux Store
-      const primaryPhotoUrl = finalVariantsList[0]?.images?.[0]?.url || 
-        'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80';
+      const primaryPhotoUrl = finalVariantsList[0]?.images?.[0]?.url || '/images/products/placeholder.svg';
 
       const localReduxProduct: AdminProduct = {
         id: createdProd?._id || createdProd?.id || `prod-${Date.now()}`,
@@ -1304,12 +1308,12 @@ export const AddProductTab: React.FC<AddProductTabProps> = ({
                     <SelectValue placeholder="Select GST Tax Rate" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="0% (Exempt)">0% (Exempt)</SelectItem>
-                    <SelectItem value="3% (Precious Items)">3% (Precious Items)</SelectItem>
-                    <SelectItem value="5% (Essential Goods)">5% (Essential Goods)</SelectItem>
-                    <SelectItem value="12% (Standard Low)">12% (Standard Low)</SelectItem>
-                    <SelectItem value="18% (Standard High)">18% (Standard High)</SelectItem>
-                    <SelectItem value="28% (Luxury / Sin Goods)">28% (Luxury / Sin Goods)</SelectItem>
+                    <SelectItem value="0">0% (Exempt)</SelectItem>
+                    <SelectItem value="3">3% (Precious Items)</SelectItem>
+                    <SelectItem value="5">5% (Essential Goods)</SelectItem>
+                    <SelectItem value="12">12% (Standard Low)</SelectItem>
+                    <SelectItem value="18">18% (Standard High)</SelectItem>
+                    <SelectItem value="28">28% (Luxury / Sin Goods)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

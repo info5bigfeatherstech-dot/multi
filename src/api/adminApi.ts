@@ -431,6 +431,27 @@ export const adminCouponsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  update: async (couponId: string, payload: any) => {
+    try {
+      const res = await apiClient.put(`/admin/coupons/${encodeURIComponent(couponId)}`, payload);
+      return res.data?.coupon || res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  toggleStatus: async (couponId: string, isActive?: boolean) => {
+    try {
+      if (typeof isActive === 'boolean') {
+        const res = await apiClient.put(`/admin/coupons/${encodeURIComponent(couponId)}`, { isActive });
+        return res.data?.coupon || res.data?.data || res.data;
+      }
+      const res = await apiClient.patch(`/admin/coupons/${encodeURIComponent(couponId)}/toggle`);
+      return res.data?.coupon || res.data?.data || res.data;
+    } catch {
+      const res = await apiClient.put(`/admin/coupons/${encodeURIComponent(couponId)}`, { isActive });
+      return res.data?.coupon || res.data?.data || res.data;
+    }
+  },
 };
 
 /* ============================================================
@@ -1021,6 +1042,89 @@ export const adminRtoApi = {
 /* ============================================================
    14. STORE SETTINGS & CONTROLS APIs
    ============================================================ */
+
+export interface AdminStoreControlsData {
+  globalStoreAccess: boolean;
+  deliveryServices: boolean;
+  selfPickup: boolean;
+  businessFramework: string;
+}
+
+// Store Operational Controls API
+export const adminStoreControlsApi = {
+  getControls: async (): Promise<AdminStoreControlsData> => {
+    try {
+      const res = await apiClient.get("/admin/store-controls");
+      if (res.data?.data) return res.data.data;
+      if (res.data) return res.data;
+    } catch {}
+
+    // Check shipping settings for deliveryServices status
+    let deliveryServices = true;
+    try {
+      const shipping = await adminShippingSettingsApi.getSettings();
+      if (shipping && typeof shipping.enabled === 'boolean') {
+        deliveryServices = shipping.enabled;
+      }
+    } catch {}
+
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('abb_store_controls') : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          globalStoreAccess: parsed.globalStoreAccess ?? true,
+          deliveryServices: typeof parsed.deliveryServices === 'boolean' ? parsed.deliveryServices : deliveryServices,
+          selfPickup: parsed.selfPickup ?? false,
+          businessFramework: parsed.businessFramework || 'Business to Customer (B2C)',
+        };
+      } catch {}
+    }
+
+    return {
+      globalStoreAccess: true,
+      deliveryServices,
+      selfPickup: false,
+      businessFramework: 'Business to Customer (B2C)',
+    };
+  },
+
+  updateControls: async (payload: Partial<AdminStoreControlsData>): Promise<AdminStoreControlsData> => {
+    // If deliveryServices is being updated, sync with shipping provider settings API
+    if (typeof payload.deliveryServices === 'boolean') {
+      try {
+        await adminShippingSettingsApi.updateSettings({
+          enabled: payload.deliveryServices,
+        });
+      } catch (err) {
+        console.warn('Syncing deliveryServices to shipping provider settings failed:', err);
+      }
+    }
+
+    try {
+      const res = await apiClient.put("/admin/store-controls", payload);
+      const data = res.data?.data || res.data;
+      if (typeof window !== 'undefined' && data) {
+        localStorage.setItem('abb_store_controls', JSON.stringify(data));
+      }
+      return data;
+    } catch {
+      // Local fallback sync
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('abb_store_controls') : null;
+      const current = saved ? JSON.parse(saved) : {
+        globalStoreAccess: true,
+        deliveryServices: true,
+        selfPickup: false,
+        businessFramework: 'Business to Customer (B2C)',
+      };
+      const merged = { ...current, ...payload };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('abb_store_controls', JSON.stringify(merged));
+      }
+      return merged;
+    }
+  },
+};
 
 // 1. Controls API (COD & Partial Payment Policies)
 export const adminCheckoutSettingsApi = {

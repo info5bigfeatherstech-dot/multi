@@ -206,6 +206,10 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
                 gallery.push(resolvedImage);
               }
 
+              const rawCategoryId = typeof p.category === 'object'
+                ? (p.category?._id || p.category?.id)
+                : (typeof p.category === 'string' && /^[0-9a-fA-F]{24}$/.test(p.category) ? p.category : undefined);
+
               const categoryName = typeof p.category === 'object' && p.category?.name
                 ? p.category.name
                 : (typeof p.category === 'string' ? p.category : 'General');
@@ -219,6 +223,7 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
                 title: p.title || p.name,
                 brand: p.brand || 'Generic',
                 category: categoryName,
+                categoryId: rawCategoryId,
                 subcategory: p.subcategory || undefined,
                 currentPrice,
                 originalPrice,

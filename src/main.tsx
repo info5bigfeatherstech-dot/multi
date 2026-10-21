@@ -12,6 +12,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       <App />
       <Toaster 
         position="bottom-right" 
+        containerStyle={{
+          zIndex: 99999999,
+        }}
         toastOptions={{
           duration: 3000,
           style: {
@@ -21,7 +24,8 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
             fontSize: '13px',
             fontWeight: 500,
             padding: '10px 16px',
-            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2)'
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4)',
+            zIndex: 99999999,
           },
           success: {
             iconTheme: {
