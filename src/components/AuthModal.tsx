@@ -22,6 +22,7 @@ import {
 import { authApi } from "../api/authApi";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import toast from "react-hot-toast";
+import { persistUserPhone, getPersistedUserPhone } from "../utils/authGuard";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -80,9 +81,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleSuccessfulAuth = (user: any) => {
     const rawUser = user?.user || user;
-    const phone = rawUser?.phone || rawUser?.phoneNumber || rawUser?.mobile;
+    const userEmail = rawUser?.email || localStorage.getItem("abb_user_profile_email") || "";
+    let phone = rawUser?.phone || rawUser?.phoneNumber || rawUser?.mobile;
+
+    if (!phone && userEmail) {
+      phone = getPersistedUserPhone(userEmail) || undefined;
+    }
+
     if (phone) {
-      localStorage.setItem("abb_user_profile_phone", phone);
+      persistUserPhone(userEmail, phone);
     }
     if (rawUser?.email) {
       localStorage.setItem("abb_user_profile_email", rawUser.email);
@@ -144,9 +151,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (isEmail) {
         localStorage.setItem("abb_user_profile_email", trimmedId);
         localStorage.setItem("abb_user_profile_name", trimmedId.split("@")[0]);
+        const existingPhone = getPersistedUserPhone(trimmedId);
+        if (existingPhone) {
+          localStorage.setItem("abb_user_profile_phone", existingPhone);
+        }
       } else {
         localStorage.setItem("abb_user_profile_phone", trimmedId);
         localStorage.setItem("abb_user_profile_name", "Customer");
+        persistUserPhone(trimmedId, trimmedId);
       }
       handleSuccessfulAuth({ identifier: trimmedId });
     } finally {
@@ -216,10 +228,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           : undefined,
       });
 
-      // Save user metadata locally
+      // Save user metadata locally and permanently link phone to account
       localStorage.setItem("abb_user_profile_name", regForm.name.trim());
       localStorage.setItem("abb_user_profile_email", regForm.email.trim());
-      localStorage.setItem("abb_user_profile_phone", phoneClean);
+      persistUserPhone(regForm.email.trim(), phoneClean);
 
       // Move to OTP verification step
       const targetIdentifier = res?.identifier || phoneClean || regForm.email.trim();
@@ -230,7 +242,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       console.warn("API Register Notice (Offline Demo Transition to OTP):", err?.message);
       localStorage.setItem("abb_user_profile_name", regForm.name.trim());
       localStorage.setItem("abb_user_profile_email", regForm.email.trim());
-      localStorage.setItem("abb_user_profile_phone", phoneClean);
+      persistUserPhone(regForm.email.trim(), phoneClean);
       setOtpData({ identifier: phoneClean || regForm.email.trim(), otp: "" });
       setTab("verify-otp");
     } finally {
@@ -255,12 +267,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         identifier: otpData.identifier,
         otp: cleanOtp,
       });
+      if (/^[6-9]\d{9}$/.test(otpData.identifier)) {
+        persistUserPhone(otpData.identifier, otpData.identifier);
+      }
       handleSuccessfulAuth(user);
     } catch (err: any) {
       console.warn("API OTP Verify Notice (Offline Fallback enabled):", err?.message);
       // Fallback auto-login
       const fallbackToken = "abb_usr_session_" + Date.now();
       localStorage.setItem("user_access_token", fallbackToken);
+      if (/^[6-9]\d{9}$/.test(otpData.identifier)) {
+        persistUserPhone(otpData.identifier, otpData.identifier);
+      }
       handleSuccessfulAuth({
         identifier: otpData.identifier,
         name: localStorage.getItem("abb_user_profile_name") || "Verified Customer",

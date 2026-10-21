@@ -1,4 +1,5 @@
 import { apiClient, normalizeApiError, loadRazorpayScript, setUserTokens, clearUserTokens } from "./client";
+import { persistUserPhone } from "../utils/authGuard";
 
 /* ============================================================
    1. CUSTOMER AUTHENTICATION & PROFILE APIs
@@ -6,6 +7,9 @@ import { apiClient, normalizeApiError, loadRazorpayScript, setUserTokens, clearU
 export const storefrontAuthApi = {
   register: async (data: { name: string; email: string; phone: string; password?: string }) => {
     try {
+      if (data.phone) {
+        persistUserPhone(data.email, data.phone);
+      }
       const res = await apiClient.post("/auth/register", data);
       const resData = res.data?.data || res.data;
       const accessToken = resData?.accessToken || resData?.token;
@@ -13,8 +17,14 @@ export const storefrontAuthApi = {
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
       }
+      if (data.phone) {
+        persistUserPhone(data.email, data.phone);
+      }
       return resData;
     } catch (err) {
+      if (data.phone) {
+        persistUserPhone(data.email, data.phone);
+      }
       throw new Error(normalizeApiError(err));
     }
   },
@@ -56,9 +66,21 @@ export const storefrontAuthApi = {
   },
   updateProfile: async (updates: { name?: string; phone?: string; email?: string; avatarUrl?: string }) => {
     try {
+      if (updates.phone) {
+        const email = updates.email || localStorage.getItem('abb_user_profile_email') || '';
+        persistUserPhone(email, updates.phone);
+      }
       const res = await apiClient.put("/auth/profile", updates);
+      if (updates.phone) {
+        const email = updates.email || localStorage.getItem('abb_user_profile_email') || '';
+        persistUserPhone(email, updates.phone);
+      }
       return res.data?.data || res.data;
     } catch (err) {
+      if (updates.phone) {
+        const email = updates.email || localStorage.getItem('abb_user_profile_email') || '';
+        persistUserPhone(email, updates.phone);
+      }
       throw new Error(normalizeApiError(err));
     }
   },

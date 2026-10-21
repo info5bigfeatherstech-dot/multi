@@ -1,4 +1,5 @@
 import { apiClient, normalizeApiError, setUserTokens, clearUserTokens, refreshCustomerAccessToken } from "./client";
+import { persistUserPhone, getPersistedUserPhone } from "../utils/authGuard";
 
 export const authApi = {
   // 1. Password Login
@@ -18,7 +19,15 @@ export const authApi = {
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
         if (data.user.email) localStorage.setItem("abb_user_profile_email", data.user.email);
-        if (data.user.phone) localStorage.setItem("abb_user_profile_phone", data.user.phone);
+        const userPhone = data.user.phone || data.user.phoneNumber || data.user.mobile;
+        if (userPhone) {
+          persistUserPhone(data.user.email, userPhone);
+        } else if (data.user.email) {
+          const savedPhone = getPersistedUserPhone(data.user.email);
+          if (savedPhone) {
+            localStorage.setItem("abb_user_profile_phone", savedPhone);
+          }
+        }
       }
       return data;
     } catch (err) {
@@ -36,6 +45,9 @@ export const authApi = {
     securityAnswers?: Array<{ questionId: string; answer: string }>;
   }) => {
     try {
+      if (payload.phone) {
+        persistUserPhone(payload.email, payload.phone);
+      }
       const res = await apiClient.post("/auth/register", payload);
       const data = res.data?.data || res.data;
       const accessToken = data?.accessToken || data?.token;
@@ -43,8 +55,14 @@ export const authApi = {
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
       }
+      if (payload.phone) {
+        persistUserPhone(payload.email, payload.phone);
+      }
       return data;
     } catch (err) {
+      if (payload.phone) {
+        persistUserPhone(payload.email, payload.phone);
+      }
       throw new Error(normalizeApiError(err));
     }
   },
@@ -62,7 +80,12 @@ export const authApi = {
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
         if (data.user.email) localStorage.setItem("abb_user_profile_email", data.user.email);
-        if (data.user.phone) localStorage.setItem("abb_user_profile_phone", data.user.phone);
+        const userPhone = data.user.phone || data.user.phoneNumber || data.user.mobile || (/^[6-9]\d{9}$/.test(payload.identifier) ? payload.identifier : '');
+        if (userPhone) {
+          persistUserPhone(data.user.email || payload.identifier, userPhone);
+        }
+      } else if (/^[6-9]\d{9}$/.test(payload.identifier)) {
+        persistUserPhone(payload.identifier, payload.identifier);
       }
       return data;
     } catch (err) {
@@ -83,7 +106,15 @@ export const authApi = {
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
         if (data.user.email) localStorage.setItem("abb_user_profile_email", data.user.email);
-        if (data.user.phone) localStorage.setItem("abb_user_profile_phone", data.user.phone);
+        const userPhone = data.user.phone || data.user.phoneNumber || data.user.mobile;
+        if (userPhone) {
+          persistUserPhone(data.user.email, userPhone);
+        } else if (data.user.email) {
+          const savedPhone = getPersistedUserPhone(data.user.email);
+          if (savedPhone) {
+            localStorage.setItem("abb_user_profile_phone", savedPhone);
+          }
+        }
       }
       return data;
     } catch (err) {
@@ -102,7 +133,13 @@ export const authApi = {
           if (payload?.email || payload?.name) {
             setUserTokens(idToken, null);
             if (payload.name) localStorage.setItem("abb_user_profile_name", payload.name);
-            if (payload.email) localStorage.setItem("abb_user_profile_email", payload.email);
+            if (payload.email) {
+              localStorage.setItem("abb_user_profile_email", payload.email);
+              const savedPhone = getPersistedUserPhone(payload.email);
+              if (savedPhone) {
+                localStorage.setItem("abb_user_profile_phone", savedPhone);
+              }
+            }
             return {
               accessToken: idToken,
               user: {

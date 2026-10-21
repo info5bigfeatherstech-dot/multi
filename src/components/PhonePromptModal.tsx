@@ -55,6 +55,14 @@ export const PhonePromptModal: React.FC<PhonePromptModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Immediate safeguard: If person already gave phone number, do NOT show modal or ask again
+  const currentSavedPhone = typeof window !== 'undefined' 
+    ? (getPersistedUserPhone() || getPersistedUserPhone(localStorage.getItem('abb_user_profile_email') || '')) 
+    : null;
+  if (currentSavedPhone) {
+    return null;
+  }
+
   // Handle phone input: block non-digits and cap at 10 digits
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);

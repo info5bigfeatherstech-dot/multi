@@ -238,7 +238,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         if (profile) {
           if (profile.name) setUserName(profile.name);
           if (profile.email) setUserEmail(profile.email);
-          if (profile.phone) setUserPhone(profile.phone);
+          if (profile.phone) {
+            setUserPhone(profile.phone);
+            persistUserPhone(profile.email || userEmail, profile.phone);
+          } else {
+            const persisted = getPersistedUserPhone(profile.email || userEmail);
+            if (persisted) {
+              setUserPhone(persisted);
+              storefrontAuthApi.updateProfile({ phone: persisted }).catch(() => {});
+            }
+          }
         }
       })
       .catch(() => {});

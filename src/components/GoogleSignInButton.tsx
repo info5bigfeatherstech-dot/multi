@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { authApi } from "../api/authApi";
+import { getPersistedUserPhone, persistUserPhone } from "../utils/authGuard";
 
 interface GoogleButtonProps {
   onSuccess: (userData: any) => void;
@@ -50,6 +51,11 @@ export const GoogleSignInButton: React.FC<GoogleButtonProps> = ({ onSuccess, onE
                 }
                 if (googleProfile?.email) {
                   localStorage.setItem("abb_user_profile_email", googleProfile.email);
+                  // Check if this Google user already provided their phone earlier
+                  const existingPhone = getPersistedUserPhone(googleProfile.email);
+                  if (existingPhone) {
+                    localStorage.setItem("abb_user_profile_phone", existingPhone);
+                  }
                 }
                 if (googleProfile?.picture) {
                   localStorage.setItem("abb_user_profile_avatar", googleProfile.picture);
@@ -61,6 +67,15 @@ export const GoogleSignInButton: React.FC<GoogleButtonProps> = ({ onSuccess, onE
               try {
                 // Send Google ID Token to backend
                 const user = await authApi.googleLogin(response.credential);
+                const returnedPhone = user?.phone || user?.phoneNumber || user?.mobile || user?.user?.phone;
+                if (returnedPhone) {
+                  persistUserPhone(googleProfile?.email || user?.email, returnedPhone);
+                } else if (googleProfile?.email) {
+                  const existingPhone = getPersistedUserPhone(googleProfile.email);
+                  if (existingPhone) {
+                    persistUserPhone(googleProfile.email, existingPhone);
+                  }
+                }
                 window.dispatchEvent(new Event("abb_auth_change"));
                 onSuccess(user);
               } catch (err: any) {
@@ -68,12 +83,17 @@ export const GoogleSignInButton: React.FC<GoogleButtonProps> = ({ onSuccess, onE
                 console.warn("Backend /auth/google unavailable, proceeding with verified Google profile:", err?.message);
                 if (googleProfile) {
                   localStorage.setItem("user_access_token", response.credential);
+                  const existingPhone = getPersistedUserPhone(googleProfile.email);
+                  if (existingPhone) {
+                    localStorage.setItem("abb_user_profile_phone", existingPhone);
+                  }
                   window.dispatchEvent(new Event("abb_auth_change"));
                   onSuccess({
                     id: googleProfile.sub,
                     name: googleProfile.name,
                     email: googleProfile.email,
                     picture: googleProfile.picture,
+                    phone: existingPhone || undefined,
                   });
                 } else {
                   onError(err.message || "Google authentication failed");
