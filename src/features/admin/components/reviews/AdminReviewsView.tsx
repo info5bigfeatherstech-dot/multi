@@ -16,10 +16,246 @@ import {
   X, 
   ShoppingBag,
   Check,
-  Plus
+  Plus,
+  ChevronDown,
+  Box
 } from 'lucide-react';
 import { adminReviewsApi, AdminReviewItem, adminProductsApi } from '../../../../api/adminApi';
 import { toast } from 'react-hot-toast';
+
+export interface ProductOption {
+  id: string;
+  title: string;
+  sku?: string;
+  image?: string;
+}
+
+interface ProductSearchComboboxProps {
+  value: string;
+  selectedProduct?: ProductOption | null;
+  onChange: (id: string, product?: ProductOption) => void;
+  placeholder?: string;
+  required?: boolean;
+}
+
+const ProductSearchCombobox: React.FC<ProductSearchComboboxProps> = ({
+  value,
+  selectedProduct,
+  onChange,
+  placeholder = "Search product by title or SKU...",
+  required = false,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [results, setResults] = useState<ProductOption[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Fetch products only when user searches (no heavy initial load)
+  useEffect(() => {
+    if (!isOpen) return;
+    const query = debouncedSearch.trim();
+    if (!query) {
+      setResults([]);
+      setIsSearching(false);
+      setHasSearched(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsSearching(true);
+    setHasSearched(true);
+
+    adminProductsApi.getAll({ search: query, limit: 12 })
+      .then((res: any) => {
+        if (!isMounted) return;
+        const prods = res?.products || res?.data || (Array.isArray(res) ? res : []);
+        const mapped: ProductOption[] = prods.map((p: any) => ({
+          id: p._id || p.id,
+          title: p.title || p.name || 'Untitled',
+          sku: p.variants?.[0]?.sku || p.sku || p.productCode || '',
+          image: p.image?.url || p.imageUrl || p.variants?.[0]?.images?.[0]?.url || ''
+        }));
+        setResults(mapped);
+      })
+      .catch(() => {
+        if (isMounted) setResults([]);
+      })
+      .finally(() => {
+        if (isMounted) setIsSearching(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [debouncedSearch, isOpen]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSelect = (prod: ProductOption) => {
+    onChange(prod.id, prod);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange('', undefined);
+    setSearchTerm('');
+    setResults([]);
+    setHasSearched(false);
+    setIsOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      {/* If a product is selected and dropdown is closed */}
+      {value && selectedProduct && !isOpen ? (
+        <div
+          onClick={() => {
+            setIsOpen(true);
+            setTimeout(() => inputRef.current?.focus(), 50);
+          }}
+          className="w-full px-3 py-2 rounded-xl border-2 border-orange-200/90 hover:border-[#A44101] bg-white cursor-pointer transition-all flex items-center justify-between gap-2 shadow-2xs group"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {selectedProduct.image ? (
+              <img
+                src={selectedProduct.image}
+                alt={selectedProduct.title}
+                className="w-5 h-5 rounded-md object-cover shrink-0 border border-slate-200"
+              />
+            ) : (
+              <div className="w-5 h-5 rounded-md bg-orange-100 text-[#A44101] flex items-center justify-center shrink-0">
+                <Box className="w-3 h-3" />
+              </div>
+            )}
+            <span className="text-xs font-bold text-navy truncate">
+              {selectedProduct.title} {selectedProduct.sku ? `(${selectedProduct.sku})` : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+              title="Change / clear product"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+            <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+          </div>
+        </div>
+      ) : (
+        /* Search Input */
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              if (!isOpen) setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            required={required && !value}
+            className="w-full pl-9 pr-9 py-2 rounded-xl border border-slate-200 text-xs font-bold text-navy bg-white focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101]/20 transition-all placeholder:font-normal placeholder:text-slate-400"
+          />
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {isSearching ? (
+              <Loader2 className="w-4 h-4 text-[#A44101] animate-spin" />
+            ) : searchTerm ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setResults([]);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Dropdown Results */}
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-slate-200 z-[100] max-h-60 overflow-y-auto divide-y divide-slate-100 animate-fadeIn">
+          {isSearching ? (
+            <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#A44101]" />
+              <span>Searching products...</span>
+            </div>
+          ) : results.length > 0 ? (
+            results.map((p) => (
+              <div
+                key={p.id}
+                onClick={() => handleSelect(p)}
+                className="p-2.5 hover:bg-orange-50/70 cursor-pointer transition-colors flex items-center justify-between gap-2.5"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {p.image ? (
+                    <img
+                      src={p.image}
+                      alt={p.title}
+                      className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 text-[#A44101] flex items-center justify-center shrink-0">
+                      <Box className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-navy truncate">{p.title}</p>
+                    {p.sku && (
+                      <p className="text-[10px] text-slate-500 font-mono">SKU: {p.sku}</p>
+                    )}
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-[#A44101] shrink-0 bg-orange-100 px-2 py-0.5 rounded-full">
+                  Select
+                </span>
+              </div>
+            ))
+          ) : hasSearched && debouncedSearch.trim() ? (
+            <div className="p-4 text-center text-xs text-slate-500">
+              No products found matching <span className="font-semibold text-navy">"{debouncedSearch}"</span>
+            </div>
+          ) : (
+            <div className="p-3.5 text-center text-[11px] text-slate-400">
+              Type product title or SKU to search...
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export type ReviewSubTab = 
   | 'customer-reviews' 
@@ -48,7 +284,7 @@ export const AdminReviewsView: React.FC<AdminReviewsViewProps> = ({
   
   // Custom Review Generation State
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState<boolean>(false);
-  const [productsList, setProductsList] = useState<Array<{ id: string; title: string; image?: string; sku?: string }>>([]);
+  const [selectedGenProduct, setSelectedGenProduct] = useState<ProductOption | null>(null);
   const [genProductId, setGenProductId] = useState<string>('');
   const [genDisplayName, setGenDisplayName] = useState<string>('');
   const [genRating, setGenRating] = useState<number>(5);
@@ -98,27 +334,6 @@ export const AdminReviewsView: React.FC<AdminReviewsViewProps> = ({
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
-
-  // Load products list for dropdown
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        const res = await adminProductsApi.getAll({ limit: 100 });
-        const prods = res?.products || res?.data || (Array.isArray(res) ? res : []);
-        const mapped = prods.map((p: any) => ({
-          id: p._id || p.id,
-          title: p.title || p.name || 'Untitled',
-          sku: p.variants?.[0]?.sku || p.sku || p.productCode || '',
-          image: p.image?.url || p.imageUrl || p.variants?.[0]?.images?.[0]?.url || ''
-        }));
-        setProductsList(mapped);
-        if (mapped.length > 0 && !genProductId) {
-          setGenProductId(mapped[0].id);
-        }
-      } catch {}
-    };
-    loadProducts();
-  }, [genProductId]);
 
   // Handle Approve / Deactivate status
   const handleToggleStatus = async (id: string, newActive: boolean) => {
@@ -233,6 +448,8 @@ export const AdminReviewsView: React.FC<AdminReviewsViewProps> = ({
       setGenComment('');
       setGenDisplayName('');
       setGenRating(5);
+      setGenProductId('');
+      setSelectedGenProduct(null);
       fetchReviews();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to generate review');
@@ -494,23 +711,20 @@ export const AdminReviewsView: React.FC<AdminReviewsViewProps> = ({
           </div>
 
           <form onSubmit={handleSubmitGenerateReview} className="grid grid-cols-1 sm:grid-cols-12 gap-4 text-xs">
-            {/* Product Lookup */}
+            {/* Product Lookup with Debounced Search */}
             <div className="sm:col-span-4">
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 Select Product / SKU <span className="text-[#A44101]">*</span>
               </label>
-              <select
+              <ProductSearchCombobox
                 value={genProductId}
-                onChange={(e) => setGenProductId(e.target.value)}
+                selectedProduct={selectedGenProduct}
+                onChange={(id, prod) => {
+                  setGenProductId(id);
+                  setSelectedGenProduct(prod || null);
+                }}
                 required
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-navy bg-white focus:outline-none focus:border-[#A44101]"
-              >
-                {productsList.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} {p.sku ? `(${p.sku})` : ''}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Display Name */}
@@ -931,23 +1145,20 @@ export const AdminReviewsView: React.FC<AdminReviewsViewProps> = ({
             </div>
 
             <form onSubmit={handleSubmitGenerateReview} className="space-y-4 text-xs">
-              {/* Product Selector */}
+              {/* Product Selector with Debounced Search */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1.5">
                   Select Product *
                 </label>
-                <select
+                <ProductSearchCombobox
                   value={genProductId}
-                  onChange={(e) => setGenProductId(e.target.value)}
+                  selectedProduct={selectedGenProduct}
+                  onChange={(id, prod) => {
+                    setGenProductId(id);
+                    setSelectedGenProduct(prod || null);
+                  }}
                   required
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-navy bg-white focus:outline-none focus:border-[#A44101]"
-                >
-                  {productsList.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} {p.sku ? `(${p.sku})` : ''}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
               {/* Display Name */}
