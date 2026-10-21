@@ -699,7 +699,7 @@ export const LabelsBadgesTab: React.FC = () => {
               className="px-4 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2 active:scale-98"
             >
               <Plus className="w-4 h-4" />
-              <span>+ New Label</span>
+              <span>New Label</span>
             </button>
           </div>
         </div>

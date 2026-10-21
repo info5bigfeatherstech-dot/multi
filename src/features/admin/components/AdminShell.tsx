@@ -17,7 +17,6 @@ import {
   ExternalLink,
   SlidersHorizontal,
   Box,
-  PlusCircle,
   FolderTree,
   Tag,
   Boxes,
@@ -722,13 +721,6 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                                 {counts.products}
                               </span>
                             }
-                          />
-
-                          <SidebarSubItem
-                            icon={PlusCircle}
-                            label="Add Product"
-                            isActive={currentTab === 'products-add'}
-                            onClick={() => handleTabClick('products-add')}
                           />
 
                           <SidebarSubItem
