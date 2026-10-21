@@ -541,43 +541,45 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         const detail = res?.product || res?.data || res;
         if (!isCurrent) return;
 
-        if (!detail || !isProductActive(detail)) {
-          setIsInactiveProduct(true);
-          return;
-        }
+        if (detail && isProductActive(detail)) {
+          setBackendDetail(detail);
+          setIsInactiveProduct(false);
 
-        setBackendDetail(detail);
-
-        // Collect all real images from backend variants and images array
-        const collectedImgs: string[] = [];
-        if (Array.isArray(detail.variants)) {
-          for (const v of detail.variants) {
-            if (Array.isArray(v.images)) {
-              for (const im of v.images) {
-                const u = typeof im === 'string' ? im : im?.url;
-                if (u && !collectedImgs.includes(u)) collectedImgs.push(u);
+          // Collect all real images from backend variants and images array
+          const collectedImgs: string[] = [];
+          if (Array.isArray(detail.variants)) {
+            for (const v of detail.variants) {
+              if (Array.isArray(v.images)) {
+                for (const im of v.images) {
+                  const u = typeof im === 'string' ? im : im?.url;
+                  if (u && !collectedImgs.includes(u)) collectedImgs.push(u);
+                }
               }
             }
           }
-        }
-        if (Array.isArray(detail.images)) {
-          for (const im of detail.images) {
-            const u = typeof im === 'string' ? im : im?.url;
-            if (u && !collectedImgs.includes(u)) collectedImgs.push(u);
+          if (Array.isArray(detail.images)) {
+            for (const im of detail.images) {
+              const u = typeof im === 'string' ? im : im?.url;
+              if (u && !collectedImgs.includes(u)) collectedImgs.push(u);
+            }
           }
-        }
-        if (detail.cardImage?.url && !collectedImgs.includes(detail.cardImage.url)) {
-          collectedImgs.push(detail.cardImage.url);
-        }
+          if (detail.cardImage?.url && !collectedImgs.includes(detail.cardImage.url)) {
+            collectedImgs.push(detail.cardImage.url);
+          }
 
-        if (collectedImgs.length > 0) {
-          setProductImages(collectedImgs);
-          setSelectedImage(collectedImgs[0]);
+          if (collectedImgs.length > 0) {
+            setProductImages(collectedImgs);
+            setSelectedImage(collectedImgs[0]);
+          }
+        } else if (!isProductActive(product)) {
+          setIsInactiveProduct(true);
         }
       } catch (err: any) {
         console.warn('Failed to load detailed product images:', err);
         if (err?.message?.includes('404') || err?.message?.toLowerCase().includes('not found')) {
-          if (isCurrent) setIsInactiveProduct(true);
+          if (isCurrent && !isProductActive(product)) {
+            setIsInactiveProduct(true);
+          }
         }
       }
     };

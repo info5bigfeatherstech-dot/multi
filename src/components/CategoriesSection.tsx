@@ -21,108 +21,108 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
   {
     id: "electronics-and-gadgets",
     name: "ELECTRONICS & GADGETS",
-    imageUrl: "https://res.cloudinary.com/wo5f58fu/image/upload/v1790061569/categories/cards/electronics-and-gadgets-card-6ab20435a4ded8a3ec745887-1790061565303.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/electronics-and-gadgets.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["electronics-and-gadgets"],
   },
   // 2. Gifts & Lifestyle
   {
     id: "gifts-and-lifestyle",
     name: "GIFTS & LIFESTYLE",
-    imageUrl: "https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/products/2026/07/love-pearl-chain-necklace-v-2633-1-img-0-1784529134136.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/gifts-and-lifestyle.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["gifts-and-lifestyle"],
   },
   // 3. Home & Living
   {
     id: "home-and-living",
     name: "HOME & LIVING",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873051/products/zip-color-naphthalene-balls-2929-1-i0-1788873050768.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/home-and-living.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["home-and-living"],
   },
   // 4. Home Decor
   {
     id: "home-decor",
     name: "HOME DECOR",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873051/products/zip-color-naphthalene-balls-2929-1-i0-1788873050768.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/home-decor.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["home-decor"],
   },
   // 5. Jewellery & Accessories
   {
     id: "jewellery-and-accessories",
     name: "JEWELLERY & ACCESSORIES",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873024/products/zip-reusable-car-cleaning-gloves-2920-1-i0-1788873024777.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/jewellery-and-accessories.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["jewellery-and-accessories"],
   },
   // 6. Kitchen & Dining
   {
     id: "kitchen-and-dining",
     name: "KITCHEN & DINING",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873047/products/zip-toothbrush-protector-cap-cover-2928-1-i0-1788873047623.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/kitchen-and-dining.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["kitchen-and-dining"],
   },
   // 7. Stationery, Office & School
   {
     id: "stationery-office-and-school",
     name: "STATIONERY, OFFICE & SCHOOL",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873009/products/zip-touch-soap-dispenser-for-kitchen-2915-1-i0-1788873009205.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/stationery-office-and-school.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["stationery-office-and-school"],
   },
   // 8. Travel & Outdoor
   {
     id: "travel-and-outdoor",
     name: "TRAVEL & OUTDOOR",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873033/products/zip-toothbrush-case-pack-of-5-2923-1-i0-1788873033558.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/travel-and-outdoor.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["travel-and-outdoor"],
   },
   // 9. Sports & Fitness
   {
     id: "sports-and-fitness",
     name: "SPORTS & FITNESS",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1778499343/categories/sports-and-fitness-69b7990226573d44aced3a4a-1778499341777.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/sports-and-fitness.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["sports-and-fitness"],
   },
   // 10. Beauty & Personal Care
   {
     id: "beauty-and-personal-care",
     name: "BEAUTY & PERSONAL CARE",
-    imageUrl: "https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/categories/2026/06/beauty-and-personal-care-6a196ffad1c7c35896eaca75-1780309850852.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/beauty-and-personal-care.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["beauty-and-personal-care"],
   },
   // 11. Mix Items
   {
     id: "mix-items",
     name: "MIX ITEMS",
-    imageUrl: "https://res.cloudinary.com/dejsxuhnk/image/upload/v1778502352/categories/mix-items-1778502351223.webp",
-    bgColor: "bg-slate-100",
-    overlayColor: "bg-slate-900/10",
+    imageUrl: "/images/categories/mix-items.jpg",
+    bgColor: "bg-slate-900",
+    overlayColor: "from-black/80 via-black/35 to-black/20",
     subcategories: CATEGORY_SUBCATEGORIES["mix-items"],
   },
   // 12. Explore All
   {
     id: "explore-all",
     name: "EXPLORE ALL CATEGORIES",
-    imageUrl: "https://res.cloudinary.com/wo5f58fu/image/upload/v1790061569/categories/cards/electronics-and-gadgets-card-6ab20435a4ded8a3ec745887-1790061565303.webp",
-    bgColor: "bg-[#A44101]/10",
-    overlayColor: "bg-[#A44101]/15",
+    imageUrl: "/images/categories/explore-all.jpg",
+    bgColor: "bg-gradient-to-br from-[#A44101] to-[#6b2800]",
+    overlayColor: "from-black/75 via-black/40 to-transparent",
     isExploreAll: true,
   },
 ];
@@ -232,9 +232,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: shouldReduceMotion ? 0 : index * 0.04, duration: 0.3 }}
-      whileHover={shouldReduceMotion ? {} : { y: -3, scale: 1.015 }}
+      whileHover={shouldReduceMotion ? {} : { y: -4, scale: 1.02 }}
       onClick={onClick}
-      className={`category-card-${category.id} group rounded-xl sm:rounded-2xl lg:rounded-3xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/11] sm:aspect-[7/4.5] ${category.bgColor || 'bg-slate-100'}`}
+      className={`category-card-${category.id} group rounded-2xl sm:rounded-3xl border border-slate-200/80 hover:border-[#A44101]/50 shadow-xs hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/11] sm:aspect-[7/4.5] ${category.bgColor || 'bg-slate-900'}`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -249,25 +249,25 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       <img
         src={category.imageUrl}
         alt={category.name}
-        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
         loading="lazy"
       />
 
       {/* 2. Soft Tint Overlay for consistent contrast */}
       <div 
-        className={`absolute inset-0 ${category.overlayColor || 'bg-slate-900/15'} group-hover:bg-slate-950/25 transition-colors`} 
+        className={`absolute inset-0 bg-gradient-to-t ${category.overlayColor || 'from-black/80 via-black/35 to-black/20'} group-hover:from-black/85 group-hover:via-black/45 transition-colors`} 
       />
 
       {/* 3. Center Category Title */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center p-2.5 sm:p-3.5 text-center z-10">
-        <h3 className="text-xs sm:text-sm md:text-[15px] lg:text-base font-bold text-slate-900 uppercase tracking-wider drop-shadow-[0_1px_3px_rgba(255,255,255,0.95)] leading-tight max-w-[92%] font-roboto">
+      <div className="absolute inset-0 flex flex-col items-center justify-center p-3 sm:p-4 text-center z-10">
+        <h3 className="text-xs sm:text-sm md:text-[15px] lg:text-base font-black text-white uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] leading-tight max-w-[90%] font-roboto group-hover:scale-105 transition-transform duration-300">
           {category.name}
         </h3>
       </div>
 
       {/* 4. Bottom-Left Circular Arrow Button matching reference screenshot */}
-      <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-10">
-        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-navy shadow-sm flex items-center justify-center group-hover:bg-[#A44101] group-hover:text-white transition-all duration-300">
+      <div className="absolute bottom-2.5 left-2.5 sm:bottom-3 sm:left-3 z-10">
+        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/95 backdrop-blur-md text-slate-900 shadow-md flex items-center justify-center group-hover:bg-[#A44101] group-hover:text-white transition-all duration-300">
           <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </div>
       </div>

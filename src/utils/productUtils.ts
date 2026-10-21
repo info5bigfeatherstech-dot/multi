@@ -74,14 +74,6 @@ export const isProductActive = (p: any): boolean => {
     return false;
   }
 
-  // Category status check
-  if (p.category && typeof p.category === 'object') {
-    const catStatus = String(p.category.status || '').trim().toLowerCase();
-    if (catStatus === 'inactive' || catStatus === 'draft' || catStatus === 'archived') {
-      return false;
-    }
-  }
-
   return true;
 };
 

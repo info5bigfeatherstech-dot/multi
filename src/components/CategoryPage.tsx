@@ -4,8 +4,7 @@ import {
   Star, 
   ShoppingCart, 
   Heart, 
-  ShieldCheck, 
-  Truck, 
+  ShieldCheck,
   RotateCcw, 
   Headphones, 
   Tag,
@@ -157,6 +156,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   initialSubcategory,
   onSelectProduct,
   onGoToCheckout,
+  onBackToHome,
 }) => {
   const { addToCart } = useCart();
   const [searchQuery, setSearchQuery] = useState(() => {
@@ -1262,51 +1262,51 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   return (
     <div className="min-h-screen bg-stone-50/60 pb-16 font-roboto animate-fadeIn">
-      {/* Category Hero Banner */}
+      {/* Category Text Header (Clean text showing current category, no banner) */}
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        <div className="relative rounded-2xl overflow-hidden shadow-md bg-gradient-to-r from-slate-950 via-slate-900 to-navy text-white min-h-[180px] sm:min-h-[220px] flex items-center p-6 sm:p-10 border border-slate-800">
-          <img
-            src={metadata.image}
-            alt={metadata.name}
-            className="absolute inset-0 w-full h-full object-cover opacity-25 mix-blend-overlay filter blur-[1px]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-transparent" />
+        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs">
+          {/* Breadcrumb Navigation */}
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 mb-2 font-medium flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                if (onBackToHome) onBackToHome();
+                else {
+                  window.history.pushState(null, '', '/');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="hover:text-[#A44101] transition-colors cursor-pointer"
+            >
+              Home
+            </button>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-700 font-semibold">{metadata.name}</span>
+            {selectedSubcategories.length === 1 && (
+              <>
+                <span className="text-slate-300">/</span>
+                <span className="text-[#A44101] font-bold">{selectedSubcategories[0]}</span>
+              </>
+            )}
+          </nav>
 
-          {/* Banner Details */}
-          <div className="relative z-10 max-w-2xl space-y-2.5">
-            <div className="flex items-center gap-2.5">
-              <span className="px-2.5 py-0.5 rounded-full bg-[#A44101] text-white text-[11px] font-black uppercase tracking-wider shadow-xs">
-                {metadata.badge}
-              </span>
-              <span className="px-2 py-0.5 rounded bg-white/20 backdrop-blur-xs text-white text-[11px] font-black">
-                {metadata.bannerDiscount}
-              </span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
-              {metadata.name}
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-normal">
-              {metadata.tagline}
-            </p>
-
-            {/* Key Trust Perks */}
-            <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] sm:text-xs text-slate-300">
-              <span className="flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-[#A44101]" />
-                <span>Pan India Fast Delivery</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#A44101]" />
-                <span>Wholesale Factory Rates</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5 text-[#A44101]" />
-                <span>7-Day Replacement</span>
+          {/* Category Title & Item Count */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-navy tracking-tight font-roboto">
+                {selectedSubcategories.length === 1 ? selectedSubcategories[0] : metadata.name}
+              </h1>
+              <span className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-0.5 rounded-full">
+                {filteredProducts.length} {filteredProducts.length === 1 ? 'Item' : 'Items'}
               </span>
             </div>
           </div>
+
+          {metadata.tagline && (
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 max-w-2xl font-normal">
+              {metadata.tagline}
+            </p>
+          )}
         </div>
       </div>
 
