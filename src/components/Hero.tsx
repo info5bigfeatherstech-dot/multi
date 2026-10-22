@@ -53,6 +53,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
             return {
               id: catId,
               name: cat.name,
+              order: typeof cat.order === 'number' ? cat.order : undefined,
               targetSectionId: `section-${catId}`,
               icon: getCategoryIcon(cat.name, catId),
               subcategories: subcats,

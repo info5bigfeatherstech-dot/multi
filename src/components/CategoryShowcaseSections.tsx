@@ -23,6 +23,7 @@ import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { apiClient } from '../api';
 import { isProductActive } from '../utils/productUtils';
+import { sortCategoriesByCanonicalSequence } from '../utils/categorySequence';
 
 export interface CategorySectionDefinition {
   id: string;
@@ -129,7 +130,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
   const [addedItemIds, setAddedItemIds] = useState<{ [key: string]: boolean }>({});
   const shouldReduceMotion = useReducedMotion();
   const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
-  const [categoryInfoMap, setCategoryInfoMap] = useState<Record<string, { image?: string; description?: string }>>({});
+  const [categoryInfoMap, setCategoryInfoMap] = useState<Record<string, { image?: string; description?: string; order?: number }>>({});
 
   const handleAddToCart = (product: ProductItem) => {
     addToCart(product);
@@ -149,13 +150,14 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
         if (!isMounted) return;
         const list = res.data?.categories || res.data?.data || (Array.isArray(res.data) ? res.data : []);
         if (Array.isArray(list)) {
-          const map: Record<string, { image?: string; description?: string }> = {};
+          const map: Record<string, { image?: string; description?: string; order?: number }> = {};
           list.forEach((c: any) => {
             const img = c.cardImage?.url || c.bannerImage?.url || c.image?.url;
             const desc = c.description || c.headline;
             const slug = c.slug || c._id;
+            const ord = typeof c.order === 'number' ? c.order : undefined;
             if (slug) {
-              map[slug] = { image: img, description: desc };
+              map[slug] = { image: img, description: desc, order: ord };
             }
           });
           setCategoryInfoMap(map);
@@ -239,9 +241,9 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
     };
   }, []);
 
-  // Organize products into the categories dynamically
+  // Organize products into the categories dynamically, ordered by admin panel sequence
   const sectionsData = useMemo(() => {
-    return CANONICAL_11_CATEGORIES.map((def) => {
+    const rawSections = CANONICAL_11_CATEGORIES.map((def) => {
       // Find matching products
       const matched = apiProducts.filter((p) => {
         const catLower = (p.category || '').toLowerCase();
@@ -266,6 +268,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
 
       return {
         ...def,
+        order: categoryInfoMap[def.id]?.order,
         tagline: categoryDescription,
         badge: `${matched.length} ${matched.length === 1 ? 'PRODUCT' : 'PRODUCTS'}`,
         bannerDiscount,
@@ -273,6 +276,8 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
         products: matched,
       };
     }).filter((s) => s.products.length > 0);
+
+    return sortCategoriesByCanonicalSequence(rawSections);
   }, [apiProducts, categoryInfoMap]);
 
   const getCategoryIcon = (id: string) => {

@@ -51,6 +51,7 @@ export interface NavCategoryMenuItem {
   imageUrl: string;
   description: string;
   subcategories?: string[];
+  order?: number;
 }
 
 // Complete rich categories matching exact user table and subcategories
@@ -331,6 +332,7 @@ export const Header: React.FC<HeaderProps> = ({
             return {
               id: catId,
               name: cat.name,
+              order: typeof cat.order === 'number' ? cat.order : undefined,
               badge: cat.showInMovingFast ? 'Popular' : (idx === 0 ? 'Bestseller' : undefined),
               badgeColor: 'bg-[#A44101]/10 text-[#A44101]',
               icon: LayoutGrid,
