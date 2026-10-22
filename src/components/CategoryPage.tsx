@@ -20,23 +20,22 @@ import {
   Award,
   Percent,
   Palette,
-  ChevronLeft,
-  ChevronRight,
   ArrowLeft,
   Loader2,
+  Plus,
+  CheckCircle2,
   RotateCcw as ResetIcon
 } from 'lucide-react';
 import { 
   ProductItem, 
-  getCategoryMetadata, 
-  getProductsByCategoryId,
-  getAllProducts 
+  getCategoryMetadata
 } from '../data/storeData';
 import { storefrontProductsApi, CATEGORY_SLUG_TO_ID_MAP } from '../api';
-import { isProductActive } from '../utils/productUtils';
+import { isProductActive, getDeterministicRating } from '../utils/productUtils';
 import { useCart } from '../context/CartContext';
-import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { toast } from 'react-hot-toast';
+import { extractSubcategoriesFromCategory } from '../utils/categorySequence';
 
 interface CategoryPageProps {
   categoryId: string;
@@ -102,6 +101,20 @@ export const resolveCategoryIdToObjectId = (
   return undefined;
 };
 
+const CATEGORY_MATCH_ALIASES: Record<string, string[]> = {
+  'electronics-and-gadgets': ['electronics', 'gadget', 'smart life gadgets', 'smart-life-gadgets', 'smart life', 'gadgets', 'audio', 'speaker', 'bluetooth', 'earphone', 'cable', 'charger'],
+  'gifts-and-lifestyle': ['gifts and lifestyle', 'gifts', 'gift', 'lifestyle', 'novelty', 'keychain', 'party'],
+  'home-and-living': ['home and living', 'cleaning and housekeeping supplies', 'cleaning', 'housekeeping', 'home improvement', 'storage', 'mop', 'brush', 'naphthalene'],
+  'home-decor': ['home decor', 'decor', 'lighting', 'lights', 'lamp', 'ambient', 'clock', 'showpiece'],
+  'jewellery-and-accessories': ['jewellery and accessories', 'jewellery', 'jewelry', 'accessories', 'fashion world', 'fashion-world', 'necklace', 'earring', 'ring', 'bangle', 'pendant', 'chain', 'bracelet', 'mangalsutra', 'nose ring'],
+  'kitchen-and-dining': ['kitchen and dining', 'kitchen', 'dining', 'cookware', 'home and kitchen', 'home-kitchen', 'chopper', 'bottle', 'flask', 'pan', 'box', 'tiffin'],
+  'stationery-office-and-school': ['stationery office and school', 'stationery', 'office', 'school', 'stationary', 'diary', 'pen', 'marker', 'desk'],
+  'travel-and-outdoor': ['travel and outdoor', 'travel', 'tours', 'tours and travels', 'car accessories', 'outdoor', 'luggage', 'camping'],
+  'sports-and-fitness': ['sports and fitness', 'sports', 'fitness', 'gym', 'workout', 'yoga', 'exercise'],
+  'beauty-and-personal-care': ['beauty and personal care', 'beauty', 'personal care', 'skincare', 'grooming', 'trimmer', 'shaver'],
+  'mix-items': ['mix items', 'mix', 'baby items', 'baby-items', 'combo', 'pack', 'set'],
+};
+
 export const doesProductMatchCategory = (product: ProductItem, categoryId: string): boolean => {
   if (!categoryId || categoryId === 'all' || categoryId === 'explore-all') return true;
 
@@ -113,12 +126,19 @@ export const doesProductMatchCategory = (product: ProductItem, categoryId: strin
 
   const prodCatNorm = normalizeCategoryString(product.category || '');
   const prodSlugNorm = normalizeCategoryString((product as any).backendCatSlug || '');
-  const prodTitleNorm = normalizeCategoryString(product.title || '');
 
   // Exact or substring match on category name or slug
   if (prodCatNorm === targetNorm || prodSlugNorm === targetNorm) return true;
   if (prodCatNorm && targetNorm && (prodCatNorm.includes(targetNorm) || targetNorm.includes(prodCatNorm))) return true;
   if (prodSlugNorm && targetNorm && (prodSlugNorm.includes(targetNorm) || targetNorm.includes(prodSlugNorm))) return true;
+
+  // Check category aliases
+  const aliases = CATEGORY_MATCH_ALIASES[targetId] || CATEGORY_MATCH_ALIASES[targetNorm.replace(/ /g, '-')] || [];
+  for (const alias of aliases) {
+    const aNorm = normalizeCategoryString(alias);
+    if (prodCatNorm === aNorm || prodCatNorm.includes(aNorm) || aNorm.includes(prodCatNorm)) return true;
+    if (prodSlugNorm === aNorm || prodSlugNorm.includes(aNorm) || aNorm.includes(prodSlugNorm)) return true;
+  }
 
   // Split tokens (e.g. ['home', 'kitchen'], ['electronics', 'gadgets'])
   const targetTokens = targetNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
@@ -129,11 +149,6 @@ export const doesProductMatchCategory = (product: ProductItem, categoryId: strin
   const catStems = catTokens.map(stem);
 
   if (targetStems.some((ts) => catStems.includes(ts))) return true;
-
-  // Title token match
-  const titleTokens = prodTitleNorm.split(' ').filter((t) => t.length > 2 && t !== 'and');
-  const titleStems = titleTokens.map(stem);
-  if (targetStems.some((ts) => titleStems.includes(ts))) return true;
 
   return false;
 };
@@ -168,10 +183,10 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   });
   const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
   const [isLoadingApi, setIsLoadingApi] = useState<boolean>(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalProducts, setTotalProducts] = useState<number>(0);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [backendCategories, setBackendCategories] = useState<any[]>([]);
 
   useEffect(() => {
@@ -214,12 +229,46 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   // Cart & Wishlist Interaction State
-  const [wishlistIds, setWishlistIds] = useState<{ [key: string]: boolean }>({});
+  const [wishlistIds, setWishlistIds] = useState<{ [key: string]: boolean }>(() => {
+    const ids = getWishlistIds();
+    const map: { [key: string]: boolean } = {};
+    ids.forEach((id) => { map[id] = true; });
+    return map;
+  });
   const [addedIds, setAddedIds] = useState<{ [key: string]: boolean }>({});
 
+  useEffect(() => {
+    const handleSyncWishlist = () => {
+      const ids = getWishlistIds();
+      const map: { [key: string]: boolean } = {};
+      ids.forEach((id) => { map[id] = true; });
+      setWishlistIds(map);
+    };
+    window.addEventListener('abb_wishlist_change', handleSyncWishlist);
+    return () => window.removeEventListener('abb_wishlist_change', handleSyncWishlist);
+  }, []);
+
   const metadata = useMemo(() => {
-    return getCategoryMetadata(categoryId);
-  }, [categoryId]);
+    const base = getCategoryMetadata(categoryId);
+    const backendCat = backendCategories.find(
+      (c) =>
+        c.slug === categoryId ||
+        c._id === categoryId ||
+        c.id === categoryId ||
+        (c.name && c.name.toLowerCase() === categoryId?.toLowerCase())
+    );
+    if (backendCat) {
+      const dynamicSubs = extractSubcategoriesFromCategory(backendCat, backendCategories);
+      return {
+        ...base,
+        name: backendCat.name || base.name,
+        headline: backendCat.headline || backendCat.name || base.headline,
+        image: backendCat.bannerImage?.url || backendCat.image?.url || base.image,
+        subcategories: dynamicSubs.length > 0 ? dynamicSubs : base.subcategories,
+      };
+    }
+    return base;
+  }, [categoryId, backendCategories]);
 
   // Reset page to 1 whenever filters change
   useEffect(() => {
@@ -265,11 +314,15 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   // Fetch from backend API using all filter parameters
   useEffect(() => {
     let isMounted = true;
-    setIsLoadingApi(true);
+    if (page === 1) {
+      setIsLoadingApi(true);
+    } else {
+      setIsLoadingMore(true);
+    }
 
     const params: Record<string, any> = {
       page,
-      limit: 50,
+      limit: 250,
     };
 
     const resolvedCatId = resolveCategoryIdToObjectId(categoryId, backendCategories);
@@ -373,20 +426,20 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               p.variants?.[0]?.price?.current ?? 
               p.variants?.[0]?.price?.sale ?? 
               p.price ?? 
-              99
+              0
             );
             const originalPrice = Number(
               p.maxPriceOriginal ?? 
               p.originalPrice ?? 
               p.price?.base ?? 
               p.variants?.[0]?.price?.base ?? 
-              Math.round(currentPrice * 1.8)
+              currentPrice
             );
             const discountPct = Number(
               p.maxDiscountPercentage ?? 
               p.discountPercentage ?? 
               p.variants?.[0]?.price?.discountPercentage ?? 
-              Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+              (originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0)
             );
             const img = 
               p.cardImage?.url || 
@@ -402,6 +455,14 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
             const catSlug = p.category && typeof p.category === 'object' ? (p.category.slug || '') : '';
             const catId = p.category && typeof p.category === 'object' ? (p.category._id || p.category.id || '') : '';
 
+            const rInfo = getDeterministicRating(p._id || p.id || p.title || p.name || '');
+            const ratingVal = typeof p.rating?.value === 'number' && p.rating.value > 0 
+              ? p.rating.value 
+              : (typeof p.rating === 'number' && p.rating > 0 
+                  ? p.rating 
+                  : (p.reviewSummary?.average && p.reviewSummary.average > 0 ? p.reviewSummary.average : rInfo.rating));
+            const reviewsCount = Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? rInfo.reviews);
+
             return {
               id: p._id || p.id,
               title: p.title || p.name || 'Apna Bharat Bazaar Product',
@@ -409,29 +470,37 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               currentPrice,
               originalPrice,
               discountPercentage: discountPct,
-              discountBadge: `${discountPct}% OFF`,
+              discountBadge: discountPct > 0 ? `${discountPct}% OFF` : undefined,
               image: typeof img === 'string' ? img : (img?.url || 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80'),
-              rating: typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (4.5 + ((String(p._id || p.id).charCodeAt(0) || 0) % 5) / 10)),
-              reviews: Number(p.rating?.count ?? p.reviews ?? (50 + ((String(p._id || p.id).charCodeAt(1) || 0) * 7) % 500)),
+              rating: ratingVal,
+              reviews: reviewsCount,
               inStock: p.inStock !== false,
               isTopDeal: Boolean(p.isFeatured) || discountPct >= 50,
-              tag: p.appliedTags?.[0] || p.tag || (p.isFeatured ? 'FEATURED' : undefined),
+              tag: p.appliedTags?.[0] || p.tag,
               description: p.description || '',
               backendCatSlug: catSlug,
               backendCatId: catId,
             } as ProductItem;
           });
 
-          setApiProducts(mapped);
-          setHasLoadedOnce(true);
+          setApiProducts((prev) => {
+            if (page === 1) {
+              return mapped;
+            }
+            const existingIds = new Set(prev.map((p) => String(p.id)));
+            const newItems = mapped.filter((p) => !existingIds.has(String(p.id)));
+            return [...prev, ...newItems];
+          });
         })
         .catch((err) => {
           if (!isMounted) return;
           console.warn('CategoryPage backend filter error:', err?.message);
-          setHasLoadedOnce(true);
         })
         .finally(() => {
-          if (isMounted) setIsLoadingApi(false);
+          if (isMounted) {
+            setIsLoadingApi(false);
+            setIsLoadingMore(false);
+          }
         });
     }, 250);
 
@@ -481,34 +550,42 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     return subTerms.some((term) => text.includes(term));
   };
 
+  // Products strictly matching the active category
+  const categoryProducts = useMemo(() => {
+    if (!categoryId || categoryId === 'all' || categoryId === 'explore-all') {
+      return apiProducts;
+    }
+    return apiProducts.filter((p) => doesProductMatchCategory(p, categoryId));
+  }, [apiProducts, categoryId]);
+
   // Pre-calculated filter counts for real-time badges
   const filterCounts = useMemo(() => {
     const subCounts: Record<string, number> = {};
     if (metadata.subcategories) {
       metadata.subcategories.forEach((sub) => {
-        subCounts[sub] = apiProducts.filter((p) => matchesSubcategory(p, sub)).length;
+        subCounts[sub] = categoryProducts.filter((p) => matchesSubcategory(p, sub)).length;
       });
     }
 
     const ratingCounts: Record<number, number> = {
-      4: apiProducts.filter((p) => p.rating >= 4).length,
-      3: apiProducts.filter((p) => p.rating >= 3).length,
-      2: apiProducts.filter((p) => p.rating >= 2).length,
-      1: apiProducts.filter((p) => p.rating >= 1).length,
+      4: categoryProducts.filter((p) => p.rating >= 4).length,
+      3: categoryProducts.filter((p) => p.rating >= 3).length,
+      2: categoryProducts.filter((p) => p.rating >= 2).length,
+      1: categoryProducts.filter((p) => p.rating >= 1).length,
     };
 
     const discountCounts: Record<number, number> = {
-      50: apiProducts.filter((p) => p.discountPercentage >= 50).length,
-      30: apiProducts.filter((p) => p.discountPercentage >= 30).length,
-      20: apiProducts.filter((p) => p.discountPercentage >= 20).length,
-      10: apiProducts.filter((p) => p.discountPercentage >= 10).length,
+      50: categoryProducts.filter((p) => p.discountPercentage >= 50).length,
+      30: categoryProducts.filter((p) => p.discountPercentage >= 30).length,
+      20: categoryProducts.filter((p) => p.discountPercentage >= 20).length,
+      10: categoryProducts.filter((p) => p.discountPercentage >= 10).length,
     };
 
-    const inStockCount = apiProducts.filter((p) => p.inStock !== false).length;
-    const todaysDealsCount = apiProducts.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag))).length;
-    const newArrivalsCount = apiProducts.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-')).length;
-    const bestSellersCount = apiProducts.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7).length;
-    const saleCount = apiProducts.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice).length;
+    const inStockCount = categoryProducts.filter((p) => p.inStock !== false).length;
+    const todaysDealsCount = categoryProducts.filter((p) => Boolean(p.isTopDeal) || (p.tag && /deal|today/i.test(p.tag))).length;
+    const newArrivalsCount = categoryProducts.filter((p) => (p.tag && /new|launch|latest/i.test(p.tag)) || p.id.startsWith('na-')).length;
+    const bestSellersCount = categoryProducts.filter((p) => (p.tag && /best|bestseller|top/i.test(p.tag)) || p.reviews >= 80 || p.rating >= 4.7).length;
+    const saleCount = categoryProducts.filter((p) => p.discountPercentage > 0 || (p.tag && /sale/i.test(p.tag)) || p.originalPrice > p.currentPrice).length;
 
     return {
       subCounts,
@@ -520,7 +597,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
       bestSellersCount,
       saleCount,
     };
-  }, [apiProducts, metadata.subcategories]);
+  }, [categoryProducts, metadata.subcategories]);
 
   // Count active filters (for badge)
   const activeFilterCount = useMemo(() => {
@@ -587,14 +664,10 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
     );
   };
 
-  // Products returned directly from backend filtering
+  // Products returned directly for the active category
   const filteredProducts = useMemo(() => {
-    if (hasLoadedOnce || apiProducts.length > 0) {
-      return apiProducts;
-    }
-    const local = getProductsByCategoryId(categoryId);
-    return local.length > 0 ? local : getAllProducts().slice(0, 24);
-  }, [apiProducts, hasLoadedOnce, categoryId]);
+    return categoryProducts;
+  }, [categoryProducts]);
 
   const handleAddToCart = (product: ProductItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -615,16 +688,12 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   const toggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
-      return;
-    }
-    const isAdding = !wishlistIds[productId];
+    const isAdding = toggleWishlistItem(productId);
     setWishlistIds((prev) => ({
       ...prev,
-      [productId]: !prev[productId],
+      [productId]: isAdding,
     }));
-    const prod = filteredProducts.find((p: ProductItem) => p.id === productId) || getAllProducts().find((p: ProductItem) => p.id === productId);
+    const prod = filteredProducts.find((p: ProductItem) => p.id === productId) || apiProducts.find((p: ProductItem) => p.id === productId);
     const prodTitle = prod?.title && prod.title.length > 32 
       ? `${prod.title.slice(0, 32)}...` 
       : (prod?.title || 'Product');
@@ -1482,8 +1551,16 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                       <span>Filtering...</span>
                     </span>
                   )}
-                  <span>
-                    Showing <span className="text-navy font-black">{filteredProducts.length}</span> of {totalProducts || filteredProducts.length} items
+                  <span className="flex items-center gap-1.5">
+                    <span>
+                      Showing <span className="text-navy font-black">{filteredProducts.length}</span> of {totalProducts || filteredProducts.length} items
+                    </span>
+                    {(totalProducts > 50 || filteredProducts.length >= 50) && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A44101]/10 text-[#A44101] border border-[#A44101]/20">
+                        <Sparkles className="w-3 h-3 text-[#A44101]" />
+                        50+ Products
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -1731,9 +1808,11 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
                         {/* Discount Pill Top Left */}
                         <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-                          <span className="bg-[#A44101] text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm">
-                            {product.discountPercentage}% OFF
-                          </span>
+                          {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
+                            <span className="bg-[#A44101] text-white text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                              {product.discountPercentage}% OFF
+                            </span>
+                          )}
                           {product.tag && (
                             <span className="bg-navy/90 backdrop-blur-xs text-white text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs uppercase">
                               {product.tag}
@@ -1769,15 +1848,17 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                           </h3>
 
                           {/* Ratings */}
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded text-[10px] font-extrabold text-amber-900">
-                              <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                              <span>{product.rating}</span>
+                          {product.reviews && product.reviews > 0 ? (
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              <div className="flex items-center gap-1 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded text-[10px] font-extrabold text-amber-900">
+                                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                <span>{product.rating}</span>
+                              </div>
+                              <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
+                                ({product.reviews.toLocaleString()})
+                              </span>
                             </div>
-                            <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium">
-                              ({product.reviews.toLocaleString()})
-                            </span>
-                          </div>
+                          ) : null}
                         </div>
 
                         {/* Price & Action Row */}
@@ -1786,12 +1867,16 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                             <span className="text-sm sm:text-base font-black text-[#A44101] leading-none">
                               ₹{product.currentPrice}
                             </span>
-                            <span className="text-[11px] sm:text-xs text-slate-400 line-through">
-                              ₹{product.originalPrice}
-                            </span>
-                            <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600">
-                              Save ₹{savings}
-                            </span>
+                            {product.originalPrice > product.currentPrice && (
+                              <span className="text-[11px] sm:text-xs text-slate-400 line-through">
+                                ₹{product.originalPrice}
+                              </span>
+                            )}
+                            {savings > 0 && product.originalPrice > product.currentPrice && (
+                              <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600">
+                                Save ₹{savings}
+                              </span>
+                            )}
                           </div>
 
                           {/* Action Buttons */}
@@ -1826,37 +1911,63 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               </div>
             )}
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-6 pb-2">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => {
-                    setPage((p) => Math.max(1, p - 1));
-                    window.scrollTo({ top: 350, behavior: 'smooth' });
-                  }}
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 shadow-2xs"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Previous</span>
-                </button>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs">
-                  <span>Page {page} of {totalPages}</span>
-                  {totalProducts > 0 && <span className="text-slate-400 font-medium">({totalProducts} products)</span>}
+            {/* Continuous Product Loading (Load Next 50 Products instead of Pagination) */}
+            {filteredProducts.length > 0 && (
+              <div className="pt-8 pb-6 flex flex-col items-center justify-center gap-4">
+                {/* Progress bar and counter */}
+                <div className="flex flex-col items-center gap-2 max-w-sm w-full text-center px-4">
+                  <div className="flex items-center justify-between w-full text-xs font-semibold text-slate-600">
+                    <span>
+                      Showing <strong className="text-navy font-bold">{filteredProducts.length}</strong> of{' '}
+                      <strong className="text-navy font-bold">{totalProducts || filteredProducts.length}</strong> products
+                    </span>
+                    {filteredProducts.length >= 50 && (
+                      <span className="text-[#A44101] font-bold text-[11px] bg-[#A44101]/10 px-2 py-0.5 rounded-full">
+                        50+ loaded
+                      </span>
+                    )}
+                  </div>
+                  {totalProducts > 0 && (
+                    <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#A44101] to-[#C85202] rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: `${Math.min(100, Math.round((filteredProducts.length / totalProducts) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  disabled={page >= totalPages}
-                  onClick={() => {
-                    setPage((p) => Math.min(totalPages, p + 1));
-                    window.scrollTo({ top: 350, behavior: 'smooth' });
-                  }}
-                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 shadow-2xs"
-                >
-                  <span>Next</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+
+                {/* Load Next 50 Button or Finished Indicator */}
+                {(totalProducts > 0 ? filteredProducts.length < totalProducts : page < totalPages) ? (
+                  <button
+                    type="button"
+                    disabled={isLoadingMore}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="group inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-2xl bg-gradient-to-r from-[#A44101] to-[#C85202] hover:from-[#8C3701] hover:to-[#B34502] text-white font-bold text-sm shadow-md hover:shadow-lg active:scale-[0.99] transition-all cursor-pointer disabled:opacity-75 disabled:cursor-wait"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Loading Next 50 Products...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 text-white group-hover:rotate-90 transition-transform duration-200" />
+                        <span>Load Next 50 Products</span>
+                        <span className="text-[11px] font-semibold bg-white/20 text-white px-2 py-0.5 rounded-full">
+                          +{Math.min(50, totalProducts > 0 ? Math.max(0, totalProducts - filteredProducts.length) : 50)}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 bg-slate-100/90 px-5 py-2 rounded-full border border-slate-200/80 shadow-2xs">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>All {totalProducts || filteredProducts.length} products loaded</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

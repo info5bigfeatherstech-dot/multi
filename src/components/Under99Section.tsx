@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { 
   Zap, 
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { UNDER_99_PRODUCTS, ProductItem } from '../data/storeData';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
-import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-hot-toast';
 
@@ -29,7 +29,24 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
   const { addToCart } = useCart();
   const [selectedMaxPrice, setSelectedMaxPrice] = useState<number>(99);
   const [addedItemIds, setAddedItemIds] = useState<{ [key: string]: boolean }>({});
-  const [wishlistIds, setWishlistIds] = useState<{ [key: string]: boolean }>({});
+  const [wishlistIds, setWishlistIds] = useState<{ [key: string]: boolean }>(() => {
+    const ids = getWishlistIds();
+    const map: { [key: string]: boolean } = {};
+    ids.forEach((id) => { map[id] = true; });
+    return map;
+  });
+
+  useEffect(() => {
+    const handleSyncWishlist = () => {
+      const ids = getWishlistIds();
+      const map: { [key: string]: boolean } = {};
+      ids.forEach((id) => { map[id] = true; });
+      setWishlistIds(map);
+    };
+    window.addEventListener('abb_wishlist_change', handleSyncWishlist);
+    return () => window.removeEventListener('abb_wishlist_change', handleSyncWishlist);
+  }, []);
+
   const [quickBuyProduct, setQuickBuyProduct] = useState<ProductItem | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
   const [formData, setFormData] = useState({ name: '', phone: '', pincode: '', paymentMethod: 'cod' });
@@ -58,12 +75,8 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
   };
 
   const handleToggleWishlist = (id: string) => {
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
-      return;
-    }
-    const isAdding = !wishlistIds[id];
-    setWishlistIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    const isAdding = toggleWishlistItem(id);
+    setWishlistIds((prev) => ({ ...prev, [id]: isAdding }));
     const prod = UNDER_99_PRODUCTS.find((p) => p.id === id);
     const prodTitle = prod?.title && prod.title.length > 32 
       ? `${prod.title.slice(0, 32)}...` 

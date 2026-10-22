@@ -15,6 +15,7 @@ import {
 import { getAllProducts, ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { toast } from 'react-hot-toast';
 
 interface WishlistPageProps {
@@ -31,21 +32,39 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   const { addToCart } = useCart();
   const allProducts = getAllProducts();
   
-  // Pre-populate with 4 popular products
-  const initialWishlist = allProducts.slice(0, 4);
-  const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(initialWishlist);
+  // Load wishlisted products from local storage, or fallback to first 4 store products
+  const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(() => {
+    const ids = getWishlistIds();
+    if (ids.length > 0) {
+      const all = allProducts.filter((p) => ids.includes(String(p.id)));
+      if (all.length > 0) return all;
+    }
+    // Pre-populate with 4 popular products on fresh state
+    const initial = allProducts.slice(0, 4);
+    initial.forEach((p) => {
+      const current = getWishlistIds();
+      if (!current.includes(String(p.id))) {
+        toggleWishlistItem(p.id);
+      }
+    });
+    return initial;
+  });
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
   const [allMoved, setAllMoved] = useState(false);
   const viewMode = 'list';
 
-  // Auth guard: redirect to home if not logged in
+  // Listen for external wishlist changes
   useEffect(() => {
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please log in or register to view your wishlist' });
-      onBackToHome?.();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const handleWishlistChange = () => {
+      const ids = getWishlistIds();
+      const updated = allProducts.filter((p) => ids.includes(String(p.id)));
+      setWishlistItems(updated);
+    };
+    window.addEventListener('abb_wishlist_change', handleWishlistChange);
+    return () => {
+      window.removeEventListener('abb_wishlist_change', handleWishlistChange);
+    };
+  }, [allProducts]);
 
   const handleRemove = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -53,6 +72,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
     const itemTitle = item?.title && item.title.length > 32 
       ? `${item.title.slice(0, 32)}...` 
       : (item?.title || 'Item');
+    toggleWishlistItem(id);
     setWishlistItems((prev) => prev.filter((it) => it.id !== id));
     toast(`${itemTitle} removed from wishlist`, {
       id: `wishlist-remove-${id}`,
@@ -121,6 +141,10 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
 
   const handleClearWishlist = () => {
     if (window.confirm('Are you sure you want to clear your wishlist?')) {
+      try {
+        localStorage.setItem('abb_storefront_wishlist_ids', JSON.stringify([]));
+        window.dispatchEvent(new CustomEvent('abb_wishlist_change', { detail: { count: 0 } }));
+      } catch {}
       setWishlistItems([]);
       toast('Wishlist cleared', { icon: '🗑️' });
     }

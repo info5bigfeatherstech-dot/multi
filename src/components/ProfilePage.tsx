@@ -30,7 +30,7 @@ import {
   storefrontCheckoutApi 
 } from '../api';
 import { OrderDetailTrackingView } from './profile/OrderDetailTrackingView';
-import { persistUserPhone, getPersistedUserPhone } from '../utils/authGuard';
+import { persistUserPhone, getPersistedUserPhone, isAuthenticated, requireAuth } from '../utils/authGuard';
 
 interface ProfilePageProps {
   onBackToHome?: () => void;
@@ -66,6 +66,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onGoToCheckout,
   onRequireAuth,
 }) => {
+  // Auth guard: redirect to login if not logged in
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      if (onRequireAuth) {
+        onRequireAuth();
+      } else {
+        requireAuth({ message: 'Please log in or register to access your profile and orders' });
+        onBackToHome?.();
+      }
+    }
+  }, [onRequireAuth, onBackToHome]);
+
   const [activeTab, setActiveTab] = useState<TabKey>(getTabFromLocation);
 
   // User Profile Form State

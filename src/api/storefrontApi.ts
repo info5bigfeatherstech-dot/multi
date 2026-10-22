@@ -809,21 +809,29 @@ export const storefrontCheckoutApi = {
 export interface PublicReviewItem {
   id: string;
   _id?: string;
-  author?: string;
+  author: string | { id?: string; name: string; avatar?: string };
   displayName?: string;
-  rating: number;
-  comment?: string;
+  rating: number; // Clamped 1 to 5
+  comment: string;
   images?: Array<string | { url: string; publicId?: string }>;
   verifiedPurchase: boolean;
   createdAt: string;
   source?: 'customer' | 'admin';
-  isActive?: boolean;
+  isActive: boolean;
 }
 
 export interface ProductReviewSummaryData {
-  averageRating: number | null;
-  reviewCount: number;
-  distribution?: Record<string, number>;
+  average: number; // Overall rating (e.g. 4.5)
+  averageRating?: number | null; // Compatibility alias
+  count: number; // Total number of reviews
+  reviewCount?: number; // Compatibility alias
+  distribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
   starDistribution?: Record<string, number>;
 }
 
@@ -835,38 +843,188 @@ export interface ReviewEligibilityData {
 }
 
 export const storefrontReviewsApi = {
-  getSummary: async (productId: string) => {
+  /**
+   * 1. GET /api/products/:productId/reviews/summary
+   * Returns product review summary with average, count, and star distribution
+   */
+  getSummary: async (productId: string): Promise<ProductReviewSummaryData> => {
     try {
-      const res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}/summary`);
-      return res.data?.summary || res.data?.data?.summary || res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+      let res;
+      try {
+        res = await apiClient.get(`/products/${encodeURIComponent(productId)}/reviews/summary`);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}/summary`);
+        } else {
+          throw err;
+        }
+      }
+      const raw = res.data?.summary || res.data?.data?.summary || res.data?.data || res.data || {};
+      const count = Number(raw.count ?? raw.reviewCount ?? raw.total ?? 0);
+      const rawAvg = Number(raw.average ?? raw.averageRating ?? raw.rating ?? 0);
+      const average = count > 0 ? Math.min(5, Math.max(1, Math.round(rawAvg * 10) / 10)) : 0;
+
+      const rawDist = raw.distribution || raw.starDistribution || {};
+      const distribution = {
+        1: Number(rawDist['1'] ?? rawDist[1] ?? 0),
+        2: Number(rawDist['2'] ?? rawDist[2] ?? 0),
+        3: Number(rawDist['3'] ?? rawDist[3] ?? 0),
+        4: Number(rawDist['4'] ?? rawDist[4] ?? 0),
+        5: Number(rawDist['5'] ?? rawDist[5] ?? 0),
+      };
+
+      return {
+        average,
+        averageRating: average,
+        count,
+        reviewCount: count,
+        distribution,
+        starDistribution: {
+          '1': distribution[1],
+          '2': distribution[2],
+          '3': distribution[3],
+          '4': distribution[4],
+          '5': distribution[5],
+        },
+      };
+    } catch {
+      return {
+        average: 0,
+        averageRating: 0,
+        count: 0,
+        reviewCount: 0,
+        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        starDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      };
     }
   },
-  list: async (productId: string, params?: { page?: number; limit?: number }) => {
+
+  /**
+   * 2. GET /api/products/:productId/reviews
+   * Returns the list of public, approved reviews with sanitization & clamping
+   */
+  list: async (
+    productId: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<{ reviews: PublicReviewItem[]; pagination?: any }> => {
     try {
-      const res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}`, { params });
-      return res.data || {};
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+      let res;
+      try {
+        res = await apiClient.get(`/products/${encodeURIComponent(productId)}/reviews`, { params });
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          res = await apiClient.get(`/product-reviews/public/${encodeURIComponent(productId)}`, { params });
+        } else {
+          throw err;
+        }
+      }
+
+      const rawList = res.data?.reviews || res.data?.data?.reviews || (Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : []));
+      const pagination = res.data?.pagination || res.data?.data?.pagination;
+
+      // Data sanitization: filter out inactive/hidden reviews (isActive !== false), clamp rating 1 to 5
+      const sanitized: PublicReviewItem[] = (Array.isArray(rawList) ? rawList : [])
+        .filter((r: any) => r && r.isActive !== false && r.status !== 'Inactive')
+        .map((r: any) => {
+          const rawRating = Number(r.rating || 5);
+          const rating = Math.min(5, Math.max(1, Math.round(rawRating)));
+          const author = r.author || r.displayName || r.user?.name || r.userName || 'Customer';
+          const authorName = typeof author === 'string' ? author : (author?.name || 'Customer');
+          const images = Array.isArray(r.images) 
+            ? r.images.map((img: any) => (typeof img === 'string' ? img : img?.url)).filter(Boolean)
+            : [];
+
+          return {
+            id: r.id || r._id || `rev-${Math.random().toString(36).slice(2, 9)}`,
+            author,
+            displayName: authorName,
+            rating,
+            comment: typeof r.comment === 'string' ? r.comment : (r.text || ''),
+            images,
+            verifiedPurchase: Boolean(r.verifiedPurchase || r.isVerifiedPurchase || r.orderId),
+            createdAt: r.createdAt || new Date().toISOString(),
+            source: r.source || 'customer',
+            isActive: r.isActive !== false,
+          };
+        });
+
+      return {
+        reviews: sanitized,
+        pagination,
+      };
+    } catch {
+      return { reviews: [] };
     }
   },
-  getMine: async (productId: string) => {
+
+  /**
+   * 3. GET /api/products/:productId/reviews/mine (Protected)
+   * Checks if currently authenticated user has already submitted a review
+   */
+  getMine: async (productId: string): Promise<PublicReviewItem | null> => {
     try {
-      const res = await apiClient.get(`/product-reviews/mine/${encodeURIComponent(productId)}`);
-      return res.data?.review || res.data?.data?.review || null;
+      let res;
+      try {
+        res = await apiClient.get(`/products/${encodeURIComponent(productId)}/reviews/mine`);
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          res = await apiClient.get(`/product-reviews/mine/${encodeURIComponent(productId)}`);
+        } else {
+          throw err;
+        }
+      }
+
+      const r = res.data?.review || res.data?.data?.review || res.data?.data || res.data;
+      if (!r || typeof r !== 'object' || (!r.id && !r._id && !r.rating)) {
+        return null;
+      }
+
+      const rawRating = Number(r.rating || 5);
+      const rating = Math.min(5, Math.max(1, Math.round(rawRating)));
+      const author = r.author || r.displayName || r.user?.name || 'You';
+      const authorName = typeof author === 'string' ? author : (author?.name || 'You');
+      const images = Array.isArray(r.images) 
+        ? r.images.map((img: any) => (typeof img === 'string' ? img : img?.url)).filter(Boolean)
+        : [];
+
+      return {
+        id: r.id || r._id || 'my-review',
+        author,
+        displayName: authorName,
+        rating,
+        comment: r.comment || r.text || '',
+        images,
+        verifiedPurchase: Boolean(r.verifiedPurchase || r.orderId),
+        createdAt: r.createdAt || new Date().toISOString(),
+        source: r.source || 'customer',
+        isActive: r.isActive !== false,
+      };
     } catch {
       return null;
     }
   },
-  getEligibility: async (productId: string) => {
+
+  /**
+   * Review eligibility check
+   */
+  getEligibility: async (productId: string): Promise<ReviewEligibilityData | null> => {
     try {
-      const res = await apiClient.get(`/product-reviews/eligibility/${encodeURIComponent(productId)}`);
-      return res.data?.eligibility || res.data?.data?.eligibility || null;
+      let res;
+      try {
+        res = await apiClient.get(`/products/${encodeURIComponent(productId)}/reviews/eligibility`);
+      } catch {
+        res = await apiClient.get(`/product-reviews/eligibility/${encodeURIComponent(productId)}`);
+      }
+      return res.data?.eligibility || res.data?.data?.eligibility || res.data?.data || res.data || null;
     } catch {
       return null;
     }
   },
+
+  /**
+   * 4. POST /api/products/:productId/reviews (Protected)
+   * Submits a new review with rating, comment, and optional photos
+   */
   submitReview: async (payload: {
     productId: string;
     rating: number;
@@ -875,20 +1033,53 @@ export const storefrontReviewsApi = {
     images?: File[];
   }) => {
     try {
-      const fd = new FormData();
-      fd.append('productId', payload.productId);
-      fd.append('rating', String(payload.rating));
-      if (payload.comment) fd.append('comment', payload.comment.trim());
-      if (payload.orderId) fd.append('orderId', payload.orderId.trim());
+      const clampedRating = Math.min(5, Math.max(1, Math.round(payload.rating)));
+      const cleanComment = (payload.comment || '').trim();
+
+      let res;
       if (payload.images && payload.images.length > 0) {
+        const fd = new FormData();
+        fd.append('productId', payload.productId);
+        fd.append('rating', String(clampedRating));
+        if (cleanComment) fd.append('comment', cleanComment);
+        if (payload.orderId) fd.append('orderId', payload.orderId.trim());
         payload.images.forEach((file) => {
           fd.append('reviewImages', file);
+          fd.append('images', file);
         });
+
+        try {
+          res = await apiClient.post(`/products/${encodeURIComponent(payload.productId)}/reviews`, fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            res = await apiClient.post('/product-reviews', fd, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        const body = {
+          productId: payload.productId,
+          rating: clampedRating,
+          comment: cleanComment,
+          ...(payload.orderId ? { orderId: payload.orderId } : {}),
+        };
+
+        try {
+          res = await apiClient.post(`/products/${encodeURIComponent(payload.productId)}/reviews`, body);
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            res = await apiClient.post('/product-reviews', body);
+          } else {
+            throw err;
+          }
+        }
       }
 
-      const res = await apiClient.post('/product-reviews', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));

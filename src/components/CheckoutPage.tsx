@@ -600,6 +600,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   };
 
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponDiscount(0);
+    try {
+      sessionStorage.removeItem('abb_applied_coupon');
+      localStorage.removeItem('cart_coupon');
+    } catch {}
+  };
+
   const savePlacedOrder = (newOrder: any) => {
     try {
       const existing = JSON.parse(localStorage.getItem('abb_user_orders_v1') || '[]');
@@ -1205,12 +1215,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             placeholder={availableCoupons.length > 0 ? `e.g. ${availableCoupons.map((c: any) => c.code).slice(0, 3).join(', ')}` : "Enter coupon code"}
                             className="flex-1 px-3.5 py-2 text-xs uppercase font-mono rounded-xl border border-slate-300 focus:outline-none focus:border-[#A44101] bg-white"
                           />
-                          <button
-                            type="submit"
-                            className="px-5 py-2 bg-navy hover:bg-navy-light text-white font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-2xs"
-                          >
-                            Apply
-                          </button>
+                          {appliedCoupon ? (
+                            <button
+                              type="button"
+                              onClick={handleRemoveCoupon}
+                              className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-2xs"
+                            >
+                              Remove
+                            </button>
+                          ) : (
+                            <button
+                              type="submit"
+                              className="px-5 py-2 bg-navy hover:bg-navy-light text-white font-bold text-xs rounded-xl cursor-pointer transition-colors shadow-2xs"
+                            >
+                              Apply
+                            </button>
+                          )}
                         </div>
 
                         {appliedCoupon && (

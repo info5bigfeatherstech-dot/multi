@@ -65,6 +65,7 @@ export interface HeroBanner {
   alt: string;
   linkUrl: string;
   targetClass?: string;
+  subcategories?: string[];
 }
 
 export interface HeroSlide {

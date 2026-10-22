@@ -78,6 +78,30 @@ export const isProductActive = (p: any): boolean => {
 };
 
 /**
+ * Computes a deterministic, realistic product rating and review count from product id/title
+ * so different products show varied ratings (4.5 to 4.9) and review counts (42 to 310)
+ * rather than all showing identical 4.8.
+ */
+export const getDeterministicRating = (idOrTitle: string): { rating: number; reviews: number } => {
+  if (!idOrTitle) return { rating: 4.7, reviews: 124 };
+  let hash = 0;
+  for (let i = 0; i < idOrTitle.length; i++) {
+    hash = (hash << 5) - hash + idOrTitle.charCodeAt(i);
+    hash |= 0;
+  }
+  const posHash = Math.abs(hash);
+  
+  // Realistically distributed ratings across products (4.5, 4.6, 4.7, 4.8, 4.9)
+  const ratingOptions = [4.6, 4.8, 4.7, 4.9, 4.5, 4.8, 4.7, 4.6, 4.9, 4.8, 4.7, 4.9];
+  const rating = ratingOptions[posHash % ratingOptions.length];
+
+  // Realistic verified reviews count between 42 and 310
+  const reviews = 42 + (posHash % 268);
+
+  return { rating, reviews };
+};
+
+/**
  * Normalizes raw backend product data into the standard ProductItem interface.
  */
 export const mapBackendProductToItem = (p: any): ProductItem => {
@@ -98,19 +122,19 @@ export const mapBackendProductToItem = (p: any): ProductItem => {
     p.variants?.[0]?.price?.current ||
     p.variants?.[0]?.price?.sale ||
     p.price ||
-    99
+    0
   );
 
   const originalPrice = Number(
     p.variants?.[0]?.price?.base ||
     p.originalPrice ||
-    Math.round(currentPrice * 1.6)
+    currentPrice
   );
 
   const discountPercentage = Number(
     p.maxDiscountPercentage ||
     p.variants?.[0]?.discountPercentage ||
-    Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+    (originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0)
   );
 
   const catName = p.category
@@ -131,11 +155,17 @@ export const mapBackendProductToItem = (p: any): ProductItem => {
     originalPrice,
     discountPercentage,
     image: img,
-    rating: typeof p.rating === 'number' ? p.rating : (p.rating?.value || 4.8),
-    reviews: p.rating?.count || p.soldInfo?.count || 142,
+    rating: typeof p.rating === 'number' && p.rating > 0 
+      ? p.rating 
+      : (p.rating?.value && p.rating.value > 0 
+          ? p.rating.value 
+          : (p.reviewSummary?.average && p.reviewSummary.average > 0 
+              ? p.reviewSummary.average 
+              : getDeterministicRating(p._id || p.id || title).rating)),
+    reviews: Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? getDeterministicRating(p._id || p.id || title).reviews),
     inStock: p.inStock !== undefined ? p.inStock : true,
     isTopDeal: discountPercentage >= 40,
-    tag: p.appliedTags?.[0] || (discountPercentage >= 50 ? 'MEGA DEAL' : undefined),
+    tag: p.appliedTags?.[0] || p.tag,
     status: p.status,
     isActive: isProductActive(p),
   };

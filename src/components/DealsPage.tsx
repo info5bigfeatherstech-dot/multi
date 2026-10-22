@@ -13,7 +13,8 @@ import {
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { storefrontWishlistApi, apiClient } from '../api';
 import { useCart } from '../context/CartContext';
-import { isAuthenticated, requireAuth } from '../utils/authGuard';
+import { isAuthenticated } from '../utils/authGuard';
+import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { isProductActive } from '../utils/productUtils';
 import { toast } from 'react-hot-toast';
 
@@ -39,8 +40,16 @@ export const DealsPage: React.FC<DealsPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedPriceFilter, setSelectedPriceFilter] = useState<PriceFilter>('all');
   const [selectedSort, setSelectedSort] = useState<SortOption>('discount');
-  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(() => new Set(getWishlistIds()));
   const [addedItemIds, setAddedItemIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const handleSyncWishlist = () => {
+      setWishlistIds(new Set(getWishlistIds()));
+    };
+    window.addEventListener('abb_wishlist_change', handleSyncWishlist);
+    return () => window.removeEventListener('abb_wishlist_change', handleSyncWishlist);
+  }, []);
 
   // Countdown timer for deals urgency (counts down to midnight)
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
@@ -223,13 +232,8 @@ export const DealsPage: React.FC<DealsPageProps> = ({
   // Wishlist handler
   const handleToggleWishlist = async (prod: ProductItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please sign in to add products to your wishlist' });
-      return;
-    }
-
+    const isNowWishlisted = toggleWishlistItem(prod.id);
     const next = new Set(wishlistIds);
-    const isNowWishlisted = !next.has(prod.id);
     if (isNowWishlisted) {
       next.add(prod.id);
       toast.success(`"${prod.title.slice(0, 28)}..." added to wishlist!`, {
@@ -238,14 +242,16 @@ export const DealsPage: React.FC<DealsPageProps> = ({
       });
     } else {
       next.delete(prod.id);
-      toast.success('Removed from wishlist');
+      toast('Removed from wishlist', { icon: '🤍' });
     }
     setWishlistIds(next);
 
-    try {
-      await storefrontWishlistApi.toggle(prod.id, prod.slug || prod.id);
-    } catch {
-      // Background sync
+    if (isAuthenticated()) {
+      try {
+        await storefrontWishlistApi.toggle(prod.id, prod.slug || prod.id);
+      } catch {
+        // Background sync
+      }
     }
   };
 

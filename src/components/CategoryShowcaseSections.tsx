@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { ProductItem, getAllProducts } from '../data/storeData';
+import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { apiClient } from '../api';
 import { isProductActive } from '../utils/productUtils';
@@ -27,10 +27,8 @@ import { isProductActive } from '../utils/productUtils';
 export interface CategorySectionDefinition {
   id: string;
   name: string;
-  headline: string;
-  tagline: string;
-  badge: string;
-  bannerDiscount: string;
+  headline?: string;
+  tagline?: string;
   defaultImage: string;
   slugs: string[];
   keywords: string[];
@@ -40,10 +38,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'electronics-and-gadgets',
     name: 'Electronics & Gadgets',
-    headline: 'Smart Life Gadgets, Audio & Fast Charging',
-    tagline: 'Bluetooth speakers, tower audio, smart gadgets & fast charging accessories',
-    badge: 'BESTSELLER TECH',
-    bannerDiscount: 'UP TO 65% OFF',
     defaultImage: 'https://res.cloudinary.com/wo5f58fu/image/upload/v1790061569/categories/cards/electronics-and-gadgets-card-6ab20435a4ded8a3ec745887-1790061565303.webp',
     slugs: ['electronics-and-gadgets', 'smart-life-gadgets'],
     keywords: ['speaker', 'bluetooth', 'cable', 'charger', 'usb', 'smart', 'watch', 'earphone', 'headphone', 'audio', 'torch', 'light', 'led'],
@@ -51,10 +45,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'gifts-and-lifestyle',
     name: 'Gifts & Lifestyle',
-    headline: 'Curated Gifts & Lifestyle Accessories',
-    tagline: 'Novelty gifts, keychains, party accessories & lifestyle essentials',
-    badge: 'POPULAR GIFTS',
-    bannerDiscount: 'UP TO 60% OFF',
     defaultImage: 'https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/products/2026/07/love-pearl-chain-necklace-v-2633-1-img-0-1784529134136.webp',
     slugs: ['gifts-and-lifestyle', 'gifts'],
     keywords: ['gift', 'lifestyle', 'props', 'wallet', 'keychain', 'party', 'birthday'],
@@ -62,10 +52,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'home-and-living',
     name: 'Home & Living',
-    headline: 'Home Essentials, Cleaning & Storage',
-    tagline: 'Organizers, cleaning brushes, mops & daily household utilities',
-    badge: 'DAILY ESSENTIALS',
-    bannerDiscount: 'UP TO 70% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873051/products/zip-color-naphthalene-balls-2929-1-i0-1788873050768.webp',
     slugs: ['home-and-living', 'cleaning-and-housekeeping-supplies', 'home-improvement'],
     keywords: ['cleaning', 'brush', 'mop', 'storage', 'bathroom', 'wardrobe', 'cloth', 'dust', 'rack', 'hanger', 'tape', 'glue'],
@@ -73,10 +59,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'home-decor',
     name: 'Home Decor',
-    headline: 'Interior Decor, Lighting & Accents',
-    tagline: 'Ambient lights, wireless stick lamps, showpieces & decorative accents',
-    badge: 'TRENDING DECOR',
-    bannerDiscount: 'FLAT 50% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873051/products/zip-color-naphthalene-balls-2929-1-i0-1788873050768.webp',
     slugs: ['home-decor'],
     keywords: ['decor', 'light', 'lamp', 'motion', 'sensor', 'led', 'wall', 'frame', 'clock', 'showpiece', 'flower', 'vase'],
@@ -84,10 +66,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'jewellery-and-accessories',
     name: 'Jewellery & Accessories',
-    headline: 'Fashion Accessories & Jewellery',
-    tagline: 'Earrings, bracelets, trendy jewellery & style accessories',
-    badge: 'FASHION PICKS',
-    bannerDiscount: 'UP TO 75% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873024/products/zip-reusable-car-cleaning-gloves-2920-1-i0-1788873024777.webp',
     slugs: ['jewellery-and-accessories', 'fashion-world'],
     keywords: ['jewel', 'earring', 'ring', 'necklace', 'bracelet', 'bangle', 'hair', 'clip', 'fashion', 'accessory', 'silver'],
@@ -95,10 +73,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'kitchen-and-dining',
     name: 'Kitchen & Dining',
-    headline: 'Cookware, Choppers & Food Storage',
-    tagline: 'Choppers, tiffin boxes, containers, slicers & kitchen tools',
-    badge: 'KITCHEN DHAMAKA',
-    bannerDiscount: 'UP TO 70% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873047/products/zip-toothbrush-protector-cap-cover-2928-1-i0-1788873047623.webp',
     slugs: ['kitchen-and-dining', 'home-and-kitchen'],
     keywords: ['kitchen', 'chopper', 'cutter', 'cooker', 'tiffin', 'lunch', 'box', 'bottle', 'flask', 'pan', 'knife', 'spoon', 'cup', 'mug', 'peeler', 'masher', 'whisk'],
@@ -106,10 +80,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'stationery-office-and-school',
     name: 'Stationery, Office & School',
-    headline: 'Office Supplies, Writing & School Tools',
-    tagline: 'Diaries, pens, markers, desk organizers & school stationery',
-    badge: 'STUDY & WORK',
-    bannerDiscount: 'UP TO 55% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873009/products/zip-touch-soap-dispenser-for-kitchen-2915-1-i0-1788873009205.webp',
     slugs: ['stationery-office-and-school', 'stationary'],
     keywords: ['station', 'diary', 'notebook', 'pen', 'marker', 'pencil', 'pouch', 'desk', 'calculator', 'office', 'school'],
@@ -117,10 +87,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'travel-and-outdoor',
     name: 'Travel & Outdoor',
-    headline: 'Travel Organizers & Car Accessories',
-    tagline: 'Luggage organizers, car gadgets, travel pouches & outdoor utilities',
-    badge: 'ON THE MOVE',
-    bannerDiscount: 'UP TO 60% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1788873033/products/zip-toothbrush-case-pack-of-5-2923-1-i0-1788873033558.webp',
     slugs: ['travel-and-outdoor', 'tours-and-travels', 'car-accessories'],
     keywords: ['travel', 'tour', 'car', 'luggage', 'organizer', 'pouch', 'pillow', 'camping', 'cushion', 'trip'],
@@ -128,10 +94,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'sports-and-fitness',
     name: 'Sports & Fitness',
-    headline: 'Fitness Gear & Workout Essentials',
-    tagline: 'Resistance bands, knee supports, gym shakers & workout accessories',
-    badge: 'FITNESS ESSENTIALS',
-    bannerDiscount: 'UP TO 65% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1778499343/categories/sports-and-fitness-69b7990226573d44aced3a4a-1778499341777.webp',
     slugs: ['sports-and-fitness'],
     keywords: ['sport', 'fitness', 'gym', 'yoga', 'band', 'resistance', 'shaker', 'knee', 'wrist', 'exercise', 'workout'],
@@ -139,10 +101,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'beauty-and-personal-care',
     name: 'Beauty & Personal Care',
-    headline: 'Personal Care, Grooming & Beauty',
-    tagline: 'Trimmers, skincare tools, grooming kits & daily hygiene',
-    badge: 'TOP GLOW',
-    bannerDiscount: 'UP TO 70% OFF',
     defaultImage: 'https://pub-b2f1be61e9c24db698b3c80da875965b.r2.dev/categories/2026/06/beauty-and-personal-care-6a196ffad1c7c35896eaca75-1780309850852.webp',
     slugs: ['beauty-and-personal-care'],
     keywords: ['beauty', 'personal', 'care', 'skin', 'trimmer', 'shaver', 'hair', 'face', 'massager', 'hygiene', 'makeup'],
@@ -150,10 +108,6 @@ export const CANONICAL_11_CATEGORIES: CategorySectionDefinition[] = [
   {
     id: 'mix-items',
     name: 'Mix Items',
-    headline: 'Super Saver Bundles & Mix Lot Offers',
-    tagline: 'Clearance bargains, multi-item packs & wholesale mixed assortment',
-    badge: 'VALUE COMBOS',
-    bannerDiscount: 'UP TO 80% OFF',
     defaultImage: 'https://res.cloudinary.com/dejsxuhnk/image/upload/v1778502352/categories/mix-items-1778502351223.webp',
     slugs: ['mix-items', 'baby-items'],
     keywords: ['mix', 'combo', 'pack', 'set', 'baby', 'assorted', 'bundle', 'wholesale', 'clearance'],
@@ -174,8 +128,8 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
   const { addToCart } = useCart();
   const [addedItemIds, setAddedItemIds] = useState<{ [key: string]: boolean }>({});
   const shouldReduceMotion = useReducedMotion();
-  const [apiProducts, setApiProducts] = useState<ProductItem[]>(() => getAllProducts());
-  const [categoryImageMap, setCategoryImageMap] = useState<Record<string, string>>({});
+  const [apiProducts, setApiProducts] = useState<ProductItem[]>([]);
+  const [categoryInfoMap, setCategoryInfoMap] = useState<Record<string, { image?: string; description?: string }>>({});
 
   const handleAddToCart = (product: ProductItem) => {
     addToCart(product);
@@ -189,20 +143,22 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
   useEffect(() => {
     let isMounted = true;
 
-    // Fetch categories to get official uploaded card/banner images
+    // Fetch categories to get official uploaded card/banner images & descriptions
     apiClient.get('/categories')
       .then((res: any) => {
         if (!isMounted) return;
         const list = res.data?.categories || res.data?.data || (Array.isArray(res.data) ? res.data : []);
         if (Array.isArray(list)) {
-          const map: Record<string, string> = {};
+          const map: Record<string, { image?: string; description?: string }> = {};
           list.forEach((c: any) => {
-            const img = c.cardImage?.url || c.image?.url;
-            if (img && c.slug) {
-              map[c.slug] = img;
+            const img = c.cardImage?.url || c.bannerImage?.url || c.image?.url;
+            const desc = c.description || c.headline;
+            const slug = c.slug || c._id;
+            if (slug) {
+              map[slug] = { image: img, description: desc };
             }
           });
-          setCategoryImageMap(map);
+          setCategoryInfoMap(map);
         }
       })
       .catch(() => {
@@ -236,20 +192,23 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
               p.variants?.[0]?.price?.current || 
               p.variants?.[0]?.price?.sale || 
               p.price || 
-              99
+              0
             );
             const originalPrice = Number(
               p.variants?.[0]?.price?.base || 
               p.originalPrice || 
-              Math.round(currentPrice * 1.6)
+              currentPrice
             );
             const discountPercentage = Number(
               p.maxDiscountPercentage || 
               p.variants?.[0]?.discountPercentage || 
-              Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+              (originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0)
             );
 
             const catName = p.category ? (typeof p.category === 'string' ? p.category : p.category.name || p.category.slug || '') : '';
+
+            const ratingVal = typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (p.reviewSummary?.average || 0));
+            const reviewsCount = Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? 0);
 
             mapped.push({
               id: p._id || p.id,
@@ -260,10 +219,10 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
               originalPrice,
               discountPercentage,
               image: img,
-              rating: 4.8,
-              reviews: 120 + ((p.title?.length || 0) * 7) % 350,
-              inStock: true,
-              tag: discountPercentage >= 50 ? 'MEGA DEAL' : undefined,
+              rating: ratingVal,
+              reviews: reviewsCount,
+              inStock: p.inStock !== false,
+              tag: p.appliedTags?.[0] || p.tag,
               isTopDeal: discountPercentage >= 50,
             });
           });
@@ -280,7 +239,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
     };
   }, []);
 
-  // Organize products into the 11 categories
+  // Organize products into the categories dynamically
   const sectionsData = useMemo(() => {
     return CANONICAL_11_CATEGORIES.map((def) => {
       // Find matching products
@@ -298,15 +257,23 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
       });
 
       // Use verified category card image or first product's real image
-      const categoryCardImage = categoryImageMap[def.id] || (matched.length > 0 ? matched[0].image : def.defaultImage);
+      const categoryCardImage = categoryInfoMap[def.id]?.image || (matched.length > 0 ? matched[0].image : def.defaultImage);
+      const categoryDescription = categoryInfoMap[def.id]?.description || `Discover curated ${def.name} directly from verified manufacturers.`;
+
+      // Real dynamic max discount across products in this category
+      const maxDiscount = matched.reduce((max, p) => Math.max(max, p.discountPercentage || 0), 0);
+      const bannerDiscount = maxDiscount > 0 ? `UP TO ${maxDiscount}% OFF` : '';
 
       return {
         ...def,
+        tagline: categoryDescription,
+        badge: `${matched.length} ${matched.length === 1 ? 'PRODUCT' : 'PRODUCTS'}`,
+        bannerDiscount,
         image: categoryCardImage,
         products: matched,
       };
     }).filter((s) => s.products.length > 0);
-  }, [apiProducts, categoryImageMap]);
+  }, [apiProducts, categoryInfoMap]);
 
   const getCategoryIcon = (id: string) => {
     switch (id) {
@@ -359,7 +326,7 @@ interface CategoryShowcaseRowProps {
   section: {
     id: string;
     name: string;
-    headline: string;
+    headline?: string;
     tagline: string;
     badge: string;
     bannerDiscount: string;
@@ -509,9 +476,11 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                   {getCategoryIcon(section.id)}
                   <span>{section.badge}</span>
                 </span>
-                <span className="bg-[#A44101] text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm whitespace-nowrap">
-                  {section.bannerDiscount}
-                </span>
+                {section.bannerDiscount ? (
+                  <span className="bg-[#A44101] text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-sm whitespace-nowrap">
+                    {section.bannerDiscount}
+                  </span>
+                ) : null}
               </div>
 
               {/* Bottom Details & Button */}
@@ -584,10 +553,12 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                     <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
                       
                       {/* Discount Sticker */}
-                      <div className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
-                        <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white text-white" />
-                        <span>{product.discountPercentage}% OFF</span>
-                      </div>
+                      {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
+                        <div className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                          <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white text-white" />
+                          <span>{product.discountPercentage}% OFF</span>
+                        </div>
+                      )}
 
                       {/* Tag */}
                       {product.tag && (
@@ -611,14 +582,16 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                     <div className="p-3 sm:p-3.5 flex-1 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between text-[10px] sm:text-[11px] mb-1">
-                          <span className="font-extrabold text-[#A44101] uppercase tracking-wider text-[9px] sm:text-[10px]">
+                          <span className="font-extrabold text-[#A44101] uppercase tracking-wider text-[9px] sm:text-[10px] truncate max-w-[110px]">
                             {product.category}
                           </span>
-                          <div className="flex items-center gap-1 text-navy font-bold">
-                            <Star className="w-3 h-3 fill-[#A44101] text-[#A44101]" />
-                            <span>{product.rating}</span>
-                            <span className="text-slate-400 font-normal">({product.reviews})</span>
-                          </div>
+                          {product.reviews && product.reviews > 0 ? (
+                            <div className="flex items-center gap-1 text-navy font-bold">
+                              <Star className="w-3 h-3 fill-[#A44101] text-[#A44101]" />
+                              <span>{product.rating}</span>
+                              <span className="text-slate-400 font-normal">({product.reviews})</span>
+                            </div>
+                          ) : null}
                         </div>
 
                         <h3 className="text-xs sm:text-sm font-bold text-charcoal line-clamp-2 leading-snug group-hover:text-[#A44101] transition-colors">
@@ -633,13 +606,17 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                             <span className="text-base sm:text-lg font-black text-navy">
                               ₹{product.currentPrice}
                             </span>
-                            <span className="text-xs text-slate-400 line-through">
-                              ₹{product.originalPrice}
-                            </span>
+                            {product.originalPrice > product.currentPrice && (
+                              <span className="text-xs text-slate-400 line-through">
+                                ₹{product.originalPrice}
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[9px] sm:text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded">
-                            Save ₹{product.originalPrice - product.currentPrice}
-                          </span>
+                          {product.originalPrice > product.currentPrice && (
+                            <span className="text-[9px] sm:text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded">
+                              Save ₹{product.originalPrice - product.currentPrice}
+                            </span>
+                          )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-1.5 sm:gap-2">

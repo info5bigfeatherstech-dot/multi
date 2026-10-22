@@ -253,19 +253,9 @@ export const App: React.FC = () => {
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (path === '/wishlist') {
-        const token = localStorage.getItem('user_access_token');
-        if (!token) {
-          setCurrentView('home');
-          setSelectedProduct(null);
-          window.history.replaceState(null, '', '/');
-          setPostAuthRedirect('wishlist');
-          setAuthModalMessage('Please log in or register to view your wishlist');
-          setIsAuthModalOpen(true);
-        } else {
-          setCurrentView('wishlist');
-          setSelectedProduct(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        setCurrentView('wishlist');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (
         path === '/profile' ||
         path === '/orders' ||
@@ -346,12 +336,6 @@ export const App: React.FC = () => {
   };
 
   const handleGoToWishlist = () => {
-    if (!isAuthenticated()) {
-      setPostAuthRedirect('wishlist');
-      setAuthModalMessage('Please log in or register to view your wishlist');
-      setIsAuthModalOpen(true);
-      return;
-    }
     setCurrentView('wishlist');
     setSelectedProduct(null);
     window.history.pushState(null, '', '/wishlist');

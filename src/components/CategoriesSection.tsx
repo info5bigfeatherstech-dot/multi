@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { 
   ArrowRight,
   ArrowUpRight
 } from 'lucide-react';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
+import { storefrontProductsApi } from '../api';
+import { sortCategoriesByCanonicalSequence, extractSubcategoriesFromCategory } from '../utils/categorySequence';
 
 export interface CategoryCardData {
   id: string;
@@ -14,6 +16,7 @@ export interface CategoryCardData {
   overlayColor?: string;
   isExploreAll?: boolean;
   subcategories?: string[];
+  order?: number;
 }
 
 export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
@@ -127,6 +130,31 @@ export const CATEGORIES_DETAILED_DATA: CategoryCardData[] = [
   },
 ];
 
+const EXPLORE_ALL_CARD: CategoryCardData = {
+  id: "explore-all",
+  name: "EXPLORE ALL CATEGORIES",
+  imageUrl: "/images/categories/explore-all.jpg",
+  bgColor: "bg-gradient-to-br from-[#A44101] to-[#6b2800]",
+  overlayColor: "from-black/75 via-black/40 to-transparent",
+  isExploreAll: true,
+};
+
+const CATEGORIES_DETAILED_CACHE_KEY = 'abb_dynamic_categories_detailed_cache';
+
+const getInitialCategories = (): CategoryCardData[] => {
+  if (typeof window === 'undefined') return CATEGORIES_DETAILED_DATA;
+  try {
+    const raw = localStorage.getItem(CATEGORIES_DETAILED_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return CATEGORIES_DETAILED_DATA;
+};
+
 interface CategoriesSectionProps {
   onSelectCategory?: (categoryId: string, subcategory?: string) => void;
 }
@@ -134,8 +162,64 @@ interface CategoriesSectionProps {
 export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   onSelectCategory,
 }) => {
-  const displayedCategories = CATEGORIES_DETAILED_DATA;
+  const [displayedCategories, setDisplayedCategories] = useState<CategoryCardData[]>(() => getInitialCategories());
   const shouldReduceMotion = useReducedMotion();
+
+  // Load dynamic category cards and banners from API while strictly preserving canonical sequence
+  useEffect(() => {
+    storefrontProductsApi.getCategories()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          // Strictly sort dynamic categories by canonical sequence
+          const sortedCats = sortCategoriesByCanonicalSequence(res);
+
+          const dynamicCards: CategoryCardData[] = sortedCats.map((cat: any) => {
+            const catId = cat.slug || cat._id || cat.id;
+            const matchedFallback = CATEGORIES_DETAILED_DATA.find(
+              (f) =>
+                f.id === catId ||
+                f.id === cat.slug ||
+                f.name.toLowerCase() === (cat.name || '').toLowerCase()
+            );
+
+            // Banner or card image returned dynamically from API
+            const bannerImg =
+              cat.bannerImage?.url ||
+              cat.bannerImageUrl ||
+              cat.image?.url ||
+              cat.imageUrl ||
+              matchedFallback?.imageUrl ||
+              '/images/categories/mix-items.jpg';
+
+            const subcats: string[] = extractSubcategoriesFromCategory(cat, res);
+
+            return {
+              id: catId,
+              name: (cat.name || matchedFallback?.name || '').toUpperCase(),
+              imageUrl: bannerImg,
+              bgColor: matchedFallback?.bgColor || 'bg-slate-900',
+              overlayColor: matchedFallback?.overlayColor || 'from-black/80 via-black/35 to-black/20',
+              subcategories: subcats,
+              order: typeof cat.order === 'number' ? cat.order : undefined,
+            };
+          });
+
+          // Strictly sort the dynamic cards according to canonical sequence
+          const sortedCards = sortCategoriesByCanonicalSequence(dynamicCards);
+
+          // Append "Explore All Categories" as the 12th card
+          const finalCards = [...sortedCards, EXPLORE_ALL_CARD];
+          setDisplayedCategories(finalCards);
+
+          try {
+            localStorage.setItem(CATEGORIES_DETAILED_CACHE_KEY, JSON.stringify(finalCards));
+          } catch {}
+        }
+      })
+      .catch((err) => {
+        console.warn('CategoriesSection dynamic fetch error, keeping cached/fallback:', err?.message);
+      });
+  }, []);
 
   const handleCardClick = (category: CategoryCardData, subcategory?: string) => {
     if (category.isExploreAll) {
@@ -251,6 +335,13 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
         alt={category.name}
         className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
         loading="lazy"
+        onError={(e) => {
+          const fallback = `/images/categories/${category.id}.jpg`;
+          const target = e.currentTarget;
+          if (target && !target.src.endsWith(fallback)) {
+            target.src = fallback;
+          }
+        }}
       />
 
       {/* 2. Soft Tint Overlay for consistent contrast */}

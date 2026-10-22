@@ -38,7 +38,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
 import { CATEGORY_SUBCATEGORIES, ProductItem, getAllProducts } from '../data/storeData';
 import { storefrontProductsApi } from '../api';
+import { getWishlistCount } from '../utils/wishlistStorage';
 import { getProductSlug, isProductActive } from '../utils/productUtils';
+import { sortCategoriesByCanonicalSequence, extractSubcategoriesFromCategory } from '../utils/categorySequence';
 
 export interface NavCategoryMenuItem {
   id: string;
@@ -305,7 +307,7 @@ export const Header: React.FC<HeaderProps> = ({
             icon: LayoutGrid,
             imageUrl: '',
             description: `${cat.name} collections, deals & accessories`,
-            subcategories: cat.subcategories || ['All Products', 'Trending Deals'],
+            subcategories: Array.isArray(cat.subcategories) ? cat.subcategories : [],
           }));
         }
       }
@@ -324,17 +326,7 @@ export const Header: React.FC<HeaderProps> = ({
         if (Array.isArray(res) && res.length > 0) {
           const dynamicMenu: NavCategoryMenuItem[] = res.map((cat: any, idx: number) => {
             const catId = cat.slug || cat._id || cat.id;
-            const isMixItems = cat.slug === 'mix-items' || cat.slug === 'mix-item' || (cat.name && cat.name.toLowerCase().includes('mix'));
-            const subcats: string[] = isMixItems
-              ? []
-              : (Array.isArray(cat.children) && cat.children.length > 0
-                  ? cat.children.map((c: any) => typeof c === 'string' ? c : c.name || c.title)
-                  : (CATEGORY_SUBCATEGORIES[cat.slug] || [
-                      `All ${cat.name}`,
-                      'Bestsellers',
-                      'New Arrivals',
-                      'Trending Deals'
-                    ]));
+            const subcats: string[] = extractSubcategoriesFromCategory(cat, res);
 
             return {
               id: catId,
@@ -348,10 +340,23 @@ export const Header: React.FC<HeaderProps> = ({
             };
           });
 
-          setNavCategories(dynamicMenu);
-          if (dynamicMenu.length > 0) {
-            setHoveredNavCat(dynamicMenu[0]);
+          const sortedMenu = sortCategoriesByCanonicalSequence(dynamicMenu);
+          setNavCategories(sortedMenu);
+          if (sortedMenu.length > 0) {
+            setHoveredNavCat(sortedMenu[0]);
           }
+          try {
+            localStorage.setItem(
+              'abb_dynamic_categories_cache',
+              JSON.stringify(
+                sortedMenu.map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  subcategories: m.subcategories,
+                }))
+              )
+            );
+          } catch {}
         }
       })
       .catch((err) => {
@@ -386,16 +391,23 @@ export const Header: React.FC<HeaderProps> = ({
     return n && n !== 'Google User' ? n : '';
   });
 
+  const [wishlistCount, setWishlistCount] = useState(() => getWishlistCount());
+
   useEffect(() => {
     const handleAuthChange = () => {
       setIsCustomerLoggedIn(Boolean(localStorage.getItem('user_access_token')));
       const n = localStorage.getItem('abb_user_profile_name');
       setCustomerName(n && n !== 'Google User' ? n : '');
     };
+    const handleWishlistChange = () => {
+      setWishlistCount(getWishlistCount());
+    };
     window.addEventListener('abb_auth_change', handleAuthChange);
+    window.addEventListener('abb_wishlist_change', handleWishlistChange);
     window.addEventListener('storage', handleAuthChange);
     return () => {
       window.removeEventListener('abb_auth_change', handleAuthChange);
+      window.removeEventListener('abb_wishlist_change', handleWishlistChange);
       window.removeEventListener('storage', handleAuthChange);
     };
   }, []);
@@ -958,12 +970,14 @@ export const Header: React.FC<HeaderProps> = ({
                   }
                 }}
                 className="relative p-2 text-navy hover:text-[#A44101] transition-colors group cursor-pointer"
-                aria-label="Wishlist (4 saved items)"
+                aria-label={`Wishlist (${wishlistCount} saved items)`}
               >
                 <Heart className="w-5 h-5 text-navy group-hover:text-[#A44101] group-hover:scale-110 transition-all" />
-                <span className="absolute -top-1 -right-1 bg-[#A44101] text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center leading-none shadow-sm">
-                  4
-                </span>
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#A44101] text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center leading-none shadow-sm">
+                    {wishlistCount}
+                  </span>
+                )}
               </button>
 
               {/* Cart */}

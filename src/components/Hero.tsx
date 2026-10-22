@@ -11,33 +11,69 @@ import {
   ShoppingBag,
   LayoutGrid
 } from 'lucide-react';
-import { HERO_TEMPLATED_BANNERS, HeroBanner, CATEGORY_SUBCATEGORIES } from '../data/storeData';
-import { getCategoryIcon } from './HeroCategorySidebar';
+import { HERO_TEMPLATED_BANNERS, HeroBanner } from '../data/storeData';
+import { 
+  getCategoryIcon, 
+  CategorySidebarItem, 
+  getCachedCategories 
+} from './HeroCategorySidebar';
+import { storefrontProductsApi } from '../api';
+import { 
+  sortCategoriesByCanonicalSequence, 
+  extractSubcategoriesFromCategory
+} from '../utils/categorySequence';
 
 export interface HeroProps {
   onSelectCategory?: (categoryId: string, subcategory?: string) => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
+  // Static curated promo banners - uses the created high-resolution static banners
+  const banners: HeroBanner[] = HERO_TEMPLATED_BANNERS;
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
   const [hoveredCatIdx, setHoveredCatIdx] = useState<number | null>(null);
   const [direction, setDirection] = useState(1);
 
+  // Independent left sidebar categories - completely decoupled from banner carousel
+  const [sidebarCategories, setSidebarCategories] = useState<CategorySidebarItem[]>(() => getCachedCategories());
+
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
-  const totalBanners = HERO_TEMPLATED_BANNERS.length;
+  const totalBanners = banners.length;
 
-  // Auto-advance banner every 5 seconds (paused on hover)
+  // Load dynamic categories for the left sidebar only
   useEffect(() => {
-    if (isHovered) return;
-    const timer = setInterval(() => {
-      setDirection(1);
-      setCurrentIndex((prev) => (prev + 1) % totalBanners);
-    }, 5000);
+    storefrontProductsApi.getCategories()
+      .then((res) => {
+        if (Array.isArray(res) && res.length > 0) {
+          const dynamicItems: CategorySidebarItem[] = res.map((cat: any) => {
+            const catId = cat.slug || cat._id || cat.id;
+            const subcats: string[] = extractSubcategoriesFromCategory(cat, res);
 
-    return () => clearInterval(timer);
-  }, [isHovered, totalBanners]);
+            return {
+              id: catId,
+              name: cat.name,
+              targetSectionId: `section-${catId}`,
+              icon: getCategoryIcon(cat.name, catId),
+              subcategories: subcats,
+            };
+          });
+
+          const sortedItems = sortCategoriesByCanonicalSequence(dynamicItems);
+          setSidebarCategories(sortedItems);
+        }
+      })
+      .catch((err) => {
+        console.warn('Hero categories fetch error, keeping fallback:', err?.message);
+      });
+  }, []);
+
+  // Clamp currentIndex if banners list size changes
+  useEffect(() => {
+    if (currentIndex >= banners.length && banners.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [banners.length, currentIndex]);
 
   const handlePrev = () => {
     setDirection(-1);
@@ -76,15 +112,17 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
     touchEndX.current = null;
   };
 
-  // Preload all promotional banner images so transitions are instant
+  // Preload banner images so transitions are instant
   useEffect(() => {
-    HERO_TEMPLATED_BANNERS.forEach((banner) => {
-      const img = new Image();
-      img.src = banner.image;
+    banners.forEach((banner) => {
+      if (banner.image) {
+        const img = new Image();
+        img.src = banner.image;
+      }
     });
-  }, []);
+  }, [banners]);
 
-  const currentBanner: HeroBanner = HERO_TEMPLATED_BANNERS[currentIndex] || HERO_TEMPLATED_BANNERS[0];
+  const currentBanner: HeroBanner = banners[currentIndex] || banners[0] || HERO_TEMPLATED_BANNERS[0];
 
   const handleBannerClick = (banner: HeroBanner) => {
     if (banner.categoryId) {
@@ -166,59 +204,49 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                 <ShoppingBag className="w-4 h-4 text-[#A44101] stroke-[2.2]" />
                 Explore By Category
               </span>
-              <span className="text-[11px] font-semibold text-slate-300">
-                {currentIndex + 1} of {totalBanners}
-              </span>
             </div>
 
-            {/* Category List (11 Canonical Categories) */}
+            {/* Category List */}
             <ul className="flex-1 min-h-0 divide-y divide-slate-100 flex flex-col justify-between py-1">
-              {HERO_TEMPLATED_BANNERS.map((banner, idx) => {
-                const isActive = idx === currentIndex;
-                const IconComponent = getCategoryIcon(banner.categoryName || '', banner.categoryId || '');
-                const subcategories = banner.categoryId ? CATEGORY_SUBCATEGORIES[banner.categoryId] : undefined;
+              {sidebarCategories.map((cat, idx) => {
+                const IconComponent = cat.icon || getCategoryIcon(cat.name || '', cat.id || '');
+                const subcategories = cat.subcategories || [];
                 const isHoveredItem = hoveredCatIdx === idx;
 
                 return (
                   <li
-                    key={banner.id}
+                    key={cat.id}
                     className="flex-1 min-h-0 flex relative"
-                    onMouseEnter={() => {
-                      setHoveredCatIdx(idx);
-                      goToSlide(idx);
-                    }}
+                    onMouseEnter={() => setHoveredCatIdx(idx)}
                   >
                     <button
                       type="button"
                       onClick={() => {
-                        goToSlide(idx);
-                        if (banner.categoryId) {
-                          onSelectCategory?.(banner.categoryId);
+                        if (cat.id) {
+                          onSelectCategory?.(cat.id);
                         }
                       }}
                       className={`w-full h-full px-3 py-1 flex items-center justify-between text-left transition-colors cursor-pointer group ${
-                        isActive
-                          ? 'bg-[#A44101] text-white font-bold shadow-2xs'
-                          : isHoveredItem
-                          ? 'bg-amber-50 text-navy'
+                        isHoveredItem
+                          ? 'bg-amber-50 text-[#A44101]'
                           : 'text-slate-700 hover:text-navy hover:bg-slate-50'
                       }`}
-                      aria-label={`Browse ${banner.categoryName}`}
+                      aria-label={`Browse ${cat.name}`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <IconComponent className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                          isActive ? 'text-white' : 'text-slate-500 group-hover:text-[#A44101]'
+                          isHoveredItem ? 'text-[#A44101]' : 'text-slate-500 group-hover:text-[#A44101]'
                         }`} />
-                        <span className={`text-[11.5px] xl:text-[12px] truncate ${isActive ? 'text-white font-bold' : 'font-medium'}`}>
-                          {banner.categoryName}
+                        <span className={`text-[11.5px] xl:text-[12px] truncate ${
+                          isHoveredItem ? 'text-[#A44101] font-bold' : 'font-medium text-slate-800'
+                        }`}>
+                          {cat.name}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                        {isActive ? (
-                          <ArrowRight className="w-3.5 h-3.5 text-white" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all" />
-                        )}
+                        <ChevronRight className={`w-3.5 h-3.5 transition-all ${
+                          isHoveredItem ? 'text-[#A44101] translate-x-0.5' : 'text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5'
+                        }`} />
                       </div>
                     </button>
 
@@ -234,7 +262,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                         <div>
                           <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
                             <span className="text-xs font-bold text-navy uppercase tracking-wider">
-                              {banner.categoryName}
+                              {cat.name}
                             </span>
                             <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded">
                               Subcategories
@@ -249,8 +277,8 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setHoveredCatIdx(null);
-                                  if (banner.categoryId) {
-                                    onSelectCategory?.(banner.categoryId, sub);
+                                  if (cat.id) {
+                                    onSelectCategory?.(cat.id, sub);
                                   }
                                 }}
                                 className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#A44101] hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer"
@@ -268,13 +296,13 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                             onClick={(e) => {
                               e.stopPropagation();
                               setHoveredCatIdx(null);
-                              if (banner.categoryId) {
-                                onSelectCategory?.(banner.categoryId);
+                              if (cat.id) {
+                                onSelectCategory?.(cat.id);
                               }
                             }}
                             className="w-full text-center text-xs font-bold text-[#A44101] hover:underline cursor-pointer py-0.5 block"
                           >
-                            Explore All {banner.categoryName} &rarr;
+                            Explore All {cat.name} &rarr;
                           </button>
                         </div>
                       </div>
@@ -303,8 +331,6 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
           {/* 2. RIGHT OF HERO: Promotional Banner Carousel */}
           <div
             className="relative w-full h-[250px] sm:h-[380px] lg:h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border border-slate-200/90 bg-slate-900 select-none group"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -372,7 +398,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
 
             {/* OfferWaleBaba Style Pill Indicators at Bottom Center */}
             <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 sm:gap-2 bg-black/50 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/20 shadow-lg">
-              {HERO_TEMPLATED_BANNERS.map((banner, idx) => {
+              {banners.map((banner, idx) => {
                 const isActive = idx === currentIndex;
                 return (
                   <button
@@ -476,36 +502,24 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
               <ShoppingBag className="w-3.5 h-3.5 text-[#A44101]" />
               Explore By Category
             </span>
-            <span className="text-[11px] text-slate-500">
-              Slide {currentIndex + 1} of {totalBanners}
-            </span>
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto py-2 no-scrollbar scroll-smooth">
-            {HERO_TEMPLATED_BANNERS.map((banner, idx) => {
-              const isActive = idx === currentIndex;
-              return (
-                <button
-                  key={banner.id}
-                  type="button"
-                  onClick={() => {
-                    goToSlide(idx);
-                    if (isActive && banner.categoryId) {
-                      onSelectCategory?.(banner.categoryId);
-                    }
-                  }}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 border ${
-                    isActive
-                      ? 'bg-[#A44101] text-white border-[#A44101] shadow-md shadow-[#A44101]/20 scale-105'
-                      : 'bg-white hover:bg-amber-50/60 text-slate-700 hover:text-[#A44101] border-slate-200 hover:border-amber-300 shadow-xs'
-                  }`}
-                  title={`View ${banner.categoryName}`}
-                >
-                  <span>{banner.categoryName}</span>
-                  {isActive && <ArrowRight className="w-3 h-3 text-white/90" />}
-                </button>
-              );
-            })}
+            {sidebarCategories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  if (cat.id) {
+                    onSelectCategory?.(cat.id);
+                  }
+                }}
+                className="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 border bg-white hover:bg-amber-50/60 text-slate-700 hover:text-[#A44101] border-slate-200 hover:border-amber-300 shadow-xs cursor-pointer"
+                title={`View ${cat.name}`}
+              >
+                <span>{cat.name}</span>
+              </button>
+            ))}
           </div>
         </div>
 

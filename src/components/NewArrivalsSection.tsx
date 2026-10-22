@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
-import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { apiClient } from '../api';
 import { toast } from 'react-hot-toast';
 
@@ -30,9 +30,25 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
   const { addToCart } = useCart();
   const shouldReduceMotion = useReducedMotion();
   const [addedItemIds, setAddedItemIds] = useState<{ [id: string]: boolean }>({});
-  const [wishlistIds, setWishlistIds] = useState<{ [id: string]: boolean }>({});
+  const [wishlistIds, setWishlistIds] = useState<{ [id: string]: boolean }>(() => {
+    const ids = getWishlistIds();
+    const map: { [id: string]: boolean } = {};
+    ids.forEach((id) => { map[id] = true; });
+    return map;
+  });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<ProductItem[]>([]);
+
+  useEffect(() => {
+    const handleSyncWishlist = () => {
+      const ids = getWishlistIds();
+      const map: { [id: string]: boolean } = {};
+      ids.forEach((id) => { map[id] = true; });
+      setWishlistIds(map);
+    };
+    window.addEventListener('abb_wishlist_change', handleSyncWishlist);
+    return () => window.removeEventListener('abb_wishlist_change', handleSyncWishlist);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -54,20 +70,24 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
             const currentPrice = Number(
               p.minPrice || 
               p.variants?.[0]?.finalPrice || 
+              p.variants?.[0]?.price?.current || 
               p.variants?.[0]?.price?.sale || 
               p.price || 
-              99
+              0
             );
             const originalPrice = Number(
               p.variants?.[0]?.price?.base || 
               p.originalPrice || 
-              Math.round(currentPrice * 1.6)
+              currentPrice
             );
             const discountPercentage = Number(
               p.maxDiscountPercentage || 
               p.variants?.[0]?.discountPercentage || 
-              Math.max(10, Math.round(((originalPrice - currentPrice) / (originalPrice || 1)) * 100))
+              (originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0)
             );
+
+            const rating = typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (p.reviewSummary?.average || 0));
+            const reviews = Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? 0);
 
             valid.push({
               id: p._id || p.id,
@@ -78,10 +98,10 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
               originalPrice,
               discountPercentage,
               image: img,
-              rating: 4.9,
-              reviews: 145,
-              inStock: true,
-              tag: 'NEW ARRIVAL',
+              rating,
+              reviews,
+              inStock: p.inStock !== false,
+              tag: p.appliedTags?.[0] || p.tag,
             });
           });
 
@@ -110,14 +130,10 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
 
   const handleToggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
-      return;
-    }
-    const isAdding = !wishlistIds[productId];
+    const isAdding = toggleWishlistItem(productId);
     setWishlistIds((prev) => ({
       ...prev,
-      [productId]: !prev[productId],
+      [productId]: isAdding,
     }));
     const prod = products.find((p) => p.id === productId);
     const prodTitle = prod?.title && prod.title.length > 32 
@@ -156,6 +172,10 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
     }
   };
 
+  if (products.length === 0) {
+    return null;
+  }
+
   return (
     <section 
       className="section-new-arrivals py-8 sm:py-12 bg-gradient-to-b from-stone-50/60 via-white to-stone-50/40 border-b border-slate-200/80 relative overflow-hidden"
@@ -179,12 +199,12 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                 New Arrivals
               </h2>
               <span className="text-xs font-bold text-white bg-[#A44101] px-2.5 py-0.5 rounded-full shadow-2xs">
-                5 Fresh Picks
+                {products.length} Fresh Picks
               </span>
             </div>
             
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-              Discover the latest 5 additions to our direct-import catalog at introductory factory rates.
+              Discover our latest direct-import catalog additions at introductory factory rates.
             </p>
           </div>
 
@@ -257,9 +277,11 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                       <Zap className="w-2.5 h-2.5 fill-amber-300 text-amber-300" />
                       NEW
                     </span>
-                    <span className="bg-navy/90 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
-                      {product.discountPercentage}% OFF
-                    </span>
+                    {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
+                      <span className="bg-navy/90 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
+                        {product.discountPercentage}% OFF
+                      </span>
+                    )}
                   </div>
 
                   {/* Wishlist Button */}
@@ -291,11 +313,13 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                       <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] truncate max-w-[90px]">
                         {product.category}
                       </span>
-                      <div className="flex items-center gap-1 text-amber-500 font-bold text-[10px]">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{product.rating}</span>
-                        <span className="text-slate-400 font-normal">({product.reviews})</span>
-                      </div>
+                      {product.reviews && product.reviews > 0 ? (
+                        <div className="flex items-center gap-1 text-amber-500 font-bold text-[10px]">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span>{product.rating}</span>
+                          <span className="text-slate-400 font-normal">({product.reviews})</span>
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Product Title */}
@@ -314,13 +338,17 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                         <span className="text-base sm:text-lg font-black text-navy font-roboto">
                           ₹{product.currentPrice}
                         </span>
-                        <span className="text-xs text-slate-400 line-through">
-                          ₹{product.originalPrice}
-                        </span>
+                        {product.originalPrice > product.currentPrice && (
+                          <span className="text-xs text-slate-400 line-through">
+                            ₹{product.originalPrice}
+                          </span>
+                        )}
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                        Save ₹{savings}
-                      </span>
+                      {savings > 0 && product.originalPrice > product.currentPrice && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                          Save ₹{savings}
+                        </span>
+                      )}
                     </div>
 
                     {/* Add to Cart Button */}

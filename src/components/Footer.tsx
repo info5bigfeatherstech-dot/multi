@@ -22,7 +22,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({
   onSelectCategory,
-  onGoToAdmin,
+  onGoToAdmin: _onGoToAdmin,
   onGoToContact,
   onGoToBulkOrders,
 }) => {
@@ -282,20 +282,6 @@ export const Footer: React.FC<FooterProps> = ({
             <span>© 2026 Apna Bharat Bazaar. Think Shopping, Think Us. Built with</span>
             <Heart className="w-3.5 h-3.5 text-[#A44101] inline fill-current" />
             <span>for Indian Shoppers.</span>
-            <span>•</span>
-            <button
-              type="button"
-              onClick={() => {
-                if (onGoToAdmin) onGoToAdmin();
-                else {
-                  window.history.pushState(null, '', '/admin/dashboard');
-                  window.dispatchEvent(new PopStateEvent('popstate'));
-                }
-              }}
-              className="text-slate-300 hover:text-amber-400 font-semibold underline underline-offset-2 transition-colors cursor-pointer"
-            >
-              Store Admin Portal
-            </button>
           </div>
 
           {/* Accepted Indian Payment Modes */}

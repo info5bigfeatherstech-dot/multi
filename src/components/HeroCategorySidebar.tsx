@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 import { storefrontProductsApi } from '../api';
+import { sortCategoriesByCanonicalSequence, extractSubcategoriesFromCategory } from '../utils/categorySequence';
 
 export interface CategorySidebarItem {
   id: string;
@@ -23,6 +24,7 @@ export interface CategorySidebarItem {
   targetClass?: string;
   icon: React.ComponentType<{ className?: string }>;
   subcategories?: string[];
+  order?: number;
 }
 
 export const getCategoryIcon = (name = '', slug = ''): React.ComponentType<{ className?: string }> => {
@@ -171,23 +173,21 @@ export const FALLBACK_SIDEBAR_CATEGORIES: CategorySidebarItem[] = [
 
 const CATEGORIES_CACHE_KEY = 'abb_dynamic_categories_cache';
 
-const getCachedCategories = (): CategorySidebarItem[] => {
+export const getCachedCategories = (): CategorySidebarItem[] => {
   if (typeof window === 'undefined') return FALLBACK_SIDEBAR_CATEGORIES;
   try {
     const raw = localStorage.getItem(CATEGORIES_CACHE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((cat: any) => ({
+        const mapped = parsed.map((cat: any) => ({
           ...cat,
           icon: getCategoryIcon(cat.name, cat.id || cat.slug),
-          subcategories: cat.subcategories || CATEGORY_SUBCATEGORIES[cat.id] || CATEGORY_SUBCATEGORIES[cat.slug] || [
-            `All ${cat.name}`,
-            'Bestsellers',
-            'New Arrivals',
-            'Trending Deals'
-          ],
+          subcategories: Array.isArray(cat.subcategories)
+            ? cat.subcategories
+            : (CATEGORY_SUBCATEGORIES[cat.id] || CATEGORY_SUBCATEGORIES[cat.slug] || []),
         }));
+        return sortCategoriesByCanonicalSequence(mapped);
       }
     }
   } catch {}
@@ -214,41 +214,26 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
         if (Array.isArray(res) && res.length > 0) {
           const dynamicItems: CategorySidebarItem[] = res.map((cat: any) => {
             const catId = cat.slug || cat._id || cat.id;
-            const normSlug = (cat.slug || cat.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-            const matchedFallback = FALLBACK_SIDEBAR_CATEGORIES.find(
-              f => f.name.toLowerCase() === cat.name.toLowerCase() || f.id === catId || f.id === cat.slug
-            );
-
-            const isMixItems = cat.slug === 'mix-items' || cat.slug === 'mix-item' || (cat.name && cat.name.toLowerCase().includes('mix'));
-            const subcats: string[] = isMixItems
-              ? []
-              : (Array.isArray(cat.children) && cat.children.length > 0
-                  ? cat.children.map((c: any) => (typeof c === 'string' ? c : c.name || c.title))
-                  : (matchedFallback?.subcategories ||
-                     CATEGORY_SUBCATEGORIES[cat.slug] || 
-                     CATEGORY_SUBCATEGORIES[normSlug] || [
-                      `All ${cat.name}`,
-                      'Bestsellers',
-                      'New Arrivals',
-                      'Trending Deals'
-                    ]));
+            const subcats: string[] = extractSubcategoriesFromCategory(cat, res);
 
             return {
               id: catId,
               name: cat.name,
+              order: typeof cat.order === 'number' ? cat.order : undefined,
               targetSectionId: `section-${catId}`,
               icon: getCategoryIcon(cat.name, catId),
               subcategories: subcats,
             };
           });
 
-          setCategories(dynamicItems);
+          const sortedItems = sortCategoriesByCanonicalSequence(dynamicItems);
+          setCategories(sortedItems);
 
           try {
             // Cache in localStorage
             localStorage.setItem(
               CATEGORIES_CACHE_KEY,
-              JSON.stringify(dynamicItems.map(({ id, name, targetSectionId, subcategories }) => ({
+              JSON.stringify(sortedItems.map(({ id, name, targetSectionId, subcategories }) => ({
                 id,
                 name,
                 targetSectionId,

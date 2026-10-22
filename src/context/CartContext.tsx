@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { storefrontCartApi } from '../api';
-import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { isAuthenticated } from '../utils/authGuard';
 
 export interface CartItem {
   id: string;
@@ -49,10 +49,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const saved = localStorage.getItem('apna_bharat_cart');
       if (saved) {
-        // Only load cart from localStorage if user is authenticated
-        if (isAuthenticated()) {
-          return JSON.parse(saved);
-        }
+        return JSON.parse(saved);
       }
     } catch {
       // ignore
@@ -71,7 +68,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [cartItems]);
 
-  // Sync with backend cart if authenticated
+  // Sync with backend cart if authenticated (and merge guest cart items)
   useEffect(() => {
     const syncBackendCart = () => {
       const token = localStorage.getItem('user_access_token');
@@ -90,7 +87,30 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               qty: i.quantity || i.qty || 1,
               category: i.category || 'General',
             }));
-            setCartItems(apiItems);
+            setCartItems((localItems) => {
+              const merged = [...apiItems];
+              for (const local of localItems) {
+                const found = merged.find((m) => m.id === local.id);
+                if (!found) {
+                  merged.push(local);
+                  storefrontCartApi.addItem(local.id, local.qty).catch(() => {});
+                }
+              }
+              return merged;
+            });
+          } else {
+            // Push any existing local guest items to backend
+            const localSaved = localStorage.getItem('apna_bharat_cart');
+            if (localSaved) {
+              try {
+                const parsed = JSON.parse(localSaved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  parsed.forEach((item: any) => {
+                    storefrontCartApi.addItem(item.id, item.qty).catch(() => {});
+                  });
+                }
+              } catch {}
+            }
           }
         })
         .catch(() => {
@@ -110,12 +130,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toggleCart = () => setIsCartOpen((prev) => !prev);
 
   const addToCart = (product: AddProductInput, qty = 1, options?: { silent?: boolean }) => {
-    // Require authentication before adding to cart
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please log in or register to add items to your cart' });
-      return;
-    }
-
     const itemPrice = product.currentPrice ?? product.price ?? 0;
     const itemOriginalPrice = product.originalPrice ?? itemPrice * 1.5;
 
@@ -140,8 +154,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ];
     });
 
-    // Call storefrontCartApi in background
-    storefrontCartApi.addItem(product.id, qty).catch(() => {});
+    // Call storefrontCartApi in background only if user is logged in
+    if (isAuthenticated()) {
+      storefrontCartApi.addItem(product.id, qty).catch(() => {});
+    }
 
     // Show toaster notification without opening the drawer
     if (!options?.silent) {
@@ -157,7 +173,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const removeFromCart = (id: string) => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
-    storefrontCartApi.removeItem(id).catch(() => {});
+    if (isAuthenticated()) {
+      storefrontCartApi.removeItem(id).catch(() => {});
+    }
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -175,16 +193,20 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .filter((item): item is CartItem => item !== null)
     );
 
-    if (finalQty > 0) {
-      storefrontCartApi.updateQuantity(id, finalQty).catch(() => {});
-    } else {
-      storefrontCartApi.removeItem(id).catch(() => {});
+    if (isAuthenticated()) {
+      if (finalQty > 0) {
+        storefrontCartApi.updateQuantity(id, finalQty).catch(() => {});
+      } else {
+        storefrontCartApi.removeItem(id).catch(() => {});
+      }
     }
   };
 
   const clearCart = () => {
     setCartItems([]);
-    storefrontCartApi.clearCart().catch(() => {});
+    if (isAuthenticated()) {
+      storefrontCartApi.clearCart().catch(() => {});
+    }
   };
 
   const totalCount = cartItems.reduce((acc, item) => acc + item.qty, 0);

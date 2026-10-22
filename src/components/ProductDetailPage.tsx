@@ -18,7 +18,8 @@ import {
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
-import { requireAuth, isAuthenticated } from '../utils/authGuard';
+import { isAuthenticated } from '../utils/authGuard';
+import { isItemInWishlist, toggleWishlistItem } from '../utils/wishlistStorage';
 import { toast } from 'react-hot-toast';
 import { 
   apiClient,
@@ -28,7 +29,7 @@ import {
   storefrontCheckoutApi
 } from '../api';
 import { ProductReviewsSection } from '../features/reviews';
-import { isProductActive } from '../utils/productUtils';
+import { isProductActive, getDeterministicRating } from '../utils/productUtils';
 
 const mapBackendProductToItem = (p: any): ProductItem => {
   const img =
@@ -69,6 +70,7 @@ const mapBackendProductToItem = (p: any): ProductItem => {
       : p.category.name || p.category.slug || ''
     : 'General';
 
+  const rInfo = getDeterministicRating(p._id || p.id || p.title || p.name || '');
   return {
     id: p._id || p.id || p.slug,
     slug: p.slug,
@@ -78,8 +80,10 @@ const mapBackendProductToItem = (p: any): ProductItem => {
     originalPrice,
     discountPercentage,
     image: img,
-    rating: typeof p.rating === 'number' ? p.rating : (p.rating?.value || 4.8),
-    reviews: p.rating?.count || p.soldInfo?.count || 142,
+    rating: typeof p.rating === 'number' && p.rating > 0 
+      ? p.rating 
+      : (p.rating?.value && p.rating.value > 0 ? p.rating.value : rInfo.rating),
+    reviews: Number(p.rating?.count || p.soldInfo?.count || rInfo.reviews),
     inStock: p.inStock !== undefined ? p.inStock : true,
     isTopDeal: discountPercentage >= 40,
     tag: p.appliedTags?.[0] || (discountPercentage >= 50 ? 'MEGA DEAL' : undefined),
@@ -162,7 +166,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   const [backendDetail, setBackendDetail] = useState<any>(null);
   const [quantity, setQuantity] = useState<number>(1);
   const [isAddedToCart, setIsAddedToCart] = useState<boolean>(false);
-  const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
+  const [isWishlisted, setIsWishlisted] = useState<boolean>(() => isItemInWishlist(product.id));
+
+  useEffect(() => {
+    setIsWishlisted(isItemInWishlist(product.id));
+    const handleSyncWishlist = () => {
+      setIsWishlisted(isItemInWishlist(product.id));
+    };
+    window.addEventListener('abb_wishlist_change', handleSyncWishlist);
+    return () => window.removeEventListener('abb_wishlist_change', handleSyncWishlist);
+  }, [product.id]);
+
   const [activeTab, setActiveTab] = useState<'highlights' | 'specs' | 'reviews'>('highlights');
   const [showBuyModal, setShowBuyModal] = useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<boolean>(false);
@@ -309,6 +323,22 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const appliedDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0;
   const payablePrice = Math.max(1, currentPrice - appliedDiscount);
+
+  // Compute product-specific rating & reviews count so each product has its own realistic rating
+  const { effectiveRating, effectiveReviewsCount } = useMemo(() => {
+    const rInfo = getDeterministicRating(product.id || product.title);
+    const rawR = typeof backendDetail?.rating === 'number' && backendDetail.rating > 0
+      ? backendDetail.rating 
+      : (typeof backendDetail?.rating?.value === 'number' && backendDetail.rating.value > 0
+          ? backendDetail.rating.value 
+          : (typeof product.rating === 'number' && product.rating > 0 ? product.rating : rInfo.rating));
+
+    const rawC = Number(backendDetail?.rating?.count || product.reviews);
+    return {
+      effectiveRating: Number(rawR.toFixed(1)),
+      effectiveReviewsCount: rawC > 0 ? rawC : rInfo.reviews,
+    };
+  }, [backendDetail, product]);
 
   // Live product code & SKU from the API
   const productCode =
@@ -501,11 +531,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
+    setCouponCode('');
     setCouponFeedback('Coupon removed');
     try {
       sessionStorage.removeItem('abb_applied_coupon');
       localStorage.removeItem('cart_coupon');
     } catch {}
+    toast('Coupon removed', { icon: '🤍' });
   };
 
   // Synchronize product state and fetch full backend product data when product changes
@@ -718,11 +750,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   const handleToggleWishlist = async () => {
-    if (!isAuthenticated()) {
-      requireAuth({ message: 'Please log in or register to save items to your wishlist' });
-      return;
-    }
-    const nextState = !isWishlisted;
+    const nextState = toggleWishlistItem(product.id);
     setIsWishlisted(nextState);
     const prodTitle = product.title && product.title.length > 32 
       ? `${product.title.slice(0, 32)}...` 
@@ -738,10 +766,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         icon: '🤍',
       });
     }
-    try {
-      await storefrontWishlistApi.toggle(product.id, product.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-    } catch {
-      // offline fallback
+    if (isAuthenticated()) {
+      try {
+        await storefrontWishlistApi.toggle(product.id, product.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+      } catch {
+        // offline fallback
+      }
     }
   };
 
@@ -1034,12 +1064,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        className={`w-3.5 h-3.5 ${i < Math.floor(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+                        className={`w-3.5 h-3.5 ${i < Math.floor(effectiveRating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
                       />
                     ))}
                   </div>
-                  <span className="font-bold text-slate-900">{product.rating}</span>
-                  <span className="text-slate-400 font-normal">({product.reviews} reviews)</span>
+                  <span className="font-bold text-slate-900">{effectiveRating}</span>
+                  <span className="text-slate-400 font-normal">({effectiveReviewsCount} reviews)</span>
                 </button>
               </div>
 
@@ -1125,12 +1155,19 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                           </span>
                           <button
                             type="button"
-                            onClick={() => handleApplyCoupon(coupon.code)}
+                            onClick={() => {
+                              if (isCurrentlyApplied) {
+                                handleRemoveCoupon();
+                              } else {
+                                handleApplyCoupon(coupon.code);
+                              }
+                            }}
                             className={`border text-xs font-semibold px-3 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors ${
                               isCurrentlyApplied
-                                ? 'border-emerald-500 bg-emerald-600 text-white'
+                                ? 'border-emerald-500 bg-emerald-600 text-white hover:bg-rose-600 hover:border-rose-600'
                                 : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
                             }`}
+                            title={isCurrentlyApplied ? 'Click to remove coupon' : 'Click to apply coupon'}
                           >
                             {isCurrentlyApplied ? (
                               <>
@@ -1158,13 +1195,23 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     placeholder="Enter coupon code..."
                     className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white placeholder:text-slate-400 text-slate-800 focus:outline-none focus:border-[#A44101] font-mono uppercase"
                   />
-                  <button
-                    type="button"
-                    onClick={() => handleApplyCoupon()}
-                    className="px-5 py-2 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
-                  >
-                    Apply
-                  </button>
+                  {appliedCoupon && (!couponCode.trim() || couponCode.trim().toUpperCase() === appliedCoupon.code.toUpperCase()) ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-xs"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleApplyCoupon()}
+                      className="px-5 py-2 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                    >
+                      Apply
+                    </button>
+                  )}
                 </div>
                 {couponFeedback && (
                   <p className={`text-[11px] font-semibold ${appliedCoupon ? 'text-emerald-700' : 'text-amber-800'}`}>
@@ -1349,6 +1396,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               <ProductReviewsSection 
                 productId={String((product as any)._id || product.id)} 
                 productTitle={product.title} 
+                productRating={effectiveRating}
+                productReviewsCount={effectiveReviewsCount}
               />
             </div>
           )}
