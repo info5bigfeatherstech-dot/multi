@@ -18,17 +18,16 @@ import { ProductItem } from './data/storeData';
 import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
 import { BulkOrdersPage } from './components/BulkOrdersPage';
-import { AuthModal } from './components/AuthModal';
+import { LoginPage } from './components/LoginPage';
 import { PhonePromptModal } from './components/PhonePromptModal';
 import { DealsPage } from './components/DealsPage';
 import { Loader2, PackageX } from 'lucide-react';
 import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
 import { getPersistedUserPhone } from './utils/authGuard';
 
-type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals';
+type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals' | 'login';
 
 export const App: React.FC = () => {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [postAuthRedirect, setPostAuthRedirect] = useState<ViewType | null>(null);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
 
@@ -47,6 +46,9 @@ export const App: React.FC = () => {
     const hash = window.location.hash.toLowerCase();
     if (path === '/admin' || path.startsWith('/admin') || hash === '#admin' || hash.startsWith('#admin')) {
       return 'admin';
+    }
+    if (path === '/login' || path === '/signin' || path === '/auth' || hash === '#login' || hash === '#signin') {
+      return 'login';
     }
     if (path.startsWith('/bulk-orders') || path.startsWith('/wholesale') || path.startsWith('/bulk') || hash === '#bulk-orders' || hash === '#wholesale') {
       return 'bulk-orders';
@@ -70,7 +72,7 @@ export const App: React.FC = () => {
       hash === '#addresses'
     ) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('user_access_token') : null;
-      if (!token) return 'home';
+      if (!token) return 'login';
       return 'profile';
     }
     if (path.startsWith('/checkout') || hash === '#checkout') return 'checkout';
@@ -256,6 +258,10 @@ export const App: React.FC = () => {
         setCurrentView('wishlist');
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (path === '/login' || path === '/signin' || path === '/auth') {
+        setCurrentView('login');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (
         path === '/profile' ||
         path === '/orders' ||
@@ -266,12 +272,11 @@ export const App: React.FC = () => {
       ) {
         const token = localStorage.getItem('user_access_token');
         if (!token) {
-          setCurrentView('home');
+          setCurrentView('login');
           setSelectedProduct(null);
-          window.history.replaceState(null, '', '/');
           setPostAuthRedirect('profile');
           setAuthModalMessage('Please log in or register to access your account');
-          setIsAuthModalOpen(true);
+          window.history.replaceState(null, '', '/login');
         } else {
           setCurrentView('profile');
           setSelectedProduct(null);
@@ -280,12 +285,11 @@ export const App: React.FC = () => {
       } else if (path === '/checkout' || path === '/cart') {
         const token = localStorage.getItem('user_access_token');
         if (!token) {
-          setCurrentView('home');
+          setCurrentView('login');
           setSelectedProduct(null);
-          window.history.replaceState(null, '', '/');
           setPostAuthRedirect('checkout');
           setAuthModalMessage('Please log in or register to proceed to checkout');
-          setIsAuthModalOpen(true);
+          window.history.replaceState(null, '', '/login');
         } else {
           setCurrentView('checkout');
           setSelectedProduct(null);
@@ -342,12 +346,19 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleGoToLogin = (message?: string, redirectTo?: ViewType) => {
+    setSelectedProduct(null);
+    setPostAuthRedirect(redirectTo || null);
+    setAuthModalMessage(message);
+    setCurrentView('login');
+    window.history.pushState(null, '', '/login');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleGoToProfile = () => {
     const token = localStorage.getItem('user_access_token');
     if (!token) {
-      setPostAuthRedirect('profile');
-      setAuthModalMessage('Please log in or register to access your profile and orders');
-      setIsAuthModalOpen(true);
+      handleGoToLogin('Please log in or register to access your profile and orders', 'profile');
       return;
     }
     setCurrentView('profile');
@@ -359,9 +370,7 @@ export const App: React.FC = () => {
   const handleGoToOrders = (orderId?: string) => {
     const token = localStorage.getItem('user_access_token');
     if (!token) {
-      setPostAuthRedirect('profile');
-      setAuthModalMessage('Please log in or register to access your profile and orders');
-      setIsAuthModalOpen(true);
+      handleGoToLogin('Please log in or register to access your profile and orders', 'profile');
       return;
     }
     setCurrentView('profile');
@@ -375,9 +384,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleRequireAuth = (e: Event) => {
       const detail = (e as CustomEvent<{ message?: string; redirectTo?: string }>).detail;
-      setPostAuthRedirect(null);
-      setAuthModalMessage(detail?.message || 'Please log in or register to continue');
-      setIsAuthModalOpen(true);
+      handleGoToLogin(detail?.message, detail?.redirectTo as ViewType);
     };
 
     // Gate Lock verification: If user is authenticated but missing a phone number, gate locks immediately
@@ -416,14 +423,17 @@ export const App: React.FC = () => {
       setCurrentView('wishlist');
       window.history.pushState(null, '', '/wishlist');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (currentView === 'login') {
+      setPostAuthRedirect(null);
+      setCurrentView('home');
+      window.history.pushState(null, '', '/');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleGoToCheckout = () => {
     if (!isAuthenticated()) {
-      setPostAuthRedirect('checkout');
-      setAuthModalMessage('Please log in or register to proceed to checkout');
-      setIsAuthModalOpen(true);
+      handleGoToLogin('Please log in or register to proceed to checkout', 'checkout');
       return;
     }
     setCurrentView('checkout');
@@ -458,6 +468,19 @@ export const App: React.FC = () => {
     return <AdminApp onBackToStore={handleBackToStore} />;
   }
 
+  // Full-screen dedicated Login Page view
+  if (currentView === 'login') {
+    return (
+      <LoginPage
+        onBackToStore={handleBackToStore}
+        onAuthSuccess={handleAuthSuccess}
+        onSuccess={handleAuthSuccess}
+        message={authModalMessage}
+        onGoToContact={handleGoToContact}
+      />
+    );
+  }
+
   return (
     <CartProvider>
       <div className="min-h-screen bg-white text-charcoal flex flex-col font-roboto antialiased selection:bg-[#A44101] selection:text-white">
@@ -476,9 +499,7 @@ export const App: React.FC = () => {
           onGoToContact={handleGoToContact}
           onGoToBulkOrders={handleGoToBulkOrders}
           onOpenAuthModal={() => {
-            setPostAuthRedirect(null);
-            setAuthModalMessage(undefined);
-            setIsAuthModalOpen(true);
+            handleGoToLogin();
           }}
         />
 
@@ -507,10 +528,7 @@ export const App: React.FC = () => {
               onGoToWishlist={handleGoToWishlist}
               onGoToCheckout={handleGoToCheckout}
               onRequireAuth={() => {
-                setCurrentView('home');
-                setPostAuthRedirect('profile');
-                setAuthModalMessage('Please log in or register to access your account');
-                setIsAuthModalOpen(true);
+                handleGoToLogin('Please log in or register to access your account', 'profile');
               }}
             />
           ) : currentView === 'checkout' ? (
@@ -609,16 +627,6 @@ export const App: React.FC = () => {
         {/* Slide-in Cart Drawer */}
         <CartDrawer onGoToCheckout={handleGoToCheckout} />
 
-
-        {/* Customer Login & Registration Modal */}
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-          onSuccess={handleAuthSuccess}
-          onAuthSuccess={handleAuthSuccess}
-          message={authModalMessage}
-        />
-
         {/* Mandatory Phone Number Collection Gate Lock Modal */}
         <PhonePromptModal
           isOpen={isPhonePromptOpen}
@@ -628,8 +636,7 @@ export const App: React.FC = () => {
           }}
           onUseAnotherAccount={() => {
             setIsPhonePromptOpen(false);
-            setAuthModalMessage('Please sign in with another account');
-            setIsAuthModalOpen(true);
+            handleGoToLogin('Please sign in with another account');
           }}
         />
       </div>

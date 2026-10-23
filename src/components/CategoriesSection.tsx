@@ -11,7 +11,8 @@ import { sortCategoriesByCanonicalSequence, extractSubcategoriesFromCategory } f
 export interface CategoryCardData {
   id: string;
   name: string;
-  imageUrl: string;
+  imageUrl?: string;
+  hasImage?: boolean;
   bgColor?: string;
   overlayColor?: string;
   isExploreAll?: boolean;
@@ -182,21 +183,42 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
                 f.name.toLowerCase() === (cat.name || '').toLowerCase()
             );
 
-            // Banner or card image returned dynamically from API
-            const bannerImg =
-              cat.bannerImage?.url ||
-              cat.bannerImageUrl ||
-              cat.image?.url ||
-              cat.imageUrl ||
-              matchedFallback?.imageUrl ||
-              '/images/categories/mix-items.jpg';
+            // Banner or card image returned dynamically from API (checks category and children)
+            const directApiImg =
+              (typeof cat.cardImage === 'string' && cat.cardImage.trim() ? cat.cardImage.trim() : cat.cardImage?.url?.trim()) ||
+              (typeof cat.bannerImage === 'string' && cat.bannerImage.trim() ? cat.bannerImage.trim() : cat.bannerImage?.url?.trim()) ||
+              (typeof cat.image === 'string' && cat.image.trim() ? cat.image.trim() : cat.image?.url?.trim()) ||
+              (typeof cat.bannerImageUrl === 'string' && cat.bannerImageUrl.trim() ? cat.bannerImageUrl.trim() : undefined) ||
+              (typeof cat.imageUrl === 'string' && cat.imageUrl.trim() ? cat.imageUrl.trim() : undefined);
+
+            const findChildImage = (chList: any[]): string | undefined => {
+              for (const ch of chList) {
+                const img =
+                  (typeof ch.cardImage === 'string' && ch.cardImage.trim() ? ch.cardImage.trim() : ch.cardImage?.url?.trim()) ||
+                  (typeof ch.bannerImage === 'string' && ch.bannerImage.trim() ? ch.bannerImage.trim() : ch.bannerImage?.url?.trim()) ||
+                  (typeof ch.image === 'string' && ch.image.trim() ? ch.image.trim() : ch.image?.url?.trim()) ||
+                  (typeof ch.bannerImageUrl === 'string' && ch.bannerImageUrl.trim() ? ch.bannerImageUrl.trim() : undefined) ||
+                  (typeof ch.imageUrl === 'string' && ch.imageUrl.trim() ? ch.imageUrl.trim() : undefined);
+                if (img) return img;
+                if (Array.isArray(ch.children) && ch.children.length > 0) {
+                  const nested = findChildImage(ch.children);
+                  if (nested) return nested;
+                }
+              }
+              return undefined;
+            };
+
+            const childApiImg = !directApiImg && Array.isArray(cat.children) ? findChildImage(cat.children) : undefined;
+            const apiImg = directApiImg || childApiImg;
+            const hasBackendImg = Boolean(apiImg && apiImg.trim().length > 0);
 
             const subcats: string[] = extractSubcategoriesFromCategory(cat, res);
 
             return {
               id: catId,
               name: (cat.name || matchedFallback?.name || '').toUpperCase(),
-              imageUrl: bannerImg,
+              imageUrl: hasBackendImg ? apiImg : '',
+              hasImage: hasBackendImg,
               bgColor: matchedFallback?.bgColor || 'bg-slate-900',
               overlayColor: matchedFallback?.overlayColor || 'from-black/80 via-black/35 to-black/20',
               subcategories: subcats,
@@ -311,6 +333,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
   shouldReduceMotion, 
   onClick,
 }) => {
+  const [imgError, setImgError] = useState(false);
+  const showImage = Boolean(category.hasImage && category.imageUrl && !imgError);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 16 }}
@@ -318,7 +343,9 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       transition={{ delay: shouldReduceMotion ? 0 : index * 0.04, duration: 0.3 }}
       whileHover={shouldReduceMotion ? {} : { y: -4, scale: 1.02 }}
       onClick={onClick}
-      className={`category-card-${category.id} group rounded-2xl sm:rounded-3xl border border-slate-200/80 hover:border-[#A44101]/50 shadow-xs hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/11] sm:aspect-[7/4.5] ${category.bgColor || 'bg-slate-900'}`}
+      className={`category-card-${category.id} group rounded-2xl sm:rounded-3xl border border-slate-200/80 hover:border-[#A44101]/50 shadow-xs hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col cursor-pointer relative aspect-[16/11] sm:aspect-[7/4.5] ${
+        showImage ? (category.bgColor || 'bg-slate-900') : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white'
+      }`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -329,25 +356,26 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
       }}
       aria-label={`Explore ${category.name}`}
     >
-      {/* 1. Flatlay Product Photography Background */}
-      <img
-        src={category.imageUrl}
-        alt={category.name}
-        className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
-        loading="lazy"
-        onError={(e) => {
-          const fallback = `/images/categories/${category.id}.jpg`;
-          const target = e.currentTarget;
-          if (target && !target.src.endsWith(fallback)) {
-            target.src = fallback;
-          }
-        }}
-      />
+      {/* 1. Flatlay Product Photography Background (only if coming from backend) */}
+      {showImage ? (
+        <>
+          <img
+            src={category.imageUrl}
+            alt={category.name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
+            loading="lazy"
+            onError={() => setImgError(true)}
+          />
 
-      {/* 2. Soft Tint Overlay for consistent contrast */}
-      <div 
-        className={`absolute inset-0 bg-gradient-to-t ${category.overlayColor || 'from-black/80 via-black/35 to-black/20'} group-hover:from-black/85 group-hover:via-black/45 transition-colors`} 
-      />
+          {/* Soft Tint Overlay for consistent contrast */}
+          <div 
+            className={`absolute inset-0 bg-gradient-to-t ${category.overlayColor || 'from-black/80 via-black/35 to-black/20'} group-hover:from-black/85 group-hover:via-black/45 transition-colors`} 
+          />
+        </>
+      ) : (
+        /* Subtle texture / ambient glow for text-only card */
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#A44101]/20 via-transparent to-white/5 opacity-80 group-hover:opacity-100 transition-opacity" />
+      )}
 
       {/* 3. Center Category Title */}
       <div className="absolute inset-0 flex flex-col items-center justify-center p-3 sm:p-4 text-center z-10">

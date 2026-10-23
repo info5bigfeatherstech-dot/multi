@@ -144,28 +144,77 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
   useEffect(() => {
     let isMounted = true;
 
-    // Fetch categories to get official uploaded card/banner images & descriptions
-    apiClient.get('/categories')
-      .then((res: any) => {
+    // Fetch categories to get official uploaded card/banner images & descriptions from API
+    const fetchCategories = async () => {
+      try {
+        let res: any;
+        try {
+          res = await apiClient.get('/categories/categories');
+        } catch {
+          res = await apiClient.get('/categories');
+        }
         if (!isMounted) return;
         const list = res.data?.categories || res.data?.data || (Array.isArray(res.data) ? res.data : []);
         if (Array.isArray(list)) {
           const map: Record<string, { image?: string; description?: string; order?: number }> = {};
-          list.forEach((c: any) => {
-            const img = c.cardImage?.url || c.bannerImage?.url || c.image?.url;
-            const desc = c.description || c.headline;
-            const slug = c.slug || c._id;
-            const ord = typeof c.order === 'number' ? c.order : undefined;
-            if (slug) {
-              map[slug] = { image: img, description: desc, order: ord };
+
+          const extractApiImage = (c: any): string | undefined => {
+            if (!c) return undefined;
+            const direct =
+              (typeof c.cardImage === 'string' && c.cardImage.trim() ? c.cardImage.trim() : c.cardImage?.url?.trim()) ||
+              (typeof c.bannerImage === 'string' && c.bannerImage.trim() ? c.bannerImage.trim() : c.bannerImage?.url?.trim()) ||
+              (typeof c.image === 'string' && c.image.trim() ? c.image.trim() : c.image?.url?.trim()) ||
+              (typeof c.bannerImageUrl === 'string' && c.bannerImageUrl.trim() ? c.bannerImageUrl.trim() : undefined) ||
+              (typeof c.imageUrl === 'string' && c.imageUrl.trim() ? c.imageUrl.trim() : undefined);
+
+            if (direct) return direct;
+
+            if (Array.isArray(c.children) && c.children.length > 0) {
+              for (const child of c.children) {
+                const childImg = extractApiImage(child);
+                if (childImg) return childImg;
+              }
             }
-          });
+            return undefined;
+          };
+
+          const indexCategory = (c: any, inheritedImg?: string) => {
+            const img = extractApiImage(c) || inheritedImg;
+            const desc = c.description || c.headline;
+            const ord = typeof c.order === 'number' ? c.order : undefined;
+
+            const keys = [
+              c._id,
+              c.id,
+              c.slug,
+              c.slug?.toLowerCase(),
+              c.name,
+              c.name?.toLowerCase(),
+              c.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              c.name?.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-'),
+            ].filter(Boolean);
+
+            keys.forEach((k) => {
+              map[k] = {
+                image: img || map[k]?.image,
+                description: desc || map[k]?.description,
+                order: ord ?? map[k]?.order,
+              };
+            });
+
+            if (Array.isArray(c.children)) {
+              c.children.forEach((child: any) => indexCategory(child, img));
+            }
+          };
+
+          list.forEach((c: any) => indexCategory(c));
           setCategoryInfoMap(map);
         }
-      })
-      .catch(() => {
-        /* ignore error */
-      });
+      } catch (err) {
+        console.warn('Failed to load categories for showcase:', err);
+      }
+    };
+    fetchCategories();
 
     // Fetch products catalog with high limit to populate all categories
     apiClient.get('/products/all?limit=250')
@@ -258,9 +307,17 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
         return matchesKeyword;
       });
 
-      // Use verified category card image or first product's real image
-      const categoryCardImage = categoryInfoMap[def.id]?.image || (matched.length > 0 ? matched[0].image : def.defaultImage);
-      const categoryDescription = categoryInfoMap[def.id]?.description || `Discover curated ${def.name} directly from verified manufacturers.`;
+      // Look up category info by def.id, all category slugs, and sanitized name variations
+      const catInfo =
+        categoryInfoMap[def.id] ||
+        def.slugs.map((s) => categoryInfoMap[s] || categoryInfoMap[s.toLowerCase()]).find(Boolean) ||
+        categoryInfoMap[def.name.toLowerCase()] ||
+        categoryInfoMap[def.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')] ||
+        categoryInfoMap[def.name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-')];
+
+      // Use verified category card image from API; if none exists from backend, leave blank for text-only card
+      const categoryCardImage = catInfo?.image || '';
+      const categoryDescription = catInfo?.description || def.tagline || `Discover curated ${def.name} directly from verified manufacturers.`;
 
       // Real dynamic max discount across products in this category
       const maxDiscount = matched.reduce((max, p) => Math.max(max, p.discountPercentage || 0), 0);
@@ -464,16 +521,22 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               transition={{ duration: 0.3 }}
               className="relative w-full h-full min-h-[300px] sm:min-h-[340px] lg:min-h-full rounded-theme overflow-hidden border border-slate-200/90 shadow-soft group flex flex-col justify-between p-5 sm:p-6 text-white"
             >
-              {/* Category Image */}
-              <img
-                src={section.image}
-                alt={section.name}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
-              />
-
-              {/* High contrast gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/60 to-slate-900/30 group-hover:from-slate-950 transition-colors" />
+              {/* Category Image (only if coming from backend) */}
+              {section.image ? (
+                <>
+                  <img
+                    src={section.image}
+                    alt={section.name}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                  {/* High contrast gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/60 to-slate-900/30 group-hover:from-slate-950 transition-colors" />
+                </>
+              ) : (
+                /* Subtle texture / ambient glow for text-only showcase card */
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+              )}
 
               {/* Top Badges */}
               <div className="relative z-10 flex items-center justify-between gap-2">
