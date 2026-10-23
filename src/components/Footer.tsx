@@ -276,34 +276,12 @@ export const Footer: React.FC<FooterProps> = ({
 
         </div>
 
-        {/* Bottom Bar: Copyright & Verified Payment Badges */}
+        {/* Bottom Bar: Copyright */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div className="flex flex-wrap items-center gap-1.5 text-center sm:text-left">
             <span>© 2026 Apna Bharat Bazaar. Think Shopping, Think Us. Built with</span>
             <Heart className="w-3.5 h-3.5 text-[#A44101] inline fill-current" />
             <span>for Indian Shoppers.</span>
-          </div>
-
-          {/* Accepted Indian Payment Modes */}
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="text-[11px] text-slate-400 font-medium">100% Safe Payments:</span>
-            <div className="flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-white">
-                UPI
-              </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-white">
-                Google Pay
-              </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-white">
-                PhonePe
-              </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-white">
-                RuPay
-              </span>
-              <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-bold text-white">
-                Cash On Delivery
-              </span>
-            </div>
           </div>
         </div>
 

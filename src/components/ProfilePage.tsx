@@ -5,32 +5,40 @@ import {
   MapPin, 
   Coins, 
   Check, 
-  ArrowLeft,
+  ArrowLeft, 
   Truck, 
   Plus, 
   Trash2, 
   Gift, 
-  ChevronRight,
-  Phone,
-  Award,
-  Loader2,
-  LogOut,
-  ShoppingBag,
-  Home,
-  Briefcase,
-  Building,
-  CheckCircle2,
-  Pencil,
-  Copy
+  ChevronRight, 
+  Phone, 
+  Award, 
+  Loader2, 
+  LogOut, 
+  ShoppingBag, 
+  Home, 
+  Briefcase, 
+  Building, 
+  CheckCircle2, 
+  Pencil, 
+  Copy,
+  Heart,
+  Minus,
+  ExternalLink
 } from 'lucide-react';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 import { 
   storefrontAuthApi, 
   storefrontAddressApi, 
-  storefrontCheckoutApi 
+  storefrontCheckoutApi,
+  storefrontWishlistApi
 } from '../api';
 import { OrderDetailTrackingView } from './profile/OrderDetailTrackingView';
 import { persistUserPhone, getPersistedUserPhone, isAuthenticated, requireAuth } from '../utils/authGuard';
+import { useCart } from '../context/CartContext';
+import { getWishlistIds, getWishlistCount, toggleWishlistItem } from '../utils/wishlistStorage';
+import { getAllProducts, ProductItem } from '../data/storeData';
+import toast from 'react-hot-toast';
 
 interface ProfilePageProps {
   onBackToHome?: () => void;
@@ -39,7 +47,7 @@ interface ProfilePageProps {
   onRequireAuth?: () => void;
 }
 
-type TabKey = 'profile' | 'orders' | 'addresses' | 'wallet' | 'settings';
+type TabKey = 'profile' | 'orders' | 'addresses' | 'wallet' | 'settings' | 'wishlist' | 'cart';
 
 const getTabFromLocation = (): TabKey => {
   if (typeof window === 'undefined') return 'profile';
@@ -50,19 +58,27 @@ const getTabFromLocation = (): TabKey => {
   if (path === '/address' || path === '/addresses' || path.startsWith('/address/') || path.startsWith('/addresses/')) {
     return 'addresses';
   }
+  if (path === '/wishlist' || path.startsWith('/wishlist/')) {
+    return 'wishlist';
+  }
+  if (path === '/cart') {
+    return 'cart';
+  }
   if (path === '/profile') {
     return 'profile';
   }
   const hash = window.location.hash.toLowerCase();
   if (hash === '#orders' || hash === '#order') return 'orders';
   if (hash === '#addresses' || hash === '#address') return 'addresses';
+  if (hash === '#wishlist') return 'wishlist';
+  if (hash === '#cart') return 'cart';
   if (hash === '#profile') return 'profile';
   return 'profile';
 };
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
   onBackToHome,
-  onGoToWishlist: _onGoToWishlist,
+  onGoToWishlist,
   onGoToCheckout,
   onRequireAuth,
 }) => {
@@ -79,6 +95,156 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   }, [onRequireAuth, onBackToHome]);
 
   const [activeTab, setActiveTab] = useState<TabKey>(getTabFromLocation);
+
+  // Cart Context Integration
+  const { 
+    cartItems, 
+    totalCount, 
+    subtotal, 
+    totalSavings, 
+    updateQty, 
+    removeFromCart, 
+    addToCart, 
+    openCart 
+  } = useCart();
+
+  // Wishlist State & Live API Sync
+  const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(() => {
+    const allProducts = getAllProducts();
+    const ids = getWishlistIds();
+    return allProducts.filter((p) => ids.includes(String(p.id)));
+  });
+  const [isLoadingWishlist, setIsLoadingWishlist] = useState<boolean>(false);
+  const [wishlistCount, setWishlistCount] = useState<number>(() => getWishlistCount());
+
+  // Load wishlist from API and fallback to local
+  const loadWishlistData = async () => {
+    setIsLoadingWishlist(true);
+    const allProducts = getAllProducts();
+    const localIds = getWishlistIds();
+
+    try {
+      const apiRes = await storefrontWishlistApi.getWishlist();
+      const rawList = apiRes?.items || apiRes?.products || (Array.isArray(apiRes) ? apiRes : []);
+
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const mappedFromApi: ProductItem[] = rawList.map((item: any) => {
+          const prod = item?.product || item;
+          const currPrice = Number(prod.currentPrice || prod.price || prod.salePrice || 0);
+          const origPrice = Number(prod.originalPrice || prod.regularPrice || currPrice || 0);
+          const discount = origPrice > currPrice ? Math.round(((origPrice - currPrice) / origPrice) * 100) : 0;
+          return {
+            id: String(prod._id || prod.id || item.productId),
+            slug: prod.slug,
+            title: prod.title || prod.name || 'Wishlisted Product',
+            currentPrice: currPrice,
+            originalPrice: origPrice,
+            discountPercentage: discount,
+            image: prod.image?.url || prod.images?.[0]?.url || (typeof prod.image === 'string' ? prod.image : '') || '',
+            category: prod.category?.name || prod.category || 'General',
+            rating: prod.rating || 4.5,
+            reviews: prod.reviews || prod.reviewsCount || 10,
+            inStock: prod.inStock !== false,
+          };
+        });
+
+        const existingIds = new Set(mappedFromApi.map((m) => m.id));
+        for (const lid of localIds) {
+          if (!existingIds.has(lid)) {
+            const foundLocal = allProducts.find((p) => String(p.id) === lid);
+            if (foundLocal) mappedFromApi.push(foundLocal);
+          }
+        }
+
+        setWishlistItems(mappedFromApi);
+        setWishlistCount(mappedFromApi.length);
+        setIsLoadingWishlist(false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Wishlist API notice:', err);
+    }
+
+    if (localIds.length > 0) {
+      const matched = allProducts.filter((p) => localIds.includes(String(p.id)));
+      setWishlistItems(matched);
+      setWishlistCount(matched.length);
+    } else {
+      setWishlistItems([]);
+      setWishlistCount(0);
+    }
+    setIsLoadingWishlist(false);
+  };
+
+  useEffect(() => {
+    loadWishlistData();
+
+    const handleWishlistChange = () => {
+      setWishlistCount(getWishlistCount());
+      const allProducts = getAllProducts();
+      const localIds = getWishlistIds();
+      const matched = allProducts.filter((p) => localIds.includes(String(p.id)));
+      setWishlistItems(matched);
+    };
+
+    window.addEventListener('abb_wishlist_change', handleWishlistChange);
+    return () => window.removeEventListener('abb_wishlist_change', handleWishlistChange);
+  }, []);
+
+  const handleRemoveFromWishlist = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    toggleWishlistItem(id);
+    setWishlistItems((prev) => prev.filter((it) => it.id !== id));
+    setWishlistCount(getWishlistCount());
+    try {
+      await storefrontWishlistApi.remove(id);
+    } catch {}
+    toast.success('Item removed from wishlist');
+  };
+
+  const handleMoveWishlistToCart = (item: ProductItem, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    addToCart({
+      id: item.id,
+      title: item.title,
+      price: item.currentPrice,
+      originalPrice: item.originalPrice,
+      image: item.image,
+      category: item.category,
+    });
+    toggleWishlistItem(item.id);
+    setWishlistItems((prev) => prev.filter((it) => it.id !== item.id));
+    setWishlistCount(getWishlistCount());
+    try {
+      storefrontWishlistApi.remove(item.id);
+    } catch {}
+    toast.success('Moved to cart!');
+  };
+
+  const handleMoveAllWishlistToCart = () => {
+    if (wishlistItems.length === 0) return;
+    wishlistItems.forEach((item) => {
+      addToCart(
+        {
+          id: item.id,
+          title: item.title,
+          price: item.currentPrice,
+          originalPrice: item.originalPrice,
+          image: item.image,
+          category: item.category,
+        },
+        1,
+        { silent: true }
+      );
+      toggleWishlistItem(item.id);
+      try {
+        storefrontWishlistApi.remove(item.id);
+      } catch {}
+    });
+    setWishlistItems([]);
+    setWishlistCount(0);
+    toast.success(`Moved all ${wishlistItems.length} items to cart!`);
+  };
 
   // User Profile Form State
   const [userName, setUserName] = useState(() => {
@@ -942,7 +1108,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </p>
             </div>
           </div>
-
         </div>
 
         {/* Dashboard Navigation Tabs & Content */}
@@ -1017,6 +1182,60 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-current">
                 {addresses.length}
+              </span>
+            </button>
+
+            {/* Wishlist in sidebar */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('wishlist');
+                setSelectedOrderIdForInsideView(null);
+                if (typeof window !== 'undefined' && window.location.pathname !== '/wishlist') {
+                  window.history.pushState(null, '', '/wishlist');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                activeTab === 'wishlist'
+                  ? 'bg-navy text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Heart className="w-4 h-4" />
+                <span>My Saved Wishlist</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                activeTab === 'wishlist' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700'
+              }`}>
+                {wishlistCount}
+              </span>
+            </button>
+
+            {/* Cart in sidebar */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('cart');
+                setSelectedOrderIdForInsideView(null);
+                if (typeof window !== 'undefined' && window.location.pathname !== '/cart') {
+                  window.history.pushState(null, '', '/cart');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                activeTab === 'cart'
+                  ? 'bg-navy text-white shadow-xs'
+                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <ShoppingBag className="w-4 h-4" />
+                <span>My Shopping Cart</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                activeTab === 'cart' ? 'bg-white/20 text-white' : 'bg-[#A44101]/15 text-[#A44101]'
+              }`}>
+                {totalCount}
               </span>
             </button>
 
@@ -1843,6 +2062,342 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </button>
                   <span className="text-[11px] text-slate-500">Secured with 256-bit SSL</span>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: WISHLIST */}
+            {activeTab === 'wishlist' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                  <div>
+                    <h2 className="text-lg font-bold text-navy flex items-center gap-2">
+                      <Heart className="w-5 h-5 text-[#E11D48] fill-[#E11D48]/20" />
+                      <span>My Saved Wishlist</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Products you saved to buy later or monitor for price drops
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {wishlistItems.length > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleMoveAllWishlistToCart}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#A44101] hover:bg-[#8C3701] transition-colors cursor-pointer shadow-xs"
+                        >
+                          Move All to Cart
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('Clear all items from your wishlist?')) {
+                              wishlistItems.forEach((it) => {
+                                toggleWishlistItem(it.id);
+                                storefrontWishlistApi.remove(it.id).catch(() => {});
+                              });
+                              setWishlistItems([]);
+                              setWishlistCount(0);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-red-600 bg-slate-100 hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          Clear Wishlist
+                        </button>
+                      </>
+                    )}
+                    {onGoToWishlist && (
+                      <button
+                        type="button"
+                        onClick={onGoToWishlist}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-navy bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                      >
+                        <span>Full Page</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {isLoadingWishlist ? (
+                  <div className="py-16 text-center space-y-3">
+                    <Loader2 className="w-8 h-8 text-[#A44101] animate-spin mx-auto" />
+                    <p className="text-sm font-bold text-navy">Loading wishlist items...</p>
+                    <p className="text-xs text-slate-400">Fetching your saved products from API</p>
+                  </div>
+                ) : wishlistItems.length === 0 ? (
+                  <div className="py-16 px-4 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-stone-50/50 space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-rose-50 flex items-center justify-center text-rose-500">
+                      <Heart className="w-8 h-8" />
+                    </div>
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h3 className="text-base font-bold text-navy">Your Wishlist is Empty</h3>
+                      <p className="text-xs text-slate-500">
+                        Explore our top deals and hit the heart icon on products you love to save them here!
+                      </p>
+                    </div>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={onBackToHome}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      >
+                        <span>Explore Deals &amp; Products</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {wishlistItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="group bg-white rounded-2xl border border-slate-200 hover:border-slate-300 p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
+                      >
+                        <div className="space-y-3">
+                          <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center border border-slate-100">
+                            {item.image ? (
+                              <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                              />
+                            ) : (
+                              <Package className="w-10 h-10 text-slate-300" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => handleRemoveFromWishlist(item.id, e)}
+                              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-red-600 flex items-center justify-center shadow-xs transition-colors cursor-pointer"
+                              title="Remove from wishlist"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                              {item.category || 'General'}
+                            </span>
+                            <h4 className="text-xs font-bold text-slate-800 line-clamp-2 mt-0.5" title={item.title}>
+                              {item.title}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-100 mt-3 space-y-2.5">
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-black text-navy">
+                              ₹{item.currentPrice}
+                            </span>
+                            {item.originalPrice > item.currentPrice && (
+                              <span className="text-xs text-slate-400 line-through">
+                                ₹{item.originalPrice}
+                              </span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleMoveWishlistToCart(item, e)}
+                            className="w-full py-2 px-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] active:scale-[0.99] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>Move to Cart</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: CART */}
+            {activeTab === 'cart' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                  <div>
+                    <h2 className="text-lg font-bold text-navy flex items-center gap-2">
+                      <ShoppingBag className="w-5 h-5 text-[#A44101]" />
+                      <span>My Shopping Cart</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Review items in your cart, update quantities or proceed directly to checkout
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={openCart}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                    >
+                      <span>Slide-in View</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                    {cartItems.length > 0 && onGoToCheckout && (
+                      <button
+                        type="button"
+                        onClick={onGoToCheckout}
+                        className="px-4 py-1.5 rounded-xl text-xs font-extrabold text-white bg-[#A44101] hover:bg-[#8C3701] transition-colors cursor-pointer shadow-xs"
+                      >
+                        Checkout (₹{subtotal})
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {cartItems.length === 0 ? (
+                  <div className="py-16 px-4 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-stone-50/50 space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                      <ShoppingBag className="w-8 h-8" />
+                    </div>
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h3 className="text-base font-bold text-navy">Your Cart is Currently Empty</h3>
+                      <p className="text-xs text-slate-500">
+                        Looks like you haven't added anything to your cart yet. Discover great bargains today!
+                      </p>
+                    </div>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={onBackToHome}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      >
+                        <span>Start Shopping</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    {/* Cart Items List */}
+                    <div className="xl:col-span-2 space-y-3">
+                      {cartItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-2xs transition-all flex items-center justify-between gap-3 sm:gap-4"
+                        >
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 overflow-hidden p-1.5">
+                              {item.image ? (
+                                <img
+                                  src={item.image}
+                                  alt={item.title}
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                <Package className="w-6 h-6 text-slate-300" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                {item.category || 'General'}
+                              </span>
+                              <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate" title={item.title}>
+                                {item.title}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-sm font-black text-navy">
+                                  ₹{item.price}
+                                </span>
+                                {item.originalPrice > item.price && (
+                                  <span className="text-xs text-slate-400 line-through">
+                                    ₹{item.originalPrice}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                            {/* Quantity Controls */}
+                            <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                              <button
+                                type="button"
+                                onClick={() => updateQty(item.id, -1)}
+                                className="w-7 h-7 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+                                title="Decrease quantity"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-8 text-center text-xs font-bold text-slate-800">
+                                {item.qty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateQty(item.id, 1)}
+                                className="w-7 h-7 flex items-center justify-center hover:bg-slate-200 text-slate-600 transition-colors cursor-pointer"
+                                title="Increase quantity"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Total for this item */}
+                            <span className="hidden sm:inline text-xs font-extrabold text-slate-800 w-16 text-right">
+                              ₹{item.price * item.qty}
+                            </span>
+
+                            {/* Remove button */}
+                            <button
+                              type="button"
+                              onClick={() => removeFromCart(item.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Cart Summary */}
+                    <div className="xl:col-span-1">
+                      <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4 sticky top-24">
+                        <h3 className="text-sm font-extrabold text-navy border-b border-slate-200 pb-2.5">
+                          Order Summary
+                        </h3>
+
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between text-slate-600">
+                            <span>Subtotal ({totalCount} items)</span>
+                            <span className="font-bold text-slate-800">₹{subtotal}</span>
+                          </div>
+                          {totalSavings > 0 && (
+                            <div className="flex justify-between text-emerald-600 font-medium">
+                              <span>Total Savings</span>
+                              <span>-₹{totalSavings}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-slate-600">
+                            <span>Pan-India Delivery</span>
+                            <span className="font-bold text-emerald-600">
+                              {subtotal >= 499 ? 'FREE' : '₹49'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-200 flex justify-between items-baseline">
+                          <span className="text-xs font-bold text-navy">Total Payable</span>
+                          <span className="text-lg font-black text-[#A44101]">
+                            ₹{subtotal >= 499 || subtotal === 0 ? subtotal : subtotal + 49}
+                          </span>
+                        </div>
+
+                        {onGoToCheckout && (
+                          <button
+                            type="button"
+                            onClick={onGoToCheckout}
+                            className="w-full py-3 px-4 rounded-xl bg-[#A44101] hover:bg-[#8C3701] active:scale-[0.99] text-white text-xs font-extrabold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            <span>Proceed to Checkout</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

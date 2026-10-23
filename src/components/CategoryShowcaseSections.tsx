@@ -491,7 +491,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Category Header Row with Controls */}
-        <div className="flex flex-row items-end justify-between gap-4 mb-5 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-navy text-xs font-bold mb-2 border border-slate-200">
               {getCategoryIcon(section.id)}
@@ -507,6 +507,15 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               {section.tagline}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => onCategoryClick?.(section.id)}
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-300 hover:border-[#A44101] bg-white hover:bg-[#A44101] text-navy hover:text-white text-xs font-extrabold transition-all shadow-2xs hover:shadow-xs cursor-pointer group shrink-0"
+          >
+            <span>Explore All {section.name} Products</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
 
         {/* Showcase Container: Category Spotlight Card on LEFT + Products Scroll Slider on RIGHT */}
@@ -574,7 +583,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                   }}
                   className="inline-flex items-center gap-1.5 mt-2.5 px-4 py-2.5 rounded-theme bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-extrabold transition-all shadow-md group/btn w-full justify-center active:scale-98 cursor-pointer"
                 >
-                  <span>View All {section.name}</span>
+                  <span>Explore All {section.name} Products</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -733,6 +742,27 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                   </article>
                 );
               })}
+
+              {/* Explore All Products Card for this specific category */}
+              <div
+                onClick={() => onCategoryClick?.(section.id)}
+                className="w-[190px] sm:w-[210px] min-w-[180px] shrink-0 rounded-theme border-2 border-dashed border-[#A44101]/40 bg-gradient-to-b from-[#A44101]/5 via-white to-[#A44101]/10 hover:border-[#A44101] transition-all p-5 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group shadow-2xs hover:shadow-md"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#A44101]/10 group-hover:bg-[#A44101] text-[#A44101] group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-xs">
+                  <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#A44101] block mb-1">
+                    Complete Collection
+                  </span>
+                  <h4 className="text-xs sm:text-sm font-extrabold text-navy group-hover:text-[#A44101] transition-colors leading-tight">
+                    Explore All {section.name} Products
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    View all items &amp; deals
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Floating Right Arrow */}
