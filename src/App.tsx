@@ -24,6 +24,7 @@ import { DealsPage } from './components/DealsPage';
 import { Loader2, PackageX } from 'lucide-react';
 import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
 import { getPersistedUserPhone } from './utils/authGuard';
+import { ensureCustomerToken } from './api';
 
 type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals' | 'login';
 
@@ -71,7 +72,7 @@ export const App: React.FC = () => {
       hash === '#address' ||
       hash === '#addresses'
     ) {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('user_access_token') : null;
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token')) : null;
       if (!token) return 'login';
       return 'profile';
     }
@@ -270,7 +271,7 @@ export const App: React.FC = () => {
         path === '/address' ||
         path === '/account'
       ) {
-        const token = localStorage.getItem('user_access_token');
+        const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
         if (!token) {
           setCurrentView('login');
           setSelectedProduct(null);
@@ -283,7 +284,7 @@ export const App: React.FC = () => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       } else if (path === '/checkout' || path === '/cart') {
-        const token = localStorage.getItem('user_access_token');
+        const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
         if (!token) {
           setCurrentView('login');
           setSelectedProduct(null);
@@ -356,7 +357,7 @@ export const App: React.FC = () => {
   };
 
   const handleGoToProfile = () => {
-    const token = localStorage.getItem('user_access_token');
+    const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
     if (!token) {
       handleGoToLogin('Please log in or register to access your profile and orders', 'profile');
       return;
@@ -368,7 +369,7 @@ export const App: React.FC = () => {
   };
 
   const handleGoToOrders = (orderId?: string) => {
-    const token = localStorage.getItem('user_access_token');
+    const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
     if (!token) {
       handleGoToLogin('Please log in or register to access your profile and orders', 'profile');
       return;
@@ -405,6 +406,15 @@ export const App: React.FC = () => {
       window.removeEventListener('abb_require_auth', handleRequireAuth);
       window.removeEventListener('abb_auth_change', checkPhoneGate);
     };
+  }, []);
+
+  // Proactively refresh customer access token on load to maintain session & ensure refresh token is stored
+  useEffect(() => {
+    const userRefreshToken = typeof window !== 'undefined' ? localStorage.getItem('user_refresh_token') : null;
+    const userAccessToken = typeof window !== 'undefined' ? localStorage.getItem('user_access_token') : null;
+    if (userAccessToken || userRefreshToken) {
+      ensureCustomerToken();
+    }
   }, []);
 
   const handleAuthSuccess = () => {

@@ -159,15 +159,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
                       >
                         {/* Thumbnail */}
                         <img
-                          src={item.image}
+                          src={item.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80'}
                           alt={item.title}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
+                          }}
                           className="w-16 h-16 sm:w-18 sm:h-18 rounded-lg object-cover border border-slate-100 shrink-0 bg-slate-50"
                         />
 
                         {/* Details */}
                         <div className="flex-1 min-w-0">
                           <span className="text-[10px] font-bold text-[#A44101] uppercase tracking-wider block truncate">
-                            {item.category}
+                            {item.category && !/^[0-9a-fA-F]{24}$/.test(item.category) ? item.category : 'Electronics & Audio'}
                           </span>
                           <h4 className="text-xs sm:text-[13px] font-bold text-navy line-clamp-1 leading-snug">
                             {item.title}
@@ -252,15 +255,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
 
                     <div className="border-t border-[#E8E2D8] my-1" />
 
-                    <div className="flex justify-between items-center">
-                      <span className="font-serif text-base sm:text-lg font-bold text-stone-900 tracking-tight">
-                        Estimated Total
-                      </span>
-                      <span className="font-serif text-base sm:text-lg font-bold text-stone-900">
-                        ₹{subtotal}
-                      </span>
-                    </div>
-
                     <div className="flex items-center justify-between text-[11px] sm:text-xs text-stone-500 pt-1">
                       <div className="flex items-center gap-1.5">
                         <Sparkle className="w-3.5 h-3.5 text-stone-400 shrink-0" />
@@ -276,7 +270,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
                     onClick={handleCheckoutClick}
                     className="w-full py-4 rounded-xl bg-[#181816] hover:bg-black text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer active:scale-98"
                   >
-                    <span>PROCEED TO CHECKOUT • ₹{subtotal}</span>
+                    <span>PROCEED TO CHECKOUT</span>
                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                   </button>
 

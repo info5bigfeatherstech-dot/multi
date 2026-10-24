@@ -12,7 +12,6 @@ import {
   Gift, 
   ChevronRight, 
   Phone, 
-  Award, 
   Loader2, 
   LogOut, 
   ShoppingBag, 
@@ -24,7 +23,8 @@ import {
   Copy,
   Heart,
   Minus,
-  ExternalLink
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
 import { 
@@ -276,7 +276,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Addresses State with localStorage persistence + API sync
+  // Addresses State strictly loaded from API (no localStorage fallback)
   const [addresses, setAddresses] = useState<Array<{
     id: string;
     type: string;
@@ -291,34 +291,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     area?: string;
     addressLine1?: string;
     landmark?: string;
-  }>>(() => {
+  }>>([]);
+
+  // Clear any legacy mock/cached addresses from localStorage
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem('abb_saved_addresses_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((a: any) => ({
-            id: a.id || a._id,
-            name: a.name || a.fullName,
-            type: a.type || 'Home',
-            phone: a.phone,
-            addressLine: a.addressLine || a.address || a.street || '',
-            city: a.city,
-            state: a.state || 'Delhi',
-            pincode: a.pincode,
-            isDefault: a.isDefault,
-            houseNumber: a.houseNumber || '',
-            area: a.area || '',
-            addressLine1: a.addressLine1 || '',
-            landmark: a.landmark || a.addressLine2 || '',
-          }));
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return [];
-  });
+      localStorage.removeItem('abb_saved_addresses_v1');
+    } catch {}
+  }, []);
 
   // Inline Address Form State (No Modal Popup)
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -400,7 +380,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Sync profile, addresses and orders from backend storefrontApi
   useEffect(() => {
-    const token = localStorage.getItem('user_access_token');
+    const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
     if (!token) {
       if (onRequireAuth) {
         onRequireAuth();
@@ -430,32 +410,34 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       })
       .catch(() => {});
 
-    // 2. Fetch Addresses
+    // 2. Fetch Addresses strictly from API
     storefrontAddressApi.list()
       .then((list) => {
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) {
           const apiAddrs = list.map((a: any) => ({
             id: a.id || a._id,
-            name: a.fullName || a.name,
-            type: a.type || 'Home',
-            phone: a.phone,
+            name: a.fullName || a.name || '',
+            type: a.type || a.addressType || 'Home',
+            phone: a.phone || '',
             addressLine: a.street || a.addressLine || a.address || '',
-            city: a.city,
+            city: a.city || '',
             state: a.state || 'Delhi',
-            pincode: a.pincode,
+            pincode: a.pincode || a.postalCode || '',
             isDefault: a.isDefault || false,
             houseNumber: a.houseNumber || '',
             area: a.area || '',
             addressLine1: a.addressLine1 || '',
             landmark: a.landmark || a.addressLine2 || '',
           }));
-          setAddresses((prev) => {
-            const merged = [...apiAddrs, ...prev.filter(p => !apiAddrs.some(a => a.id === p.id))];
-            return merged;
-          });
+          setAddresses(apiAddrs);
+        } else {
+          setAddresses([]);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('Addresses API error:', err);
+        setAddresses([]);
+      });
 
     // 3. Clean out legacy dummy mock orders from storage
     try {
@@ -712,27 +694,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       });
   }, []);
 
+  const [profileError, setProfileError] = useState<string | null>(null);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingProfile(true);
+    setProfileError(null);
     try {
       localStorage.setItem('abb_user_profile_name', userName);
       localStorage.setItem('abb_user_profile_email', userEmail);
       persistUserPhone(userEmail, userPhone);
+
+      // Backend rejects profile updates containing email because email requires verification flow.
+      // Send only name and phone to complete the user profile & phone verification gate.
       await storefrontAuthApi.updateProfile({
         name: userName,
-        email: userEmail,
         phone: userPhone,
       });
+
       window.dispatchEvent(new Event('abb_auth_change'));
-    } catch {
-      // offline fallback
-      persistUserPhone(userEmail, userPhone);
-      window.dispatchEvent(new Event('abb_auth_change'));
-    } finally {
-      setIsSavingProfile(false);
       setIsSavedNotice(true);
       setTimeout(() => setIsSavedNotice(false), 2500);
+    } catch (err: any) {
+      console.warn('Profile update error:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to update profile';
+      setProfileError(errMsg);
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -897,49 +885,45 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           type: addrType,
           isDefault: addrIsDefault,
         });
+
+        const updatedObj = {
+          id: editingAddressId,
+          name: addrFullName.trim(),
+          phone: cleanPhone,
+          type: addrType,
+          addressLine: fullStreet,
+          city: addrCity.trim(),
+          state: addrState.trim() || 'Delhi',
+          pincode: cleanPin,
+          isDefault: addrIsDefault,
+          houseNumber: addrHouseNumber.trim(),
+          building: addrBuilding.trim(),
+          floor: addrFloor.trim(),
+          area: addrArea.trim(),
+          addressLine1: finalAddressLine1,
+          addressLine2: addrAddressLine2.trim(),
+          landmark: addrLandmark.trim(),
+        };
+
+        let updatedList = addresses.map((a) => (a.id === editingAddressId ? { ...a, ...updatedObj } : a));
+        if (addrIsDefault) {
+          updatedList = updatedList.map((a) => ({
+            ...a,
+            isDefault: a.id === editingAddressId,
+          }));
+        }
+
+        setAddresses(updatedList);
+        setAddressSuccessMsg('Delivery address updated successfully!');
+        resetAddressForm();
+        setShowAddressForm(false);
+        setTimeout(() => setAddressSuccessMsg(''), 3000);
       } catch (apiErr: any) {
         console.warn('Backend update address warning:', apiErr?.message);
+        setAddressFormError(apiErr?.response?.data?.message || apiErr?.message || 'Failed to update address on server.');
+      } finally {
+        setIsSavingAddress(false);
       }
-
-      const updatedObj = {
-        id: editingAddressId,
-        name: addrFullName.trim(),
-        phone: cleanPhone,
-        type: addrType,
-        addressLine: fullStreet,
-        city: addrCity.trim(),
-        state: addrState.trim() || 'Delhi',
-        pincode: cleanPin,
-        isDefault: addrIsDefault,
-        houseNumber: addrHouseNumber.trim(),
-        building: addrBuilding.trim(),
-        floor: addrFloor.trim(),
-        area: addrArea.trim(),
-        addressLine1: finalAddressLine1,
-        addressLine2: addrAddressLine2.trim(),
-        landmark: addrLandmark.trim(),
-      };
-
-      let updatedList = addresses.map((a) => (a.id === editingAddressId ? { ...a, ...updatedObj } : a));
-      if (addrIsDefault) {
-        updatedList = updatedList.map((a) => ({
-          ...a,
-          isDefault: a.id === editingAddressId,
-        }));
-      }
-
-      setAddresses(updatedList);
-      try {
-        localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updatedList));
-      } catch (err) {
-        console.warn(err);
-      }
-
-      setAddressSuccessMsg('Delivery address updated successfully!');
-      resetAddressForm();
-      setShowAddressForm(false);
-      setTimeout(() => setAddressSuccessMsg(''), 3000);
-      setIsSavingAddress(false);
       return;
     }
 
@@ -995,12 +979,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       }
 
       setAddresses(updatedList);
-      try {
-        localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updatedList));
-      } catch (err) {
-        console.warn(err);
-      }
-
       setAddressSuccessMsg('Delivery address saved successfully!');
       resetAddressForm();
       setShowAddressForm(false);
@@ -1015,31 +993,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   };
 
   const handleDeleteAddress = async (id: string) => {
-    const updated = addresses.filter((a) => a.id !== id);
-    setAddresses(updated);
-    try {
-      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
-    } catch (e) {
-      console.warn(e);
-    }
-
     try {
       await storefrontAddressApi.delete(id);
-    } catch {
-      // offline
+      setAddresses((prev) => prev.filter((a) => a.id !== id));
+    } catch (err: any) {
+      console.warn('Failed to delete address:', err);
     }
   };
 
-  const handleSetDefaultAddress = (id: string) => {
-    const updated = addresses.map((a) => ({
-      ...a,
-      isDefault: a.id === id,
-    }));
-    setAddresses(updated);
+  const handleSetDefaultAddress = async (id: string) => {
     try {
-      localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated));
-    } catch (e) {
-      console.warn(e);
+      await storefrontAddressApi.update(id, { isDefault: true });
+      setAddresses((prev) => prev.map((a) => ({
+        ...a,
+        isDefault: a.id === id,
+      })));
+    } catch (err: any) {
+      console.warn('Failed to set default address:', err);
     }
   };
 
@@ -1075,7 +1045,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  const hasAccessToken = typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token')) : true;
+  const hasAccessToken = typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token')) : true;
   if (!hasAccessToken) {
     return null;
   }
@@ -1095,10 +1065,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black text-navy">{userName || 'My Account'}</h1>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#A44101]/10 text-[#A44101] border border-[#A44101]/25">
-                  <Award className="w-3 h-3 text-[#A44101]" />
-                  <span>Gold Member</span>
-                </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 {userEmail || userPhone ? `${userEmail || ''} ${userEmail && userPhone ? '•' : ''} ${userPhone || ''}` : 'Manage your orders, saved addresses and preferences'}
@@ -1468,6 +1434,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <div className="p-3 bg-[#A44101]/10 border border-[#A44101]/25 rounded-xl text-[#A44101] text-xs font-bold flex items-center gap-2">
                     <Check className="w-4 h-4 text-[#A44101]" />
                     <span>Profile updated successfully!</span>
+                  </div>
+                )}
+
+                {profileError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    <span>{profileError}</span>
                   </div>
                 )}
 
@@ -2282,6 +2255,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                                 <img
                                   src={item.image}
                                   alt={item.title}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
+                                  }}
                                   className="w-full h-full object-contain"
                                 />
                               ) : (

@@ -14,7 +14,7 @@ export interface RequireAuthEventDetail {
  */
 export const isAuthenticated = (): boolean => {
   if (typeof window === 'undefined') return false;
-  return Boolean(localStorage.getItem('user_access_token'));
+  return Boolean(localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token'));
 };
 
 /**

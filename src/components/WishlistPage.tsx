@@ -39,15 +39,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
       const all = allProducts.filter((p) => ids.includes(String(p.id)));
       if (all.length > 0) return all;
     }
-    // Pre-populate with 4 popular products on fresh state
-    const initial = allProducts.slice(0, 4);
-    initial.forEach((p) => {
-      const current = getWishlistIds();
-      if (!current.includes(String(p.id))) {
-        toggleWishlistItem(p.id);
-      }
-    });
-    return initial;
+    return [];
   });
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
   const [allMoved, setAllMoved] = useState(false);

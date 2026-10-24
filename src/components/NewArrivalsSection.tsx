@@ -9,7 +9,6 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Zap, 
-  Truck,
   ArrowRight
 } from 'lucide-react';
 import { ProductItem } from '../data/storeData';
@@ -130,12 +129,12 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
 
   const handleToggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const isAdding = toggleWishlistItem(productId);
+    const prod = products.find((p) => p.id === productId);
+    const isAdding = toggleWishlistItem(productId, prod?.slug);
     setWishlistIds((prev) => ({
       ...prev,
       [productId]: isAdding,
     }));
-    const prod = products.find((p) => p.id === productId);
     const prodTitle = prod?.title && prod.title.length > 32 
       ? `${prod.title.slice(0, 32)}...` 
       : (prod?.title || 'Product');
@@ -297,12 +296,6 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                       }`} 
                     />
                   </button>
-
-                  {/* 48-Hour Shipping Strip on hover */}
-                  <div className="absolute bottom-0 inset-x-0 bg-stone-900/80 backdrop-blur-xs text-stone-100 text-[10px] py-1 px-2 flex items-center justify-center gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <Truck className="w-3 h-3 text-emerald-400" />
-                    <span className="font-medium">48h Express Delivery</span>
-                  </div>
                 </div>
 
                 {/* Content Body */}

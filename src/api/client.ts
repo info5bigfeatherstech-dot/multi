@@ -8,6 +8,7 @@ export const BASE_API_URL =
 export const apiClient = axios.create({
   baseURL: BASE_API_URL,
   timeout: 30000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
@@ -154,42 +155,49 @@ export async function ensureAdminToken(): Promise<string | null> {
 }
 
 /**
- * Attempts to refresh the Customer Access Token using the stored Customer Refresh Token.
+ * Attempts to refresh the Customer Access Token using the stored Customer Refresh Token
+ * or the HTTP-only cookie session set by the backend.
+ * Saves the returned fresh refresh token into localStorage (user_refresh_token).
  */
 export async function refreshCustomerAccessToken(): Promise<string | null> {
   const refreshToken = getUserRefreshToken();
-  if (!refreshToken) {
-    clearUserTokens();
-    return null;
-  }
 
   if (userRefreshPromise) return userRefreshPromise;
 
   userRefreshPromise = (async () => {
     try {
+      const payload: Record<string, any> = { portal: "ecomm" };
+      if (refreshToken) {
+        payload.refreshToken = refreshToken;
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-storefront": "ecomm",
+      };
+      if (refreshToken) {
+        headers["x-refresh-token"] = refreshToken;
+      }
+
       let res;
       try {
         res = await axios.post(
-          `${BASE_API_URL}/auth/refresh-token`,
-          { refreshToken, portal: "ecomm" },
+          `${BASE_API_URL}/auth/refresh`,
+          payload,
           {
-            headers: {
-              "Content-Type": "application/json",
-              "x-storefront": "ecomm",
-            },
+            headers,
+            withCredentials: true,
             timeout: 10000,
           }
         );
       } catch (err: any) {
         if (err.response?.status === 404) {
           res = await axios.post(
-            `${BASE_API_URL}/auth/refresh`,
-            { refreshToken, portal: "ecomm" },
+            `${BASE_API_URL}/auth/refresh-token`,
+            payload,
             {
-              headers: {
-                "Content-Type": "application/json",
-                "x-storefront": "ecomm",
-              },
+              headers,
+              withCredentials: true,
               timeout: 10000,
             }
           );
@@ -205,17 +213,23 @@ export async function refreshCustomerAccessToken(): Promise<string | null> {
 
       const freshRefresh =
         res.data?.refreshToken ||
-        res.data?.data?.refreshToken;
+        res.data?.refresh_token ||
+        res.data?.data?.refreshToken ||
+        res.data?.data?.refresh_token;
 
       if (freshAccess) {
-        setUserTokens(freshAccess, freshRefresh);
+        setUserTokens(freshAccess, freshRefresh || refreshToken);
         window.dispatchEvent(new Event("abb_auth_change"));
+        window.dispatchEvent(new Event("abb_customer_auth_success"));
         return freshAccess;
       }
-    } catch (e) {
-      console.warn("Customer token refresh failed:", e);
-      clearUserTokens();
-      window.dispatchEvent(new Event("abb_auth_change"));
+    } catch (e: any) {
+      console.warn("Customer token refresh failed:", e?.response?.data || e?.message || e);
+      // Only clear user tokens if session is explicitly rejected as unauthorized
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        clearUserTokens();
+        window.dispatchEvent(new Event("abb_auth_change"));
+      }
     } finally {
       userRefreshPromise = null;
     }
@@ -223,6 +237,20 @@ export async function refreshCustomerAccessToken(): Promise<string | null> {
   })();
 
   return userRefreshPromise;
+}
+
+/**
+ * Proactively ensures customer access token exists:
+ * Returns current access token if both access & refresh tokens exist in localStorage,
+ * or triggers refresh via refresh token / cookie to obtain and store both tokens.
+ */
+export async function ensureCustomerToken(): Promise<string | null> {
+  const existingAccess = getUserAccessToken();
+  const existingRefresh = getUserRefreshToken();
+  if (existingAccess && existingRefresh) {
+    return existingAccess;
+  }
+  return refreshCustomerAccessToken();
 }
 
 // ============================================================

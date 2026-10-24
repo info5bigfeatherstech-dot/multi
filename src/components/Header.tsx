@@ -385,7 +385,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Real-time Customer Auth State
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(() => {
-    return typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token')) : false;
+    return typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token')) : false;
   });
   const [customerName, setCustomerName] = useState(() => {
     if (typeof window === 'undefined') return '';
@@ -397,7 +397,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     const handleAuthChange = () => {
-      setIsCustomerLoggedIn(Boolean(localStorage.getItem('user_access_token')));
+      setIsCustomerLoggedIn(Boolean(localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token')));
       const n = localStorage.getItem('abb_user_profile_name');
       setCustomerName(n && n !== 'Google User' ? n : '');
     };
@@ -415,7 +415,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const handleAccountClick = () => {
-    const token = localStorage.getItem('user_access_token');
+    const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
     if (token) {
       if (onGoToProfile) onGoToProfile();
       else {

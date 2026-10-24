@@ -151,37 +151,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
 
-  const [addresses, setAddresses] = useState<CheckoutSavedAddress[]>(() => {
-    try {
-      const saved = localStorage.getItem('abb_saved_addresses_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((a: any) => mapSavedAddress(a));
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return [];
-  });
-
-  const [selectedAddressId, setSelectedAddressId] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('abb_saved_addresses_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Prefer default address, otherwise first address
-          const defaultAddr = parsed.find((a: any) => a.isDefault) || parsed[0];
-          return String(defaultAddr.id || defaultAddr._id || '');
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return '';
-  });
+  const [addresses, setAddresses] = useState<CheckoutSavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<any | null>(null);
 
@@ -292,21 +263,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       })
       .catch(() => { });
 
-    // 3. Address Book Sync
+    // 3. Address Book Sync (strictly from API)
     storefrontAddressApi.list()
       .then((res) => {
-        if (Array.isArray(res) && res.length > 0) {
+        if (Array.isArray(res)) {
           const apiAddrs = res
             .map((a: any) => mapSavedAddress({
               ...a,
               id: String(a._id || a.id || ''),
             }));
 
-          setAddresses((prev) => {
-            const combined = [...apiAddrs, ...prev.filter(p => !apiAddrs.some(a => a.id === p.id))];
-            try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(combined)); } catch { /* ignore */ }
-            return combined;
-          });
+          setAddresses(apiAddrs);
 
           // Auto-select default or first address if current selection is empty or not in list
           setSelectedAddressId((prev) => {
@@ -315,11 +282,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               if (exists) return prev;
             }
             const def = apiAddrs.find(a => a.isDefault) || apiAddrs[0];
-            return def ? def.id : prev;
+            return def ? def.id : '';
           });
+        } else {
+          setAddresses([]);
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        setAddresses([]);
+      });
 
   }, []);
 
@@ -410,7 +381,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       if (realId && isValidObjectId(realId)) {
         setAddresses((prev) => {
           const updated = prev.map((a) => (a.id === addr.id ? { ...a, id: realId } : a));
-          try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated)); } catch { /* ignore */ }
           return updated;
         });
         setSelectedAddressId(realId);
@@ -546,7 +516,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       setAddresses((prev) => {
         const next = prev.map((a) => (a.id === editingAddress.id ? updatedAddr : a));
-        try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch { }
         return next;
       });
 
@@ -570,7 +539,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     const formatted = toLocalAddr(tempId, true);
     setAddresses((prev) => {
       const next = [formatted, ...prev.map((a) => ({ ...a, isDefault: false }))];
-      try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch { }
       return next;
     });
     setSelectedAddressId(tempId);
@@ -597,17 +565,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         const realAddr = { ...formatted, id: realId };
         setAddresses((prev) => {
           const updated = prev.map((a) => (a.id === tempId ? realAddr : a));
-          try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(updated)); } catch { /* ignore */ }
           return updated;
         });
         setSelectedAddressId(realId);
       }
     } catch (err: any) {
       console.warn('Backend address save note:', err?.message);
-      try {
-        const localList = [formatted, ...addresses.filter((a) => a.id !== tempId)];
-        localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(localList));
-      } catch { /* ignore */ }
     }
   };
 
@@ -1206,13 +1169,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         <div key={item.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
                             <img
-                              src={item.image}
+                              src={item.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80'}
                               alt={item.title}
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
+                              }}
                               className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-50"
                             />
                             <div className="min-w-0">
                               <span className="text-[9px] font-bold text-[#A44101] uppercase tracking-wider block truncate">
-                                {item.category}
+                                {item.category && !/^[0-9a-fA-F]{24}$/.test(item.category) ? item.category : 'Electronics & Audio'}
                               </span>
                               <h4 className="text-xs sm:text-sm font-bold text-navy line-clamp-1">
                                 {item.title}

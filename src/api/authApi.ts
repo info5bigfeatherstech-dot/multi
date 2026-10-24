@@ -15,6 +15,13 @@ export const authApi = {
       const refreshToken = data?.refreshToken || data?.refresh_token || res.data?.refreshToken;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch (rErr) {
+            console.warn("Post-login refresh token fetch failed:", rErr);
+          }
+        }
       }
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
@@ -54,6 +61,13 @@ export const authApi = {
       const refreshToken = data?.refreshToken || data?.refresh_token;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch (rErr) {
+            console.warn("Post-register refresh token fetch failed:", rErr);
+          }
+        }
       }
       if (payload.phone) {
         persistUserPhone(payload.email, payload.phone);
@@ -76,6 +90,13 @@ export const authApi = {
       const refreshToken = data?.refreshToken || data?.refresh_token;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch (rErr) {
+            console.warn("Post-OTP verify refresh token fetch failed:", rErr);
+          }
+        }
       }
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);
@@ -102,6 +123,13 @@ export const authApi = {
       const refreshToken = data?.refreshToken || data?.refresh_token;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch (rErr) {
+            console.warn("Post-Google login refresh token fetch failed:", rErr);
+          }
+        }
       }
       if (data?.user) {
         if (data.user.name) localStorage.setItem("abb_user_profile_name", data.user.name);

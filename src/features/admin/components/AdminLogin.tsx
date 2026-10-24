@@ -203,7 +203,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="admin@store.com or 8580403506"
+                  placeholder="admin@store.com or 9876543210"
                   autoComplete="username"
                   required
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white text-xs sm:text-sm text-slate-900 font-medium placeholder-slate-400 focus:bg-white focus:border-[#A44101] focus:ring-4 focus:ring-[#A44101]/10 focus:outline-none transition-all"

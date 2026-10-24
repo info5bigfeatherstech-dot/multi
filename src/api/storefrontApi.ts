@@ -1,4 +1,4 @@
-import { apiClient, normalizeApiError, loadRazorpayScript, setUserTokens, clearUserTokens } from "./client";
+import { apiClient, normalizeApiError, loadRazorpayScript, setUserTokens, clearUserTokens, refreshCustomerAccessToken } from "./client";
 import { persistUserPhone } from "../utils/authGuard";
 
 /* ============================================================
@@ -16,6 +16,13 @@ export const storefrontAuthApi = {
       const refreshToken = resData?.refreshToken || resData?.refresh_token;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch {
+            // ignore
+          }
+        }
       }
       if (data.phone) {
         persistUserPhone(data.email, data.phone);
@@ -36,6 +43,13 @@ export const storefrontAuthApi = {
       const refreshToken = data?.refreshToken || data?.refresh_token;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch {
+            // ignore
+          }
+        }
       }
       return data;
     } catch (err) {
@@ -50,6 +64,13 @@ export const storefrontAuthApi = {
       const refreshToken = data?.refreshToken || data?.refresh_token;
       if (accessToken) {
         setUserTokens(accessToken, refreshToken);
+        if (!refreshToken) {
+          try {
+            await refreshCustomerAccessToken();
+          } catch {
+            // ignore
+          }
+        }
       }
       return data;
     } catch (err) {
@@ -84,6 +105,9 @@ export const storefrontAuthApi = {
       throw new Error(normalizeApiError(err));
     }
   },
+  refreshToken: async () => {
+    return refreshCustomerAccessToken();
+  },
   logout: async () => {
     try {
       await apiClient.post("/auth/logout");
@@ -100,7 +124,18 @@ export const storefrontAddressApi = {
   list: async () => {
     try {
       const res = await apiClient.get("/addresses");
-      return res.data?.data || res.data || [];
+      const d = res.data;
+      if (Array.isArray(d)) return d;
+      if (Array.isArray(d?.data)) return d.data;
+      const list = Array.isArray(d?.addresses) ? d.addresses : [];
+      if (d?.defaultAddress && typeof d.defaultAddress === 'object') {
+        const def = { ...d.defaultAddress, isDefault: true };
+        const exists = list.some((a: any) => String(a._id || a.id) === String(def._id || def.id));
+        if (!exists) {
+          return [def, ...list];
+        }
+      }
+      return list;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
@@ -383,7 +418,7 @@ export const storefrontProductsApi = {
    ============================================================ */
 export const storefrontCartApi = {
   getCart: async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem("user_access_token") : null;
+    const token = typeof window !== 'undefined' ? (localStorage.getItem("user_access_token") || localStorage.getItem("user_refresh_token")) : null;
     if (!token) {
       return { items: [] };
     }
@@ -392,31 +427,98 @@ export const storefrontCartApi = {
       return res.data?.data || res.data || { items: [] };
     } catch (err: any) {
       if (err?.response?.status === 401) {
-        localStorage.removeItem("user_access_token");
         return { items: [] };
       }
       throw new Error(normalizeApiError(err));
     }
   },
-  addItem: async (productId: string, quantity = 1, variantId?: string) => {
+  addItem: async (productId: string, quantity = 1, variantId?: string, productSlug?: string) => {
     try {
-      const res = await apiClient.post("/cart", { productId, quantity, variantId });
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(productId);
+      const res = await apiClient.post("/cart", { 
+        productId: isObjectId ? productId : undefined,
+        productSlug: productSlug || (!isObjectId ? productId : undefined),
+        quantity, 
+        variantId 
+      });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
-  updateQuantity: async (itemId: string, quantity: number) => {
+  updateQuantity: async (
+    payload: { productId: string; variantId?: string; quantity: number } | string, 
+    quantity?: number, 
+    variantId?: string
+  ) => {
     try {
-      const res = await apiClient.put("/cart/item", { itemId, quantity });
+      let reqProductId = typeof payload === 'object' ? payload.productId : payload;
+      let reqQuantity = typeof payload === 'object' ? payload.quantity : (quantity ?? 1);
+      let reqVariantId = typeof payload === 'object' ? payload.variantId : variantId;
+
+      // Auto-resolve exact productId and variantId from live cart if missing
+      if (!reqVariantId || !/^[0-9a-fA-F]{24}$/.test(reqProductId)) {
+        try {
+          const cartRes = await apiClient.get("/cart");
+          const items = cartRes.data?.cart?.items || cartRes.data?.items || [];
+          const match = items.find((it: any) => {
+            const pId = String(it.productId?._id || it.productId || it.product?._id || '');
+            const cId = String(it._id || '');
+            const slug = String(it.product?.slug || it.slug || '');
+            return pId === reqProductId || cId === reqProductId || (slug && slug === reqProductId);
+          });
+          if (match) {
+            reqProductId = String(match.productId?._id || match.productId || match.product?._id);
+            reqVariantId = String(match.variantId?._id || match.variantId || match.variant?._id || match.product?.variants?.[0]?._id);
+          }
+        } catch {
+          // ignore resolution fallback
+        }
+      }
+
+      const res = await apiClient.put("/cart/item", { 
+        productId: reqProductId,
+        variantId: reqVariantId,
+        quantity: reqQuantity 
+      });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
-  removeItem: async (itemId: string) => {
+  removeItem: async (
+    payload: { productId: string; variantId?: string } | string, 
+    variantId?: string
+  ) => {
     try {
-      const res = await apiClient.delete("/cart/item", { data: { itemId } });
+      let reqProductId = typeof payload === 'object' ? payload.productId : payload;
+      let reqVariantId = typeof payload === 'object' ? payload.variantId : variantId;
+
+      if (!reqVariantId || !/^[0-9a-fA-F]{24}$/.test(reqProductId)) {
+        try {
+          const cartRes = await apiClient.get("/cart");
+          const items = cartRes.data?.cart?.items || cartRes.data?.items || [];
+          const match = items.find((it: any) => {
+            const pId = String(it.productId?._id || it.productId || it.product?._id || '');
+            const cId = String(it._id || '');
+            const slug = String(it.product?.slug || it.slug || '');
+            return pId === reqProductId || cId === reqProductId || (slug && slug === reqProductId);
+          });
+          if (match) {
+            reqProductId = String(match.productId?._id || match.productId || match.product?._id);
+            reqVariantId = String(match.variantId?._id || match.variantId || match.variant?._id || match.product?.variants?.[0]?._id);
+          }
+        } catch {
+          // ignore resolution fallback
+        }
+      }
+
+      const res = await apiClient.delete("/cart/item", { 
+        data: { 
+          productId: reqProductId,
+          variantId: reqVariantId 
+        } 
+      });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
@@ -436,14 +538,33 @@ export const storefrontWishlistApi = {
   getWishlist: async () => {
     try {
       const res = await apiClient.get("/wishlist");
-      return res.data?.data || res.data || [];
+      const d = res.data;
+      if (Array.isArray(d)) return d;
+      if (Array.isArray(d?.data)) return d.data;
+      if (Array.isArray(d?.wishlist?.products)) return d.wishlist.products;
+      if (Array.isArray(d?.products)) return d.products;
+      return [];
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
   toggle: async (productId: string, slug?: string) => {
     try {
-      const res = await apiClient.post("/wishlist/add", { productId, slug });
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(productId);
+      const resolvedSlug = slug || (!isObjectId ? productId : undefined);
+      const res = await apiClient.post("/wishlist/add", { 
+        productId: isObjectId ? productId : undefined, 
+        productSlug: resolvedSlug,
+        slug: resolvedSlug
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  merge: async (items: Array<{ slug?: string; productId?: string }>) => {
+    try {
+      const res = await apiClient.post("/wishlist/merge", { items });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
