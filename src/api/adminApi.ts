@@ -551,7 +551,13 @@ export const adminLabelsApi = {
    7. ADMIN ORDERS, FULFILLMENT & RTO APIs
    ============================================================ */
 export const adminOrdersApi = {
-  getAll: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    shippingSpeedScope?: 'standard' | 'same_day' | 'all' | string;
+  }) => {
     try {
       const res = await apiClient.get("/admin/orders", { params });
       return res.data?.data || res.data;
@@ -559,9 +565,9 @@ export const adminOrdersApi = {
       throw new Error(normalizeApiError(err));
     }
   },
-  getSummary: async () => {
+  getSummary: async (params?: { shippingSpeedScope?: 'standard' | 'same_day' | 'all' | string }) => {
     try {
-      const res = await apiClient.get("/admin/orders/summary");
+      const res = await apiClient.get("/admin/orders/summary", { params });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
@@ -702,6 +708,41 @@ export const adminOrdersApi = {
       });
       return res.data?.data || res.data;
     } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  ensureShipment: async (orderId: string) => {
+    const cleanId = orderId.replace(/^#/, '');
+    try {
+      const res = await apiClient.post(`/orders/admin/items/${encodeURIComponent(cleanId)}/fulfillment/ensure-shipment`);
+      return res.data?.data || res.data;
+    } catch (err: any) {
+      const data = err?.response?.data;
+      if (data && typeof data === 'object') return { success: false, ...data };
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  assignShip: async (
+    orderId: string,
+    body?: {
+      courierId?: number;
+      confirmSubstitute?: boolean;
+      bookAnyway?: boolean;
+      hold?: boolean;
+      reason?: string;
+      liveRateInr?: number | null;
+    }
+  ) => {
+    const cleanId = orderId.replace(/^#/, '');
+    try {
+      const res = await apiClient.post(
+        `/orders/admin/items/${encodeURIComponent(cleanId)}/fulfillment/assign-ship`,
+        body || {}
+      );
+      return res.data?.data || res.data;
+    } catch (err: any) {
+      const data = err?.response?.data;
+      if (data && typeof data === 'object') return { success: false, ...data };
       throw new Error(normalizeApiError(err));
     }
   },
@@ -1176,17 +1217,38 @@ export const adminShippingSettingsApi = {
     pickupPincode?: string;
     enabled?: boolean;
     shipmozo?: any;
+    sameDay?: {
+      enabled?: boolean;
+      pincodes?: string[] | string;
+      openHour?: number;
+      cutoffHour?: number;
+      floorFeeInr?: number;
+      feeBuffer?: number;
+      warehouseLat?: number | null;
+      warehouseLng?: number | null;
+    };
+    standardDelivery?: {
+      enabled?: boolean;
+    };
   }) => {
     try {
       const body: any = {};
       if (payload.activeProvider !== undefined) {
         body.activeProvider = payload.activeProvider;
       }
-      body.shipmozo = payload.shipmozo || {
-        warehouseId: payload.warehouseId || undefined,
-        pickupPincode: payload.pickupPincode ? payload.pickupPincode.replace(/\D/g, '').slice(0, 6) : undefined,
-        enabled: payload.enabled ?? true,
-      };
+      if (payload.sameDay !== undefined) {
+        body.sameDay = payload.sameDay;
+      }
+      if (payload.standardDelivery !== undefined) {
+        body.standardDelivery = payload.standardDelivery;
+      }
+      if (payload.shipmozo !== undefined || payload.warehouseId !== undefined || payload.pickupPincode !== undefined || payload.enabled !== undefined) {
+        body.shipmozo = payload.shipmozo || {
+          warehouseId: payload.warehouseId || undefined,
+          pickupPincode: payload.pickupPincode ? payload.pickupPincode.replace(/\D/g, '').slice(0, 6) : undefined,
+          enabled: payload.enabled ?? true,
+        };
+      }
       const res = await apiClient.put("/shipping-provider/admin/settings", body);
       return res.data?.data || res.data;
     } catch (err) {

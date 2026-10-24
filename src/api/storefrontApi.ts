@@ -280,9 +280,13 @@ export const storefrontProductsApi = {
     try {
       let res;
       try {
-        res = await apiClient.get("/categories/categories");
-      } catch {
         res = await apiClient.get("/categories");
+      } catch (firstErr: any) {
+        const firstStatus = firstErr?.response?.status;
+        if (firstStatus && firstStatus !== 404) {
+          throw firstErr;
+        }
+        res = await apiClient.get("/categories/categories");
       }
       const data = res.data?.categories || res.data?.data || res.data || [];
       return Array.isArray(data) ? data : [];
@@ -515,6 +519,7 @@ export const storefrontCheckoutApi = {
     balanceCollection?: "online" | "cod" | string;
     couponCode?: string;
     loyaltyPointsToRedeem?: number;
+    shippingSpeed?: "standard" | "same_day" | string;
   }) => {
     try {
       const sanitizedPayload = {

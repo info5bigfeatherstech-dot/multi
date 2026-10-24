@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
-import { apiClient } from '../api';
+import { apiClient, storefrontProductsApi } from '../api';
 import { isProductActive } from '../utils/productUtils';
 import { sortCategoriesByCanonicalSequence } from '../utils/categorySequence';
 
@@ -147,14 +147,8 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
     // Fetch categories to get official uploaded card/banner images & descriptions from API
     const fetchCategories = async () => {
       try {
-        let res: any;
-        try {
-          res = await apiClient.get('/categories/categories');
-        } catch {
-          res = await apiClient.get('/categories');
-        }
+        const list = await storefrontProductsApi.getCategories();
         if (!isMounted) return;
-        const list = res.data?.categories || res.data?.data || (Array.isArray(res.data) ? res.data : []);
         if (Array.isArray(list)) {
           const map: Record<string, { image?: string; description?: string; order?: number }> = {};
 

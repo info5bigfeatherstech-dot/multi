@@ -11,6 +11,7 @@ import { AdminOrderDetailView } from './AdminOrderDetailView';
 
 interface AdminOrdersViewProps {
   initialStatusFilter?: string;
+  shippingSpeedScope?: 'standard' | 'same_day' | 'all';
 }
 
 const ORDER_STATUS_TABS: OrderStatus[] = [
@@ -26,6 +27,7 @@ const ORDER_STATUS_TABS: OrderStatus[] = [
 
 export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
   initialStatusFilter = 'Pending',
+  shippingSpeedScope = 'standard',
 }) => {
   const [activeTab, setActiveTab] = useState<OrderStatus>(() => {
     if (initialStatusFilter && initialStatusFilter !== 'All') {
@@ -81,6 +83,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
       const res = await adminOrdersApi.getAll({
         status: activeTab.toLowerCase(),
         search: searchQuery.trim() || undefined,
+        shippingSpeedScope,
       });
 
       const rawOrders = res.orders || res.data?.orders || res.data || (Array.isArray(res) ? res : []);
@@ -143,7 +146,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
 
   useEffect(() => {
     fetchLiveOrders();
-  }, [activeTab]);
+  }, [activeTab, shippingSpeedScope]);
 
   const filteredOrders = useMemo(() => {
     let list = orders.filter((o) => o.status === activeTab);
@@ -182,7 +185,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-navy tracking-tight">
-            Orders &amp; Gift Intent Management
+            {shippingSpeedScope === 'same_day' ? 'Same Day Orders' : 'Orders &amp; Gift Intent Management'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Monitor orders, update fulfillment statuses in real time, and customize gift cards &amp; recipient packaging.

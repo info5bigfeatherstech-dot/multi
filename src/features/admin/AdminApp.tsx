@@ -37,6 +37,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   const [currentTab, setCurrentTab] = useState<AdminTab>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
+      if (path.includes('same-day-orders') || path.includes('sameday')) return 'same-day-orders';
       if (path.includes('orders')) return 'orders';
       if (path.includes('returns')) return 'returns';
       if (path.includes('rto')) return 'rto';
@@ -147,7 +148,8 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.toLowerCase();
-      if (path.includes('orders')) setCurrentTab('orders');
+      if (path.includes('same-day-orders') || path.includes('sameday')) setCurrentTab('same-day-orders');
+      else if (path.includes('orders')) setCurrentTab('orders');
       else if (path.includes('analytics')) setCurrentTab('analytics');
       else if (path.includes('products-add') || path.includes('/add-product')) setCurrentTab('products-add');
       else if (path.includes('products-categories') || path.includes('/categories')) setCurrentTab('products-categories');
@@ -245,7 +247,11 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       )}
 
       {currentTab === 'orders' && (
-        <AdminOrdersView initialStatusFilter={orderFilter} />
+        <AdminOrdersView initialStatusFilter={orderFilter} shippingSpeedScope="standard" />
+      )}
+
+      {currentTab === 'same-day-orders' && (
+        <AdminOrdersView initialStatusFilter={orderFilter} shippingSpeedScope="same_day" />
       )}
 
       {currentTab === 'returns' && (

@@ -23,6 +23,54 @@ import { useCart } from '../context/CartContext';
 import { AddAddressModal, NewAddressData } from './AddAddressModal';
 import { storefrontCheckoutApi, storefrontAddressApi } from '../api';
 import { isAuthenticated, requireAuth } from '../utils/authGuard';
+import { buildAddressCreatePayload } from '../utils/splitCheckoutAddress';
+
+type CheckoutSavedAddress = {
+  id: string;
+  name: string;
+  type: string;
+  phone: string;
+  address: string;
+  city: string;
+  pincode: string;
+  isDefault?: boolean;
+  houseNumber?: string;
+  area?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  building?: string;
+  floor?: string;
+  landmark?: string;
+  state?: string;
+};
+
+function mapSavedAddress(a: any): CheckoutSavedAddress {
+  return {
+    id: String(a?.id || a?._id || `addr-${Date.now()}`),
+    name: a?.name || a?.fullName || 'Valued Customer',
+    type: a?.type || a?.addressType || 'Home',
+    phone: a?.phone || '',
+    address: a?.addressLine || a?.address || a?.street || a?.addressLine1 || a?.fullAddressString || '',
+    city: a?.city || '',
+    pincode: a?.pincode || a?.postalCode || '',
+    isDefault: Boolean(a?.isDefault),
+    houseNumber: a?.houseNumber || a?.houseFlat || '',
+    area: a?.area || a?.areaLocality || '',
+    addressLine1: a?.addressLine1 || a?.streetLine1 || '',
+    addressLine2: a?.addressLine2 || a?.streetLine2 || '',
+    building: a?.building || a?.buildingNo || '',
+    floor: a?.floor || a?.floorNo || '',
+    landmark: a?.landmark || '',
+    state: a?.state || '',
+  };
+}
+import {
+  CheckoutShippingSpeedCards,
+  DEFAULT_SAME_DAY_OPTION,
+  SameDayOption,
+  ShippingSpeed,
+  normalizeShippingSpeed,
+} from '../features/sameDayDelivery';
 
 interface CheckoutPageProps {
   onBackToHome?: () => void;
@@ -53,6 +101,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       setIsAddressModalOpen(true);
       return;
     }
+    if (serverQuote?.isDeliverable === false) {
+      return;
+    }
     setCurrentStep(3);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -75,11 +126,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     codEnabled: boolean;
     partialPaymentEnabled: boolean;
     partialPaymentPercent: number;
+    standardDeliveryEnabled: boolean | null;
   }>({
     storefront: 'ecomm',
     codEnabled: true,
     partialPaymentEnabled: true,
     partialPaymentPercent: 25,
+    standardDeliveryEnabled: null,
   });
 
   const [deliveryInfo, setDeliveryInfo] = useState<{
@@ -98,22 +151,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
 
-  const [addresses, setAddresses] = useState<Array<{ id: string; name: string; type: string; phone: string; address: string; city: string; pincode: string; isDefault?: boolean }>>(() => {
+  const [addresses, setAddresses] = useState<CheckoutSavedAddress[]>(() => {
     try {
       const saved = localStorage.getItem('abb_saved_addresses_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((a: any) => ({
-            id: String(a.id || a._id || `addr-${Date.now()}`),
-            name: a.name || a.fullName || 'Valued Customer',
-            type: a.type || 'Home',
-            phone: a.phone || '',
-            address: a.addressLine || a.address || a.street || a.fullAddressString || '',
-            city: a.city || 'Delhi',
-            pincode: a.pincode || a.postalCode || '110001',
-            isDefault: Boolean(a.isDefault),
-          }));
+          return parsed.map((a: any) => mapSavedAddress(a));
         }
       }
     } catch {
@@ -172,8 +216,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     codAvailable?: boolean;
     fullCodAvailable?: boolean;
     partialBalanceCodAvailable?: boolean;
+    shippingSpeed?: ShippingSpeed | null;
+    sameDayOption?: SameDayOption;
+    isDeliverable?: boolean;
+    standardDeliveryEnabled?: boolean;
+    message?: string;
   } | null>(null);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+  const [shippingSpeed, setShippingSpeed] = useState<ShippingSpeed>('standard');
+  const [standardDeliveryCharges, setStandardDeliveryCharges] = useState<number | null>(null);
+  const sameDayOption = serverQuote?.sameDayOption || DEFAULT_SAME_DAY_OPTION;
 
   // --------------------------------------------------------------------------
   // Order Placement & Post-Order Lifecycle State
@@ -225,6 +277,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             codEnabled: settings.codEnabled !== false,
             partialPaymentEnabled: settings.partialPaymentEnabled !== false,
             partialPaymentPercent: Number(settings.partialPaymentPercent) || 25,
+            standardDeliveryEnabled: settings.standardDeliveryEnabled !== false,
           });
         }
       })
@@ -244,19 +297,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) {
           const apiAddrs = res
-            .map((a: any) => {
-              const mongoId = String(a._id || a.id || '');
-              return {
-                id: mongoId,
-                name: a.fullName || a.name || 'Valued Customer',
-                type: a.addressType || a.type || 'Home',
-                phone: a.phone || '',
-                address: a.addressLine1 || a.street || a.addressLine || a.address || '',
-                city: a.city || 'Delhi',
-                pincode: a.postalCode || a.pincode || '110001',
-                isDefault: Boolean(a.isDefault),
-              };
-            });
+            .map((a: any) => mapSavedAddress({
+              ...a,
+              id: String(a._id || a.id || ''),
+            }));
 
           setAddresses((prev) => {
             const combined = [...apiAddrs, ...prev.filter(p => !apiAddrs.some(a => a.id === p.id))];
@@ -282,7 +326,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   // Delivery Pincode Verification on Address Change
   // --------------------------------------------------------------------------
+  const standardDeliveryOff =
+    checkoutSettings.standardDeliveryEnabled === false ||
+    serverQuote?.standardDeliveryEnabled === false;
+  const standardDeliveryOn =
+    !standardDeliveryOff &&
+    (checkoutSettings.standardDeliveryEnabled === true ||
+      serverQuote?.standardDeliveryEnabled === true);
+
   useEffect(() => {
+    if (standardDeliveryOff) {
+      setDeliveryInfo(null);
+      setIsDeliveryChecking(false);
+      return;
+    }
     const selected = addresses.find(a => a.id === selectedAddressId);
     if (selected && selected.pincode) {
       setIsDeliveryChecking(true);
@@ -316,42 +373,28 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     } else {
       setDeliveryInfo(null);
     }
-  }, [selectedAddressId, addresses]);
+  }, [selectedAddressId, addresses, standardDeliveryOff]);
 
   // --------------------------------------------------------------------------
   // --------------------------------------------------------------------------
   // Auto-sync address to backend if stored with a temporary client ID
   // --------------------------------------------------------------------------
-  const ensureAddressSavedOnServer = async (addr: {
-    id: string;
-    name: string;
-    phone: string;
-    address: string;
-    city: string;
-    pincode: string;
-    type?: string;
-  }): Promise<string> => {
+  const ensureAddressSavedOnServer = async (addr: CheckoutSavedAddress): Promise<string> => {
     if (isValidObjectId(addr.id)) {
       return addr.id;
     }
 
-    const cleanPhone = String(addr.phone || '').trim().replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+    const payload = buildAddressCreatePayload(addr);
+    if (payload.phone.length !== 10 || payload.postalCode.length !== 6 || !payload.city || !payload.state) {
+      console.warn('Auto-sync address skipped: incomplete recipient or location fields');
+      return addr.id;
+    }
 
     try {
       const serverRes = await storefrontAddressApi.create({
-        fullName: addr.name,
-        name: addr.name,
-        phone: cleanPhone || '9876543210',
-        houseNumber: addr.address || 'Address',
-        area: addr.city || 'Locality',
-        addressLine1: addr.address || 'Address Line 1',
-        postalCode: addr.pincode || '110001',
-        street: addr.address || 'Street',
-        city: addr.city || 'Delhi',
-        state: 'Delhi',
-        pincode: addr.pincode || '110001',
-        type: addr.type === 'Work' ? 'Work' : 'Home',
-        isDefault: true,
+        ...payload,
+        name: payload.fullName,
+        pincode: payload.postalCode,
       });
 
       const realId = String(
@@ -416,18 +459,36 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
         balanceCollection: balanceColl,
         couponCode: appliedCoupon || undefined,
+        shippingSpeed,
       });
 
-      if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined)) {
-        setServerQuote(qRes);
-        if (qRes.checkoutPolicy) {
-          setCheckoutSettings((prev) => ({
-            ...prev,
-            codEnabled: qRes.checkoutPolicy.codEnabled !== false,
-            partialPaymentEnabled: qRes.checkoutPolicy.partialPaymentEnabled !== false,
-            partialPaymentPercent: Number(qRes.checkoutPolicy.partialPaymentPercent) || 25,
-          }));
+      if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined || qRes.isDeliverable === false)) {
+        const standardOn = qRes.standardDeliveryEnabled !== false;
+        const resolvedSpeed = normalizeShippingSpeed(qRes.shippingSpeed);
+        if (standardOn && resolvedSpeed === 'standard' && qRes.deliveryCharges != null) {
+          setStandardDeliveryCharges(Number(qRes.deliveryCharges));
         }
+        if (!standardOn) {
+          if (qRes.sameDayOption?.available === true && shippingSpeed !== 'same_day') {
+            setShippingSpeed('same_day');
+          }
+        } else if (qRes.sameDayOption?.available !== true && shippingSpeed === 'same_day') {
+          setShippingSpeed('standard');
+        } else if (resolvedSpeed !== shippingSpeed && qRes.sameDayOption?.available === true) {
+          setShippingSpeed(resolvedSpeed);
+        }
+        setServerQuote(qRes);
+        setCheckoutSettings((prev) => ({
+          ...prev,
+          standardDeliveryEnabled: qRes.standardDeliveryEnabled !== false,
+          ...(qRes.checkoutPolicy
+            ? {
+                codEnabled: qRes.checkoutPolicy.codEnabled !== false,
+                partialPaymentEnabled: qRes.checkoutPolicy.partialPaymentEnabled !== false,
+                partialPaymentPercent: Number(qRes.checkoutPolicy.partialPaymentPercent) || 25,
+              }
+            : {}),
+        }));
       }
     } catch (err: any) {
       console.warn('Quote fetch notice:', err?.message);
@@ -438,24 +499,50 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   useEffect(() => {
     fetchAuthoritativeQuote();
-  }, [selectedAddressId, paymentMode, appliedCoupon, cartItems.length]);
+  }, [selectedAddressId, paymentMode, appliedCoupon, cartItems.length, shippingSpeed]);
 
   // --------------------------------------------------------------------------
   // Address Handler
   // --------------------------------------------------------------------------
   const handleSaveNewAddress = async (newAddr: NewAddressData) => {
-    const cleanPhone = String(newAddr.phone || '').trim().replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+    const payload = buildAddressCreatePayload({
+      name: newAddr.name,
+      phone: newAddr.phone,
+      address: newAddr.fullAddressString,
+      city: newAddr.city,
+      pincode: newAddr.pincode,
+      type: newAddr.type,
+      houseFlat: newAddr.houseFlat,
+      areaLocality: newAddr.areaLocality,
+      streetLine1: newAddr.streetLine1,
+      streetLine2: newAddr.streetLine2,
+      buildingNo: newAddr.buildingNo,
+      floorNo: newAddr.floorNo,
+      landmark: newAddr.landmark,
+      state: newAddr.state,
+    });
+
+    const toLocalAddr = (id: string, isDefault = true): CheckoutSavedAddress => ({
+      id,
+      name: payload.fullName,
+      type: payload.type,
+      phone: payload.phone,
+      address: newAddr.fullAddressString,
+      city: payload.city,
+      pincode: payload.postalCode,
+      isDefault,
+      houseNumber: payload.houseNumber,
+      area: payload.area,
+      addressLine1: payload.addressLine1,
+      addressLine2: payload.addressLine2,
+      building: payload.building,
+      floor: payload.floor,
+      landmark: payload.landmark,
+      state: payload.state,
+    });
 
     if (editingAddress) {
-      const updatedAddr = {
-        ...editingAddress,
-        name: newAddr.name,
-        type: newAddr.type,
-        phone: cleanPhone,
-        address: newAddr.fullAddressString,
-        city: newAddr.city,
-        pincode: newAddr.pincode,
-      };
+      const updatedAddr = toLocalAddr(editingAddress.id, editingAddress.isDefault);
 
       setAddresses((prev) => {
         const next = prev.map((a) => (a.id === editingAddress.id ? updatedAddr : a));
@@ -465,18 +552,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       try {
         await storefrontAddressApi.update(editingAddress.id, {
-          fullName: newAddr.name,
-          name: newAddr.name,
-          phone: cleanPhone,
-          houseNumber: newAddr.houseFlat || newAddr.fullAddressString,
-          area: newAddr.areaLocality || newAddr.city,
-          addressLine1: newAddr.streetLine1 || newAddr.fullAddressString,
-          postalCode: newAddr.pincode,
-          street: newAddr.fullAddressString,
-          city: newAddr.city,
-          state: newAddr.state || 'Delhi',
-          pincode: newAddr.pincode,
-          type: newAddr.type === 'Work' ? 'Work' : 'Home',
+          ...payload,
+          name: payload.fullName,
+          pincode: payload.postalCode,
+          isDefault: Boolean(editingAddress.isDefault),
         });
       } catch (err: any) {
         console.warn('Backend address update note:', err?.message);
@@ -488,16 +567,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
 
     const tempId = `addr-${Date.now()}`;
-    const formatted = {
-      id: tempId,
-      name: newAddr.name,
-      type: newAddr.type,
-      phone: cleanPhone,
-      address: newAddr.fullAddressString,
-      city: newAddr.city,
-      pincode: newAddr.pincode,
-      isDefault: true,
-    };
+    const formatted = toLocalAddr(tempId, true);
     setAddresses((prev) => {
       const next = [formatted, ...prev.map((a) => ({ ...a, isDefault: false }))];
       try { localStorage.setItem('abb_saved_addresses_v1', JSON.stringify(next)); } catch { }
@@ -507,21 +577,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setIsAddressModalOpen(false);
 
     try {
-      // Save to backend and capture the real MongoDB _id
       const serverRes = await storefrontAddressApi.create({
-        fullName: newAddr.name,
-        name: newAddr.name,
-        phone: cleanPhone,
-        houseNumber: newAddr.houseFlat || newAddr.fullAddressString,
-        area: newAddr.areaLocality || newAddr.city,
-        addressLine1: newAddr.streetLine1 || newAddr.fullAddressString,
-        postalCode: newAddr.pincode,
-        street: newAddr.fullAddressString,
-        city: newAddr.city,
-        state: newAddr.state || 'Delhi',
-        pincode: newAddr.pincode,
-        type: newAddr.type === 'Work' ? 'Work' : 'Home',
-        isDefault: true,
+        ...payload,
+        name: payload.fullName,
+        pincode: payload.postalCode,
       });
 
       const realId = String(
@@ -667,13 +726,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
             balanceCollection,
             couponCode: appliedCoupon || undefined,
+            shippingSpeed,
           });
-          if (activeQuote?.quoteId) {
+          if (activeQuote?.quoteId || activeQuote?.isDeliverable === false) {
             setServerQuote(activeQuote);
           }
         } catch (quoteErr: any) {
           console.warn('Quote generation error:', quoteErr?.message);
         }
+      }
+
+      if (activeQuote?.isDeliverable === false) {
+        alert(activeQuote.message || 'Delivery is not available for this address.');
+        setIsPlacingOrder(false);
+        return;
       }
 
       if (!activeQuote?.quoteId) {
@@ -816,7 +882,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       });
 
     } catch (error: any) {
-      alert('Checkout error: ' + (error?.message || 'Failed to place order. Please try again.'));
+      const msg = String(error?.message || '');
+      if (/same_day_unavailable|same day delivery is no longer available/i.test(msg)) {
+        setShippingSpeed('standard');
+        alert('Same day delivery is no longer available. Standard delivery has been selected — please review charges and try again.');
+      } else {
+        alert('Checkout error: ' + (msg || 'Failed to place order. Please try again.'));
+      }
     } finally {
       setIsPlacingOrder(false);
     }
@@ -1404,7 +1476,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#A44101]" />
                         <span>Verifying pincode courier serviceability &amp; delivery speed...</span>
                       </div>
-                    ) : deliveryInfo && (
+                    ) : standardDeliveryOn && deliveryInfo && deliveryInfo.isDeliverable !== false && (
                       <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
                         <div className="flex items-center gap-2.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1417,6 +1489,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         </span>
                       </div>
                     )}
+
+                    <CheckoutShippingSpeedCards
+                      selected={shippingSpeed}
+                      standardCharges={standardDeliveryCharges ?? serverQuote?.deliveryCharges}
+                      sameDayOption={sameDayOption}
+                      standardEnabled={!standardDeliveryOff}
+                      unavailableMessage={serverQuote?.message}
+                      disabled={isQuoteLoading}
+                      onSelect={setShippingSpeed}
+                    />
 
                     {/* Step 2 Footer Navigation */}
                     <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -1433,7 +1515,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       <button
                         type="button"
                         onClick={handleProceedToStep3}
-                        className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                        disabled={isQuoteLoading || serverQuote?.isDeliverable === false}
+                        className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <span>Proceed to Payment Method</span>
                         <ArrowRight className="w-4 h-4" />
@@ -1722,8 +1805,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           phone: editingAddress.phone,
           pincode: editingAddress.pincode,
           city: editingAddress.city,
+          state: editingAddress.state,
           type: editingAddress.type,
-          streetLine1: editingAddress.address,
+          houseFlat: editingAddress.houseNumber,
+          areaLocality: editingAddress.area,
+          streetLine1: editingAddress.addressLine1 || editingAddress.address,
+          streetLine2: editingAddress.addressLine2,
+          buildingNo: editingAddress.building,
+          floorNo: editingAddress.floor,
+          landmark: editingAddress.landmark,
         } : undefined}
       />
     </div>

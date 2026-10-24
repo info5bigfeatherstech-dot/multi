@@ -346,6 +346,12 @@ export function normalizeApiError(error: unknown): string {
     if (typeof serverMessage === "string" && serverMessage.trim()) {
       return serverMessage;
     }
+    if (!error.response) {
+      return "Cannot reach the API server. Start the backend on port 8081.";
+    }
+    if (status === 502 || status === 503) {
+      return "API server is not reachable. Start the backend on port 8081.";
+    }
     if (status === 500) {
       return "Backend service error (500). Please verify server connection.";
     }

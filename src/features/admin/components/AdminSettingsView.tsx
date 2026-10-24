@@ -37,6 +37,12 @@ import {
 import { AdminTab } from './AdminShell';
 import { AdminStaffView } from './AdminStaffView';
 import { mockAdminStore } from '../mockAdminStore';
+import {
+  SameDayDeliverySettingsCard,
+  SameDaySettings,
+  StandardDeliverySettingsCard,
+  StandardDeliverySettings,
+} from '../../sameDayDelivery';
 
 interface StoreProfileData {
   storeName: string;
@@ -337,6 +343,21 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   const [activeDeliveryModal, setActiveDeliveryModal] = useState<
     'minOrderValue' | 'deliveryCharge' | 'codCharge' | 'shippingPartners' | 'pickupAddresses' | null
   >(null);
+  const [sameDaySettings, setSameDaySettings] = useState<SameDaySettings>({
+    enabled: false,
+    pincodes: [],
+    openHour: 9,
+    cutoffHour: 14,
+    floorFeeInr: 0,
+    feeBuffer: 1.2,
+    warehouseLat: null,
+    warehouseLng: null,
+  });
+  const [sameDaySaving, setSameDaySaving] = useState(false);
+  const [standardDeliverySettings, setStandardDeliverySettings] = useState<StandardDeliverySettings>({
+    enabled: true,
+  });
+  const [standardDeliverySaving, setStandardDeliverySaving] = useState(false);
 
   const fetchDeliverySettings = async () => {
     setDeliveryLoading(true);
@@ -361,6 +382,27 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
           freeDeliveryAbove: s.freeDeliveryAbove ?? prev.freeDeliveryAbove,
           codCharge: s.codCharge ?? prev.codCharge,
         }));
+        if (s.standardDelivery) {
+          setStandardDeliverySettings({
+            enabled: s.standardDelivery.enabled !== false,
+            ready: s.standardDelivery.ready,
+          });
+        }
+        if (s.sameDay) {
+          setSameDaySettings({
+            enabled: Boolean(s.sameDay.enabled),
+            pincodes: Array.isArray(s.sameDay.pincodes) ? s.sameDay.pincodes : [],
+            openHour: Number(s.sameDay.openHour) || 9,
+            cutoffHour: Number(s.sameDay.cutoffHour) || 14,
+            floorFeeInr: Number(s.sameDay.floorFeeInr) || 0,
+            feeBuffer: Number(s.sameDay.feeBuffer) || 1.2,
+            warehouseLat: s.sameDay.warehouseLat ?? null,
+            warehouseLng: s.sameDay.warehouseLng ?? null,
+            pincodeCount: s.sameDay.pincodeCount,
+            pincodeRestricted: s.sameDay.pincodeRestricted,
+            ready: s.sameDay.ready,
+          });
+        }
       }
 
       if (whRes.status === 'fulfilled') {
@@ -1658,6 +1700,70 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              <StandardDeliverySettingsCard
+                value={standardDeliverySettings}
+                sameDayReady={Boolean(sameDaySettings.ready || sameDaySettings.enabled)}
+                saving={standardDeliverySaving}
+                onSave={async (next) => {
+                  setStandardDeliverySaving(true);
+                  try {
+                    const saved = await adminShippingSettingsApi.updateSettings({
+                      standardDelivery: { enabled: next.enabled },
+                    });
+                    if (saved?.standardDelivery) {
+                      setStandardDeliverySettings({
+                        enabled: saved.standardDelivery.enabled !== false,
+                        ready: saved.standardDelivery.ready,
+                      });
+                    } else {
+                      setStandardDeliverySettings(next);
+                    }
+                    showToast(
+                      next.enabled
+                        ? 'Standard delivery enabled'
+                        : 'Standard delivery turned off — checkout is Same Day only'
+                    );
+                  } catch (err: any) {
+                    showToast(`Failed to save Standard delivery: ${err.message || 'Error'}`, 'error');
+                  } finally {
+                    setStandardDeliverySaving(false);
+                  }
+                }}
+              />
+
+              <SameDayDeliverySettingsCard
+                value={sameDaySettings}
+                saving={sameDaySaving}
+                onSave={async (next) => {
+                  setSameDaySaving(true);
+                  try {
+                    const saved = await adminShippingSettingsApi.updateSettings({ sameDay: next });
+                    if (saved?.sameDay) {
+                      setSameDaySettings({
+                        enabled: Boolean(saved.sameDay.enabled),
+                        pincodes: Array.isArray(saved.sameDay.pincodes) ? saved.sameDay.pincodes : next.pincodes,
+                        openHour: Number(saved.sameDay.openHour) || next.openHour,
+                        cutoffHour: Number(saved.sameDay.cutoffHour) || next.cutoffHour,
+                        floorFeeInr: Number(saved.sameDay.floorFeeInr) || next.floorFeeInr,
+                        feeBuffer: Number(saved.sameDay.feeBuffer) || next.feeBuffer,
+                        warehouseLat: saved.sameDay.warehouseLat ?? next.warehouseLat,
+                        warehouseLng: saved.sameDay.warehouseLng ?? next.warehouseLng,
+                        pincodeCount: saved.sameDay.pincodeCount,
+                        pincodeRestricted: saved.sameDay.pincodeRestricted,
+                        ready: saved.sameDay.ready,
+                      });
+                    } else {
+                      setSameDaySettings(next);
+                    }
+                    showToast('Same Day delivery settings saved');
+                  } catch (err: any) {
+                    showToast(`Failed to save Same Day settings: ${err.message || 'Error'}`, 'error');
+                  } finally {
+                    setSameDaySaving(false);
+                  }
+                }}
+              />
             </div>
           )}
 

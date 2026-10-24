@@ -35,7 +35,8 @@ import {
   ClipboardList,
   UserCheck,
   HelpCircle,
-  Lightbulb
+  Lightbulb,
+  Zap
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
 import {
@@ -51,6 +52,7 @@ import {
 export type AdminTab = 
   | 'dashboard' 
   | 'orders' 
+  | 'same-day-orders'
   | 'returns' 
   | 'rto' 
   | 'outofstock-query' 
@@ -645,6 +647,12 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                           {counts.orders}
                         </span>
                       }
+                    />
+                    <SidebarNavItem
+                      icon={Zap}
+                      label="Same Day"
+                      isActive={currentTab === 'same-day-orders'}
+                      onClick={() => handleTabClick('same-day-orders')}
                     />
 
                     {/* Returns & Refunds */}

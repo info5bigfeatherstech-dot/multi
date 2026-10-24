@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAppSelector } from '../../../store/hooks';
 import { adminOrdersApi } from '../../../api';
+import { SameDayFulfillmentActions } from '../../sameDayDelivery';
 import toast from 'react-hot-toast';
 
 interface AdminOrderDetailViewProps {
@@ -495,6 +496,10 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
           </div>
         </div>
       </div>
+
+      {order && (
+        <SameDayFulfillmentActions order={order} onChanged={loadOrderDetails} />
+      )}
 
       {/* 3. Main 2x2 Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -190,8 +190,12 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
     const newErrors: { [key: string]: string } = {};
 
     if (!houseFlat.trim()) newErrors.houseFlat = 'House / Flat No. is required';
+    else if (houseFlat.trim().length > 80) newErrors.houseFlat = 'House / Flat No. must be at most 80 characters.';
     if (!areaLocality.trim()) newErrors.areaLocality = 'Area / Locality is required';
+    else if (areaLocality.trim().length > 120) newErrors.areaLocality = 'Area / Locality must be at most 120 characters.';
     if (!streetLine1.trim()) newErrors.streetLine1 = 'Street Address (Line 1) is required';
+    else if (streetLine1.trim().length < 10) newErrors.streetLine1 = 'Street Address must be at least 10 characters.';
+    else if (streetLine1.trim().length > 200) newErrors.streetLine1 = 'Street Address must be at most 200 characters.';
     if (!city.trim()) newErrors.city = 'City is required';
 
     if (Object.keys(newErrors).length > 0) {
@@ -479,6 +483,7 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
                       if (errors.houseFlat) setErrors((prev) => ({ ...prev, houseFlat: '' }));
                     }}
                     placeholder="e.g. 42B"
+                    maxLength={80}
                     className={`w-full px-4 py-2.5 rounded-2xl border text-xs sm:text-sm text-navy placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#A44101] transition-all bg-white ${
                       errors.houseFlat ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus:border-[#A44101]'
                     }`}
@@ -683,7 +688,8 @@ export const AddAddressModal: React.FC<AddAddressModalProps> = ({
                     setStreetLine1(e.target.value);
                     if (errors.streetLine1) setErrors((prev) => ({ ...prev, streetLine1: '' }));
                   }}
-                  placeholder="Street and road details"
+                    placeholder="Street and road details"
+                    maxLength={200}
                   className={`w-full px-4 py-2.5 rounded-2xl border text-xs sm:text-sm text-navy placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#A44101] transition-all bg-white ${
                     errors.streetLine1 ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200 focus:border-[#A44101]'
                   }`}
