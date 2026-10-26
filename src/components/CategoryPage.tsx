@@ -1047,67 +1047,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
         )}
       </div>
 
-      {/* 5. COLOR: SWATCHES & CHIPS */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
-        <button
-          type="button"
-          onClick={() => setIsColorOpen(!isColorOpen)}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors cursor-pointer"
-          aria-expanded={isColorOpen}
-        >
-          <div className="flex items-center gap-2.5">
-            <Palette className="w-4 h-4 text-[#A44101] shrink-0" />
-            <span className="text-xs sm:text-[13px] font-black tracking-wider text-slate-800 uppercase">
-              COLOR
-            </span>
-            {selectedColor && (
-              <span className="w-2 h-2 rounded-full bg-[#A44101]" />
-            )}
-          </div>
-          <ChevronDown 
-            className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-              isColorOpen ? 'rotate-180' : ''
-            }`} 
-          />
-        </button>
-
-        {isColorOpen && (
-          <div className="px-4 pb-4 pt-1 space-y-2 border-t border-slate-100 animate-fadeIn">
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {AVAILABLE_COLORS.map((col) => {
-                const isSelected = selectedColor.toLowerCase() === col.name.toLowerCase();
-                return (
-                  <button
-                    key={col.name}
-                    type="button"
-                    onClick={() => setSelectedColor(isSelected ? '' : col.name)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#A44101] text-white shadow-xs font-bold'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
-                    }`}
-                  >
-                    <span
-                      className={`w-3 h-3 rounded-full shrink-0 ${col.border ? 'border border-slate-300' : ''}`}
-                      style={{ backgroundColor: col.hex }}
-                    />
-                    <span>{col.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {selectedColor && (
-              <button
-                type="button"
-                onClick={() => setSelectedColor('')}
-                className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer block pt-1"
-              >
-                Clear Color
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+    
 
       {/* 6. AVAILABILITY: CHECKBOX (In Stock) */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
