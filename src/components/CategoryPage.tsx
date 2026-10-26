@@ -1334,7 +1334,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
           </div>
 
           {metadata.tagline && (
-            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 max-w-2xl font-normal">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 max-w-2xl font-normal capitalize">
               {metadata.tagline}
             </p>
           )}
