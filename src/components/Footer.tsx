@@ -77,7 +77,7 @@ export const Footer: React.FC<FooterProps> = ({
               <Headphones className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white group-hover:text-[#A44101] transition-colors">24/7 Dedicated Support</h4>
+              <h4 className="text-sm font-bold text-white group-hover:text-[#A44101] transition-colors"> Dedicated Support</h4>
               <p className="text-xs text-slate-400 mt-0.5">Direct WhatsApp &amp; phone assistance</p>
             </div>
           </button>

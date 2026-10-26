@@ -9,7 +9,8 @@ import {
   Truck, 
   Percent, 
   ShoppingBag,
-  LayoutGrid
+  LayoutGrid,
+  RotateCcw
 } from 'lucide-react';
 import { HERO_TEMPLATED_BANNERS, HeroBanner } from '../data/storeData';
 import { 
@@ -490,6 +491,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                 </p>
               </div>
             </div>
+
           </aside>
 
         </div>
@@ -565,6 +567,16 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
             <div className="min-w-0">
               <h4 className="font-bold text-xs text-navy leading-tight truncate">Zero Minimum Order</h4>
               <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Buy 1 piece or bulk</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-2.5 sm:p-3 flex items-center gap-2.5 hover:border-amber-300 transition-colors">
+            <div className="w-9 h-9 rounded-lg bg-[#A44101]/10 flex items-center justify-center shrink-0">
+              <RotateCcw className="w-4 h-4 text-[#A44101]" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-bold text-xs text-navy leading-tight truncate">7-Day Easy Replacement</h4>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Hassle-free support on verified damaged items</p>
             </div>
           </div>
         </div>

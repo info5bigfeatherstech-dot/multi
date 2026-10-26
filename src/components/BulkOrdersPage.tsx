@@ -182,7 +182,7 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
     },
     {
       q: 'Do you provide genuine GST tax invoices for businesses?',
-      a: 'Yes! We issue 100% compliant B2B tax invoices with your business GSTIN so you can claim full input tax credit (ITC).',
+      a: 'Yes, we provide GST invoices for eligible business orders.',
     },
     {
       q: 'How fast will my bulk inquiry be processed?',
@@ -618,9 +618,9 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
                   <FileText className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-navy text-xs sm:text-sm">100% Genuine GST Invoices</h4>
+                  <h4 className="font-bold text-navy text-xs sm:text-sm">100% Genuine Invoices</h4>
                   <p className="text-slate-500 text-[11px] sm:text-xs mt-0.5">
-                    Legitimate business invoices with input tax credit (ITC) for registered businesses.
+                    Registered businesses can get a GST invoice and claim tax credit.
                   </p>
                 </div>
               </div>
