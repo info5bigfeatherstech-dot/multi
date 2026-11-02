@@ -18,6 +18,8 @@ interface FooterProps {
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
   onGoToBulkOrders?: () => void;
+  onGoToBecomeDropshipper?: () => void;
+  onGoToInfluencer?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({
@@ -25,6 +27,8 @@ export const Footer: React.FC<FooterProps> = ({
   onGoToAdmin: _onGoToAdmin,
   onGoToContact,
   onGoToBulkOrders,
+  onGoToBecomeDropshipper,
+  onGoToInfluencer,
 }) => {
   return (
     <footer className="site-footer bg-navy text-slate-300 pt-14 pb-8 border-t border-navy-light/40" role="contentinfo">
@@ -236,6 +240,44 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-[#A44101] transition-colors cursor-pointer"
                 >
                   Bulk Orders &amp; Wholesale
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/become-dropshipper"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onGoToBecomeDropshipper) onGoToBecomeDropshipper();
+                    else {
+                      window.history.pushState(null, '', '/become-dropshipper');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                  }}
+                  className="hover:text-[#A44101] transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>Become a Dropshipper</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.5 rounded leading-none">
+                    B2B
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/influencer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onGoToInfluencer) onGoToInfluencer();
+                    else {
+                      window.history.pushState(null, '', '/influencer');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                  }}
+                  className="hover:text-[#A44101] transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>Creator &amp; Influencer Collab</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider bg-pink-600 text-white px-1.5 py-0.5 rounded leading-none">
+                    Collab
+                  </span>
                 </a>
               </li>
             </ul>

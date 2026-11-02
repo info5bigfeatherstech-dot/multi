@@ -15,6 +15,12 @@ import { AdminOutOfStockInquiriesView } from './components/AdminOutOfStockInquir
 import { AdminCustomerLeadsView } from './components/AdminCustomerLeadsView';
 import { AdminAbandonedCartsView } from './components/AdminAbandonedCartsView';
 import { AdminMarketingCouponsView } from './components/AdminMarketingCouponsView';
+import { AdminDropshipperRequestsView } from './components/dropshipper/AdminDropshipperRequestsView';
+import { AdminDropshipperAccountsView } from './components/dropshipper/AdminDropshipperAccountsView';
+import { AdminDropshipperOrdersView } from './components/dropshipper/AdminDropshipperOrdersView';
+import { AdminDropshipperPricingView } from './components/dropshipper/AdminDropshipperPricingView';
+import { AdminDropshipperSettingsView } from './components/dropshipper/AdminDropshipperSettingsView';
+
 
 import { refreshAdminAccessToken, clearAdminTokens } from '../../api';
 
@@ -37,6 +43,13 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
   const [currentTab, setCurrentTab] = useState<AdminTab>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
+      
+      if (path.includes('dropshipper-requests')) return 'dropshipper-requests';
+      if (path.includes('dropshipper-accounts')) return 'dropshipper-accounts';
+      if (path.includes('dropshipper-orders')) return 'dropshipper-orders';
+      if (path.includes('dropshipper-pricing')) return 'dropshipper-pricing';
+      if (path.includes('dropshipper-settings')) return 'dropshipper-settings';
+      if (path.includes('dropshipper')) return 'dropshipper-requests';
       if (path.includes('same-day-orders') || path.includes('sameday')) return 'same-day-orders';
       if (path.includes('orders')) return 'orders';
       if (path.includes('returns')) return 'returns';
@@ -305,6 +318,27 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
 
       {currentTab === 'marketing' && (
         <AdminMarketingCouponsView />
+      )}
+
+      
+      {currentTab === 'dropshipper-requests' && (
+        <AdminDropshipperRequestsView />
+      )}
+
+      {currentTab === 'dropshipper-accounts' && (
+        <AdminDropshipperAccountsView />
+      )}
+
+      {currentTab === 'dropshipper-orders' && (
+        <AdminDropshipperOrdersView />
+      )}
+
+      {currentTab === 'dropshipper-pricing' && (
+        <AdminDropshipperPricingView />
+      )}
+
+      {currentTab === 'dropshipper-settings' && (
+        <AdminDropshipperSettingsView />
       )}
 
       {(currentTab === 'staff' || currentTab === 'settings-staff') && (

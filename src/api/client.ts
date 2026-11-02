@@ -62,10 +62,36 @@ export const clearUserTokens = (): void => {
 };
 
 // ============================================================
+// DROPSHIPPER TOKEN MANAGEMENT (ISOLATED CHANNEL)
+// ============================================================
+export const getDropshipperAccessToken = (): string | null =>
+  typeof window !== "undefined" ? localStorage.getItem("dropshipper_access_token") : null;
+
+export const getDropshipperRefreshToken = (): string | null =>
+  typeof window !== "undefined" ? localStorage.getItem("dropshipper_refresh_token") : null;
+
+export const setDropshipperTokens = (accessToken: string, refreshToken?: string | null): void => {
+  if (typeof window === "undefined") return;
+  if (accessToken) {
+    localStorage.setItem("dropshipper_access_token", accessToken);
+  }
+  if (refreshToken) {
+    localStorage.setItem("dropshipper_refresh_token", refreshToken);
+  }
+};
+
+export const clearDropshipperTokens = (): void => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("dropshipper_access_token");
+  localStorage.removeItem("dropshipper_refresh_token");
+};
+
+// ============================================================
 // SECURE TOKEN REFRESH PROMISES (CONCURRENCY-SAFE)
 // ============================================================
 let adminRefreshPromise: Promise<string | null> | null = null;
 let userRefreshPromise: Promise<string | null> | null = null;
+let dropshipperRefreshPromise: Promise<string | null> | null = null;
 
 /**
  * Attempts to refresh the Admin Access Token using the stored Admin Refresh Token.
@@ -82,7 +108,6 @@ export async function refreshAdminAccessToken(): Promise<string | null> {
 
   adminRefreshPromise = (async () => {
     try {
-      // Primary refresh route
       let res;
       try {
         res = await axios.post(
@@ -97,7 +122,6 @@ export async function refreshAdminAccessToken(): Promise<string | null> {
           }
         );
       } catch (err: any) {
-        // Fallback endpoint if route is /auth/refresh
         if (err.response?.status === 404) {
           res = await axios.post(
             `${BASE_API_URL}/auth/refresh`,
@@ -143,11 +167,6 @@ export async function refreshAdminAccessToken(): Promise<string | null> {
   return adminRefreshPromise;
 }
 
-/**
- * Proactively ensures admin token exists:
- * Returns current access token if available, or attempts a clean refresh via refresh token.
- * No hardcoded auto-login fallback.
- */
 export async function ensureAdminToken(): Promise<string | null> {
   const existing = getAdminAccessToken();
   if (existing) return existing;
@@ -157,7 +176,6 @@ export async function ensureAdminToken(): Promise<string | null> {
 /**
  * Attempts to refresh the Customer Access Token using the stored Customer Refresh Token
  * or the HTTP-only cookie session set by the backend.
- * Saves the returned fresh refresh token into localStorage (user_refresh_token).
  */
 export async function refreshCustomerAccessToken(): Promise<string | null> {
   const refreshToken = getUserRefreshToken();
@@ -225,7 +243,6 @@ export async function refreshCustomerAccessToken(): Promise<string | null> {
       }
     } catch (e: any) {
       console.warn("Customer token refresh failed:", e?.response?.data || e?.message || e);
-      // Only clear user tokens if session is explicitly rejected as unauthorized
       if (e?.response?.status === 401 || e?.response?.status === 403) {
         clearUserTokens();
         window.dispatchEvent(new Event("abb_auth_change"));
@@ -239,11 +256,6 @@ export async function refreshCustomerAccessToken(): Promise<string | null> {
   return userRefreshPromise;
 }
 
-/**
- * Proactively ensures customer access token exists:
- * Returns current access token if both access & refresh tokens exist in localStorage,
- * or triggers refresh via refresh token / cookie to obtain and store both tokens.
- */
 export async function ensureCustomerToken(): Promise<string | null> {
   const existingAccess = getUserAccessToken();
   const existingRefresh = getUserRefreshToken();
@@ -253,11 +265,76 @@ export async function ensureCustomerToken(): Promise<string | null> {
   return refreshCustomerAccessToken();
 }
 
+/**
+ * Attempts to refresh the Dropshipper Access Token using the stored Dropshipper Refresh Token.
+ */
+export async function refreshDropshipperAccessToken(): Promise<string | null> {
+  const refreshToken = getDropshipperRefreshToken();
+  if (!refreshToken) {
+    clearDropshipperTokens();
+    return null;
+  }
+
+  if (dropshipperRefreshPromise) return dropshipperRefreshPromise;
+
+  dropshipperRefreshPromise = (async () => {
+    try {
+      const res = await axios.post(
+        `${BASE_API_URL}/dropshipper/auth/refresh`,
+        { refreshToken },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-storefront": "dropship",
+          },
+          timeout: 10000,
+        }
+      );
+
+      const freshAccess =
+        res.data?.accessToken ||
+        res.data?.token ||
+        res.data?.data?.accessToken ||
+        res.data?.data?.token;
+
+      const freshRefresh =
+        res.data?.refreshToken ||
+        res.data?.data?.refreshToken;
+
+      if (freshAccess) {
+        setDropshipperTokens(freshAccess, freshRefresh || refreshToken);
+        window.dispatchEvent(new Event("abb_dropshipper_auth_success"));
+        return freshAccess;
+      }
+    } catch (e: any) {
+      console.warn("Dropshipper token refresh failed:", e?.response?.data || e?.message || e);
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        clearDropshipperTokens();
+        window.dispatchEvent(new Event("abb_dropshipper_unauthorized"));
+      }
+    } finally {
+      dropshipperRefreshPromise = null;
+    }
+    return null;
+  })();
+
+  return dropshipperRefreshPromise;
+}
+
+export async function ensureDropshipperToken(): Promise<string | null> {
+  const existingAccess = getDropshipperAccessToken();
+  const existingRefresh = getDropshipperRefreshToken();
+  if (existingAccess && existingRefresh) {
+    return existingAccess;
+  }
+  return refreshDropshipperAccessToken();
+}
+
 // ============================================================
-// REQUEST INTERCEPTOR: Inject Bearer Tokens & Storefront Headers
+// REQUEST INTERCEPTOR: Channel Isolation & Dedicated JWT Ingestion
 // ============================================================
 apiClient.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig & { useAdminAuth?: boolean }) => {
+  async (config: InternalAxiosRequestConfig & { useAdminAuth?: boolean; useDropshipperAuth?: boolean }) => {
     const url = config.url || "";
     const isAdminRoute =
       Boolean((config as any)?.useAdminAuth) ||
@@ -265,30 +342,58 @@ apiClient.interceptors.request.use(
       url.includes("/categories/admin") ||
       (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
 
+    const isDropshipperRoute =
+      !isAdminRoute &&
+      (Boolean((config as any)?.useDropshipperAuth) ||
+        url.includes("/dropshipper") ||
+        (typeof window !== "undefined" && window.location.pathname.startsWith("/dropshipper")));
+
     let token: string | null = null;
+
     if (isAdminRoute) {
-      // Admin endpoints strictly use admin_access_token (never customer tokens)
+      // Admin endpoints strictly use admin_access_token (never customer or dropshipper tokens)
       token = getAdminAccessToken();
-      // If access token is absent but refresh token exists and not login call, attempt refresh
       if (!token && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {
         token = await refreshAdminAccessToken();
       }
+      if (config.headers && !config.headers["x-storefront"]) {
+        config.headers["x-storefront"] = "admin-ecomm";
+      }
+    } else if (isDropshipperRoute) {
+      // Dropshippers authenticate with their dedicated JWT (channel isolation)
+      token = getDropshipperAccessToken();
+      const isPublicDropshipAuth =
+        url.includes("/subscription-settings") ||
+        url.includes("/register/start") ||
+        url.includes("/register/create-payment") ||
+        url.includes("/register/verify-payment") ||
+        url.includes("/register/status") ||
+        url.includes("/activate/") ||
+        url.includes("/auth/login") ||
+        url.includes("/auth/refresh");
+
+      if (!token && !isPublicDropshipAuth && getDropshipperRefreshToken()) {
+        token = await refreshDropshipperAccessToken();
+      }
+
+      if (config.headers && !config.headers["x-storefront"]) {
+        config.headers["x-storefront"] = "dropship";
+      }
     } else {
+      // Regular customer storefront
       token = getUserAccessToken();
       if (!token && !url.includes("/auth/login") && !url.includes("/auth/refresh")) {
-        // If customer access token absent, check if refresh token exists
         if (getUserRefreshToken()) {
           token = await refreshCustomerAccessToken();
         }
+      }
+      if (config.headers && !config.headers["x-storefront"]) {
+        config.headers["x-storefront"] = "ecomm";
       }
     }
 
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    if (config.headers && !config.headers["x-storefront"]) {
-      config.headers["x-storefront"] = "ecomm";
     }
 
     return config;
@@ -305,7 +410,9 @@ apiClient.interceptors.response.use(
     const originalConfig = error.config as (InternalAxiosRequestConfig & {
       _retryAdminAuth?: boolean;
       _retryUserAuth?: boolean;
+      _retryDropshipperAuth?: boolean;
       useAdminAuth?: boolean;
+      useDropshipperAuth?: boolean;
     }) | undefined;
 
     const url = originalConfig?.url || "";
@@ -315,6 +422,13 @@ apiClient.interceptors.response.use(
       url.includes("/admin") ||
       url.includes("/categories/admin") ||
       (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
+
+    const isDropshipperRoute =
+      !isAdminRoute &&
+      (Boolean((originalConfig as any)?.useDropshipperAuth) ||
+        url.includes("/dropshipper") ||
+        (typeof window !== "undefined" && window.location.pathname.startsWith("/dropshipper")));
+
     const status = error.response?.status;
 
     // Handle Admin Auth Session Expired or Forbidden (401 or 403)
@@ -330,7 +444,6 @@ apiClient.interceptors.response.use(
         }
       }
 
-      // If refresh failed or was login/refresh route, clear admin tokens and lock dashboard
       if (!isLoginOrRefreshRoute) {
         clearAdminTokens();
         window.dispatchEvent(new Event("abb_admin_forbidden"));
@@ -338,8 +451,28 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Handle Dropshipper 401 Session Expired
+    if (isDropshipperRoute && status === 401) {
+      if (!isLoginOrRefreshRoute && originalConfig && !originalConfig._retryDropshipperAuth) {
+        originalConfig._retryDropshipperAuth = true;
+        const freshToken = await refreshDropshipperAccessToken();
+        if (freshToken) {
+          if (originalConfig.headers) {
+            originalConfig.headers.Authorization = `Bearer ${freshToken}`;
+          }
+          return apiClient(originalConfig);
+        }
+      }
+
+      if (!isLoginOrRefreshRoute) {
+        clearDropshipperTokens();
+        window.dispatchEvent(new Event("abb_dropshipper_unauthorized"));
+      }
+      return Promise.reject(error);
+    }
+
     // Handle Customer 401 Session Expired
-    if (status === 401 && !isAdminRoute) {
+    if (status === 401 && !isAdminRoute && !isDropshipperRoute) {
       if (!isLoginOrRefreshRoute && originalConfig && !originalConfig._retryUserAuth) {
         originalConfig._retryUserAuth = true;
         const freshToken = await refreshCustomerAccessToken();
@@ -351,7 +484,6 @@ apiClient.interceptors.response.use(
         }
       }
 
-      // If refresh failed, clear user tokens
       if (!isLoginOrRefreshRoute) {
         clearUserTokens();
         window.dispatchEvent(new Event("abb_auth_change"));
@@ -384,7 +516,7 @@ export function normalizeApiError(error: unknown): string {
       return "Backend service error (500). Please verify server connection.";
     }
     if (status === 401) {
-      return "Invalid email or password. Access denied.";
+      return "Invalid email, phone or password. Access denied.";
     }
     if (status === 403) {
       return "Access denied. Insufficient permissions.";

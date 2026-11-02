@@ -207,6 +207,8 @@ export interface HeaderProps {
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
   onGoToBulkOrders?: () => void;
+  onGoToBecomeDropshipper?: () => void;
+  onGoToInfluencer?: () => void;
   onOpenAuthModal?: () => void;
   onSelectProduct?: (product: ProductItem) => void;
 }
@@ -271,6 +273,8 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToAdmin,
   onGoToContact,
   onGoToBulkOrders,
+  onGoToBecomeDropshipper,
+  onGoToInfluencer,
   onOpenAuthModal,
 }) => {
   const { openCart, totalCount, subtotal } = useCart();
@@ -1275,6 +1279,25 @@ export const Header: React.FC<HeaderProps> = ({
                 );
               })}
 
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onGoToBecomeDropshipper) onGoToBecomeDropshipper();
+                else {
+                  window.history.pushState(null, '', '/become-dropshipper');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+              className="hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer items-center gap-1.5"
+              title="Become an Official Dropship Partner"
+            >
+              <PackageCheck className="w-3.5 h-3.5 text-[#A44101]" />
+              <span>Dropship</span>
+              <span className="text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.2 rounded">
+                B2B
+              </span>
+            </button>
               <button
                 type="button"
                 onClick={() => {
@@ -1546,6 +1569,50 @@ export const Header: React.FC<HeaderProps> = ({
                       <Building2 className="w-4 h-4 text-[#A44101]" />
                       <span>Bulk Orders &amp; Wholesale</span>
                     </a>
+
+                    <a
+                      href="/become-dropshipper"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onGoToBecomeDropshipper) onGoToBecomeDropshipper();
+                        else {
+                          window.history.pushState(null, '', '/become-dropshipper');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
+                      }}
+                      className="flex items-center justify-between px-3 py-2 rounded-theme hover:bg-stone-200/60 text-navy font-semibold cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <PackageCheck className="w-4 h-4 text-[#A44101]" />
+                        <span>Become a Dropshipper</span>
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.2 rounded">
+                        B2B
+                      </span>
+                    </a>
+                    <a
+                      href="/influencer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onGoToInfluencer) onGoToInfluencer();
+                        else {
+                          window.history.pushState(null, '', '/influencer');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
+                      }}
+                      className="flex items-center justify-between px-3 py-2 rounded-theme hover:bg-stone-200/60 text-navy font-semibold cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Sparkles className="w-4 h-4 text-pink-600" />
+                        <span>Influencer Collaboration</span>
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-wider bg-pink-600 text-white px-1.5 py-0.2 rounded">
+                        Collab
+                      </span>
+                    </a>
+
                     <a
                       href="/admin/dashboard"
                       onClick={(e) => {

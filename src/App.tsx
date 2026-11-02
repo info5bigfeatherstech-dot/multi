@@ -21,16 +21,20 @@ import { BulkOrdersPage } from './components/BulkOrdersPage';
 import { LoginPage } from './components/LoginPage';
 import { PhonePromptModal } from './components/PhonePromptModal';
 import { DealsPage } from './components/DealsPage';
+import { InfluencerPage } from './pages/InfluencerPage';
+import { BecomeDropshipperPage } from './pages/BecomeDropshipperPage';
+
 import { Loader2, PackageX } from 'lucide-react';
 import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
 import { getPersistedUserPhone } from './utils/authGuard';
 import { ensureCustomerToken } from './api';
 
-type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals' | 'login';
+type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals' | 'login' | 'influencer' | 'become-dropshipper';
 
 export const App: React.FC = () => {
   const [postAuthRedirect, setPostAuthRedirect] = useState<ViewType | null>(null);
   const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
+
 
   // Phone Gate Lock State: triggers only if user is logged in but has NEVER provided a phone number
   const [isPhonePromptOpen, setIsPhonePromptOpen] = useState<boolean>(() => {
@@ -50,6 +54,19 @@ export const App: React.FC = () => {
     }
     if (path === '/login' || path === '/signin' || path === '/auth' || hash === '#login' || hash === '#signin') {
       return 'login';
+    }
+    
+    if (path === '/influencer' || path.startsWith('/influencer') || hash === '#influencer') {
+      return 'influencer';
+    }
+    if (path === '/become-dropshipper' || path === '/dropship' || hash === '#dropshipper' || path.startsWith('/become-dropshipper')) {
+      return 'become-dropshipper';
+    }
+    if (path.startsWith('/dropshipper')) {
+      if (typeof window !== 'undefined') {
+        window.location.href = 'http://localhost:5174';
+      }
+      return 'home';
     }
     if (path.startsWith('/bulk-orders') || path.startsWith('/wholesale') || path.startsWith('/bulk') || hash === '#bulk-orders' || hash === '#wholesale') {
       return 'bulk-orders';
@@ -185,6 +202,23 @@ export const App: React.FC = () => {
         }
       }
 
+      
+      if (path === '/influencer' || path.startsWith('/influencer') || rawHash === '#influencer') {
+        setCurrentView('influencer');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      if (path === '/become-dropshipper' || path === '/dropship' || rawHash === '#dropshipper' || path.startsWith('/become-dropshipper')) {
+        setCurrentView('become-dropshipper');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      if (path.startsWith('/dropshipper')) {
+        window.location.href = 'http://localhost:5174';
+        return;
+      }
       if (path === '/admin' || path.startsWith('/admin')) {
         setCurrentView('admin');
         setSelectedProduct(null);
@@ -466,12 +500,37 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  
+  const handleGoToInfluencer = () => {
+    setCurrentView('influencer');
+    setSelectedProduct(null);
+    window.history.pushState(null, '', '/influencer');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+
+  const handleGoToBecomeDropshipper = () => {
+    setCurrentView('become-dropshipper');
+    setSelectedProduct(null);
+    window.history.pushState(null, '', '/become-dropshipper');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleGoToAdmin = () => {
     setCurrentView('admin');
     setSelectedProduct(null);
     window.history.pushState(null, '', '/admin/dashboard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  
+  // Full-screen dedicated Influencer Collaboration Form
+  if (currentView === 'influencer') {
+    return <InfluencerPage onBackToStore={handleBackToStore} />;
+  }
+
+
+
 
   // Full-screen dedicated Admin App view
   if (currentView === 'admin') {
@@ -499,6 +558,7 @@ export const App: React.FC = () => {
 
         {/* 2. Sticky Header & Navigation */}
         <Header
+          onGoToBecomeDropshipper={handleGoToBecomeDropshipper}
           onGoToWishlist={handleGoToWishlist}
           onGoToProfile={handleGoToProfile}
           onGoToCheckout={handleGoToCheckout}
@@ -508,6 +568,7 @@ export const App: React.FC = () => {
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
           onGoToBulkOrders={handleGoToBulkOrders}
+          onGoToInfluencer={handleGoToInfluencer}
           onOpenAuthModal={() => {
             handleGoToLogin();
           }}
@@ -515,7 +576,13 @@ export const App: React.FC = () => {
 
         {/* Main Content Area (White background under the header) */}
         <main className="main-content flex-1 bg-white relative">
-          {currentView === 'bulk-orders' ? (
+          {currentView === 'become-dropshipper' ? (
+            /* Dedicated Become Dropshipper Page */
+            <BecomeDropshipperPage
+              onBackToStore={handleBackToStore}
+              onGoToContact={handleGoToContact}
+            />
+          ) : currentView === 'bulk-orders' ? (
             /* Dedicated Bulk Orders & Wholesale Enquiries Page */
             <BulkOrdersPage
               onBackToHome={handleBackToStore}
@@ -628,10 +695,12 @@ export const App: React.FC = () => {
 
         {/* Store Footer */}
         <Footer
+          onGoToBecomeDropshipper={handleGoToBecomeDropshipper}
           onSelectCategory={handleSelectCategory}
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
           onGoToBulkOrders={handleGoToBulkOrders}
+          onGoToInfluencer={handleGoToInfluencer}
         />
 
         {/* Slide-in Cart Drawer */}

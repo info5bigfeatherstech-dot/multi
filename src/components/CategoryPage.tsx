@@ -7,7 +7,6 @@ import {
   ShieldCheck,
   RotateCcw, 
   Headphones, 
-  Tag,
   ChevronDown, 
   Zap, 
   ArrowUpDown, 
@@ -15,11 +14,8 @@ import {
   Package, 
   X, 
   SlidersHorizontal,
-  Flame,
   Sparkles,
-  Award,
   Percent,
-  Palette,
   ArrowLeft,
   Loader2,
   Plus,
@@ -216,10 +212,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
   const [sortBy, setSortBy] = useState<SortOption>('featured');
 
   // 2. Accordion Open/Closed States
-  const [isSpecialDealsOpen, setIsSpecialDealsOpen] = useState(true);
   const [isPriceOpen, setIsPriceOpen] = useState(true);
-  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(true);
-  const [isColorOpen, setIsColorOpen] = useState(true);
   const [isRatingOpen, setIsRatingOpen] = useState(true);
   const [isDiscountOpen, setIsDiscountOpen] = useState(true);
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(true);

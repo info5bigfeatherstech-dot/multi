@@ -1236,7 +1236,7 @@ export const LabelsBadgesTab: React.FC = () => {
                         <div className="min-w-0">
                           <h4 className="font-bold text-navy truncate text-xs">{p.title}</h4>
                           <span className="text-[11px] text-slate-400 font-mono block">
-                            SKU: {p.sku || p.id} • {p.category || 'General'}
+                            SKU: {p.sku || p.id} • {typeof p.category === 'object' && p.category !== null ? ((p.category as any).name || (p.category as any).slug || 'General') : (p.category || 'General')}
                           </span>
                         </div>
                       </div>

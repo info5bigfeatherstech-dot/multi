@@ -96,7 +96,12 @@ export type AdminTab =
   | 'settings-other'
   | 'settings-general' 
   | 'settings-shipping' 
-  | 'settings-backup';
+  | 'settings-backup'
+  | 'dropshipper-requests'
+  | 'dropshipper-accounts'
+  | 'dropshipper-orders'
+  | 'dropshipper-pricing'
+  | 'dropshipper-settings';
 
 interface AdminShellProps {
   currentUser: AdminUser;
@@ -259,6 +264,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({
   const [isProductsExpanded, setIsProductsExpanded] = useState(true);
   const [isArchivedExpanded, setIsArchivedExpanded] = useState(true);
   const [isReviewsExpanded, setIsReviewsExpanded] = useState(true);
+  const [isDropshipperExpanded, setIsDropshipperExpanded] = useState(true);
   const [isSettingsMode, setIsSettingsMode] = useState(
     currentTab.startsWith('settings')
   );
@@ -906,6 +912,57 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       onClick={() => handleTabClick('marketing')}
                     />
                   </div>
+                </div>
+
+                
+                {/* CATEGORY: Dropshipper Channel */}
+                <div className="space-y-1">
+                  <SidebarCollapsibleHeader
+                    icon={ShieldCheck}
+                    label="Dropshippers"
+                    isExpanded={isDropshipperExpanded}
+                    onToggle={() => setIsDropshipperExpanded(!isDropshipperExpanded)}
+                    badge={
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-orange-100/90 text-[#A44101] border border-orange-200/70">
+                        B2B
+                      </span>
+                    }
+                  />
+
+                  {isDropshipperExpanded && (
+                    <div className="border-l-2 border-orange-200/70 ml-6 pl-3 space-y-1 my-1">
+                      <SidebarSubItem
+                        icon={FileText}
+                        label="KYC Requests"
+                        isActive={currentTab === 'dropshipper-requests'}
+                        onClick={() => handleTabClick('dropshipper-requests')}
+                      />
+                      <SidebarSubItem
+                        icon={Users}
+                        label="Partner Accounts"
+                        isActive={currentTab === 'dropshipper-accounts'}
+                        onClick={() => handleTabClick('dropshipper-accounts')}
+                      />
+                      <SidebarSubItem
+                        icon={ShoppingBag}
+                        label="Dropship Orders"
+                        isActive={currentTab === 'dropshipper-orders'}
+                        onClick={() => handleTabClick('dropshipper-orders')}
+                      />
+                      <SidebarSubItem
+                        icon={Tag}
+                        label="Pricing & Visibility"
+                        isActive={currentTab === 'dropshipper-pricing'}
+                        onClick={() => handleTabClick('dropshipper-pricing')}
+                      />
+                      <SidebarSubItem
+                        icon={SlidersHorizontal}
+                        label="Dropship Settings"
+                        isActive={currentTab === 'dropshipper-settings'}
+                        onClick={() => handleTabClick('dropshipper-settings')}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* CATEGORY 4: Team & Access */}
