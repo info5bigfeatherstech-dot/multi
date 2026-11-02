@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Users,
   Search,
@@ -60,6 +61,18 @@ export const AdminDropshipperAccountsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    if (isDrawerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isDrawerOpen]);
 
   // Debounce search input
   useEffect(() => {
@@ -337,10 +350,19 @@ export const AdminDropshipperAccountsView: React.FC = () => {
         )}
       </div>
 
-      {/* Account Details Slide-Over Drawer */}
-      {isDrawerOpen && selectedAccount && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-end">
-          <div className="bg-white w-full max-w-lg h-full shadow-2xl flex flex-col overflow-hidden animate-slideLeft text-xs">
+      {/* Account Details Slide-Over Drawer ported to document.body */}
+      {isDrawerOpen &&
+        selectedAccount &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md flex items-center justify-end transition-all duration-200"
+            onClick={() => setIsDrawerOpen(false)}
+          >
+            <div
+              className="bg-white w-full max-w-lg h-full shadow-2xl flex flex-col overflow-hidden animate-slideLeft text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
             {/* Drawer Header */}
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <div className="flex items-center gap-2">
@@ -563,7 +585,8 @@ export const AdminDropshipperAccountsView: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

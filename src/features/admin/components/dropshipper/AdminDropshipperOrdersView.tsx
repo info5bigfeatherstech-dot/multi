@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ShoppingBag,
   Search,
@@ -58,6 +59,18 @@ export const AdminDropshipperOrdersView: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Lock body scroll when modal is open to ensure 100% background freeze
+  useEffect(() => {
+    if (isDetailModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isDetailModalOpen]);
 
   const loadOrders = () => {
     dispatch(
@@ -303,12 +316,15 @@ export const AdminDropshipperOrdersView: React.FC = () => {
         )}
       </div>
 
-      {/* Order Detail Modal with Heavy Background Blur */}
-      {isDetailModalOpen && selectedOrder && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto transition-all duration-200"
-          onClick={() => setIsDetailModalOpen(false)}
-        >
+      {/* Order Detail Modal with Heavy Background Blur ported to document.body */}
+      {isDetailModalOpen &&
+        selectedOrder &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto transition-all duration-200"
+            onClick={() => setIsDetailModalOpen(false)}
+          >
           <div
             className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto animate-scaleIn text-xs flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
@@ -635,7 +651,8 @@ export const AdminDropshipperOrdersView: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

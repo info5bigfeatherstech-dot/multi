@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileText,
   Search,
@@ -34,6 +35,18 @@ export const AdminDropshipperRequestsView: React.FC = () => {
   const [rejectNote, setRejectNote] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Lock body scroll when either modal is open
+  useEffect(() => {
+    if (isDetailModalOpen || isRejectModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isDetailModalOpen, isRejectModalOpen]);
 
   useEffect(() => {
     dispatch(
@@ -260,9 +273,18 @@ export const AdminDropshipperRequestsView: React.FC = () => {
       </div>
 
       {/* Modal 1: Request Details */}
-      {isDetailModalOpen && selectedRequest && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scaleIn text-xs">
+      {isDetailModalOpen &&
+        selectedRequest &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto transition-all duration-200"
+            onClick={() => setIsDetailModalOpen(false)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-100 overflow-hidden my-auto animate-scaleIn text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-100 bg-slate-50/70">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#A44101]" />
@@ -407,47 +429,58 @@ export const AdminDropshipperRequestsView: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal 2: Rejection Reason */}
-      {isRejectModalOpen && selectedRequest && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-scaleIn p-6 space-y-4">
-            <div className="flex items-center gap-2 text-rose-600">
-              <AlertCircle className="w-5 h-5" />
-              <h3 className="text-sm font-black text-navy">Reject KYC Application</h3>
+      {isRejectModalOpen &&
+        selectedRequest &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-200"
+            onClick={() => setIsRejectModalOpen(false)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-scaleIn p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 text-rose-600">
+                <AlertCircle className="w-5 h-5" />
+                <h3 className="text-sm font-black text-navy">Reject KYC Application</h3>
+              </div>
+              <p className="text-xs text-slate-600">
+                Provide a note explaining why this application is rejected. This note will be visible to the applicant.
+              </p>
+              <textarea
+                rows={3}
+                value={rejectNote}
+                onChange={(e) => setRejectNote(e.target.value)}
+                placeholder="e.g. Identity proof photo is blurry; electricity bill name does not match applicant."
+                className="w-full p-3 text-xs rounded-xl border border-slate-300 focus:border-rose-500 focus:outline-none"
+              />
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsRejectModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmReject}
+                  disabled={actionLoading}
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-slate-600">
-              Provide a note explaining why this application is rejected. This note will be visible to the applicant.
-            </p>
-            <textarea
-              rows={3}
-              value={rejectNote}
-              onChange={(e) => setRejectNote(e.target.value)}
-              placeholder="e.g. Identity proof photo is blurry; electricity bill name does not match applicant."
-              className="w-full p-3 text-xs rounded-xl border border-slate-300 focus:border-rose-500 focus:outline-none"
-            />
-            <div className="flex items-center gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setIsRejectModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmReject}
-                disabled={actionLoading}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                Confirm Rejection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
