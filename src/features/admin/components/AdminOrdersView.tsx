@@ -43,7 +43,10 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [orders, setOrders] = useState<AdminOrder[]>(() => mockAdminStore.getOrders());
+  const [orders, setOrders] = useState<AdminOrder[]>(() => {
+    if (shippingSpeedScope === 'same_day') return [];
+    return mockAdminStore.getOrders();
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchLiveOrders = async () => {
@@ -52,7 +55,11 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
       if (activeTab === 'RTO') {
         const rtoRes = await adminOrdersApi.getRtoOrders();
         const rtoList = rtoRes.orders || rtoRes.data || (Array.isArray(rtoRes) ? rtoRes : []);
-        if (Array.isArray(rtoList) && rtoList.length > 0) {
+        if (Array.isArray(rtoList)) {
+          if (rtoList.length === 0) {
+            setOrders([]);
+            return;
+          }
           const mapped: AdminOrder[] = rtoList.map((ord: any) => ({
             id: ord.orderId || ord._id || String(Math.random()),
             orderNumber: ord.orderIdDisplay || ord.orderId || '#RTO-LIVE',
@@ -93,7 +100,10 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
       });
 
       const rawOrders = res.orders || res.data?.orders || res.data || (Array.isArray(res) ? res : []);
-      if (Array.isArray(rawOrders) && rawOrders.length > 0) {
+      if (Array.isArray(rawOrders)) {
+        if (rawOrders.length === 0) {
+          setOrders([]);
+        } else {
         const mapped: AdminOrder[] = rawOrders.map((ord: any) => ({
           id: ord.orderId || ord._id || String(Math.random()),
           orderNumber: ord.orderIdDisplay || ord.orderId || '#ORD-LIVE',
@@ -163,6 +173,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
           updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
         }));
         setOrders(mapped);
+        }
       }
     } catch {
       // Fallback stays in state
