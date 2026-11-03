@@ -159,7 +159,7 @@ export const AdminDropshipperRequestsView: React.FC = () => {
         ) : requests.length === 0 ? (
           <div className="text-center py-16 space-y-2">
             <FileText className="w-10 h-10 text-slate-300 mx-auto" />
-            <h3 className="text-sm font-black text-navy">No KYC requests found</h3>
+            <h3 className="text-sm font-black text-navy capitalize">No KYC requests found</h3>
             <p className="text-xs text-slate-500">There are no pending submissions for this filter.</p>
           </div>
         ) : (

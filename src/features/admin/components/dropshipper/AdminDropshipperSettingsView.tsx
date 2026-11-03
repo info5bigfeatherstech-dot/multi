@@ -76,7 +76,7 @@ export const AdminDropshipperSettingsView: React.FC = () => {
                 <h4 className="text-xs sm:text-sm font-black text-navy">
                   Partner Registration Gate
                 </h4>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5 capitalize">
                   When paused, the public landing page informs visitors that applications are temporarily closed.
                 </p>
               </div>
@@ -125,8 +125,8 @@ export const AdminDropshipperSettingsView: React.FC = () => {
                 <ShieldCheck className="w-4 h-4 text-[#A44101]" />
                 <span>Live Plan Ingestion Summary</span>
               </div>
-              <p>
-                Public Landing &amp; Registration APIs will immediately present: <strong>₹{amount}</strong> for a <strong>1-Year</strong> window.
+              <p className='capitalize'>
+                Public Landing &amp; Registration  will immediately present: <strong>₹{amount}</strong> for a <strong>1-Year</strong> window.
               </p>
               <p>
                 Status:{' '}
