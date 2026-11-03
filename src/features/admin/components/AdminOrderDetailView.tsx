@@ -32,10 +32,27 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
 
   // Editable items state
   const [items, setItems] = useState<any[]>([]);
+  const [initialItems, setInitialItems] = useState<any[]>([]);
   const [previewTotals, setPreviewTotals] = useState<{ subtotal: number; deliveryCharges: number; total: number } | null>(null);
   const [isApplyingChanges, setIsApplyingChanges] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [previewModalData, setPreviewModalData] = useState<any>(null);
+
+  // Check if items list or quantities have changed compared to initialItems
+  const hasItemChanges = (() => {
+    if (initialItems.length === 0 && items.length === 0) return false;
+    if (items.length !== initialItems.length) return true;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const init = initialItems[i];
+      if (!init) return true;
+      const itPid = String(it.productId?._id || it.productId?.id || it.productId || '');
+      const initPid = String(init.productId?._id || init.productId?.id || init.productId || '');
+      if (itPid !== initPid) return true;
+      if (Number(it.quantity) !== Number(init.quantity)) return true;
+    }
+    return false;
+  })();
 
   // Address edit modal state
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -135,6 +152,9 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
         }
 
         setItems(mappedItems);
+        setInitialItems(mappedItems);
+        setPreviewTotals(null);
+        setPreviewModalData(null);
 
         // Address intelligence from order
         setAddressIntel({
@@ -181,6 +201,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
       return updated;
     });
     setPreviewTotals(null);
+    setPreviewModalData(null);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -190,6 +211,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
     }
     setItems((prev) => prev.filter((_, idx) => idx !== index));
     setPreviewTotals(null);
+    setPreviewModalData(null);
   };
 
   // Build item updates payload for backend
@@ -785,8 +807,8 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
             <button
               type="button"
               onClick={handlePreviewTotals}
-              disabled={isPreviewing}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              disabled={!hasItemChanges || isPreviewing}
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>{isPreviewing ? 'Calculating...' : 'Preview totals'}</span>
@@ -794,8 +816,8 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
             <button
               type="button"
               onClick={handleApplyChanges}
-              disabled={isApplyingChanges}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              disabled={!hasItemChanges || !previewModalData || isApplyingChanges}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Check className="w-3.5 h-3.5" />
               <span>{isApplyingChanges ? 'Applying...' : 'Apply changes'}</span>
@@ -1037,7 +1059,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
                   </button>
                   <button
                     type="button"
-                    disabled={!hasAddressChanges || isSavingAddress}
+                    disabled={!hasAddressChanges || !addressPreviewData || isSavingAddress}
                     onClick={handleApplyAddressUpdate}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-all shadow-xs cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
