@@ -98,10 +98,6 @@ export const AdminAbandonedCartsView: React.FC = () => {
   };
 
 
-
-
-
-
   const filteredCarts = useMemo(() => {
     return carts.filter((c) => {
       if (statusFilter !== 'all' && c.recoveryStatus !== statusFilter) return false;
