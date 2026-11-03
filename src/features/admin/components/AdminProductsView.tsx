@@ -210,9 +210,17 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
                 ? (p.category?._id || p.category?.id)
                 : (typeof p.category === 'string' && /^[0-9a-fA-F]{24}$/.test(p.category) ? p.category : undefined);
 
-              const categoryName = typeof p.category === 'object' && p.category?.name
-                ? p.category.name
+              const categoryName = typeof p.category === 'object' && p.category
+                ? (p.category.name || p.category.title || p.category.slug || 'General')
                 : (typeof p.category === 'string' ? p.category : 'General');
+
+              const subcategoryName = typeof p.subcategory === 'object' && p.subcategory
+                ? (p.subcategory.name || p.subcategory.title || p.subcategory.slug)
+                : (typeof p.subcategory === 'string' ? p.subcategory : undefined);
+
+              const brandName = typeof p.brand === 'object' && p.brand
+                ? (p.brand.name || 'Generic')
+                : (typeof p.brand === 'string' ? p.brand : 'Generic');
 
               const isArchived = p.status === 'archived' || Boolean(p.isArchived) || p.channelStatus?.ecomm === 'archived' || p.channelStatus?.wholesale === 'archived';
 
@@ -221,10 +229,10 @@ export const AdminProductsView: React.FC<AdminProductsViewProps> = ({ initialSub
                 sku: firstVariant.sku || p.slug || `SKU-${(p._id || '').slice(-6)}`,
                 slug: p.slug || '',
                 title: p.title || p.name,
-                brand: p.brand || 'Generic',
+                brand: brandName,
                 category: categoryName,
                 categoryId: rawCategoryId,
-                subcategory: p.subcategory || undefined,
+                subcategory: subcategoryName,
                 currentPrice,
                 originalPrice,
                 discountPercentage,

@@ -28,7 +28,15 @@ export const CheckoutShippingSpeedCards: React.FC<CheckoutShippingSpeedCardsProp
   const stdOn = standardEnabled !== false;
   const sameDayAvailable = sameDayOption?.available === true;
 
+  // When standard delivery is selected, same-day delivery being unavailable is normal and must not display an error
+  if (selected === 'standard' && !sameDayAvailable) {
+    return null;
+  }
+
   if (!stdOn && !sameDayAvailable) {
+    if (selected === 'standard' || /same day/i.test(unavailableMessage || '')) {
+      return null;
+    }
     return (
       <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-900 text-xs font-semibold">
         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
@@ -36,7 +44,7 @@ export const CheckoutShippingSpeedCards: React.FC<CheckoutShippingSpeedCardsProp
           <p>Not available</p>
           <p className="font-medium text-red-800 mt-1">
             {unavailableMessage ||
-              'Same day delivery is not available for this address. Standard delivery is turned off.'}
+              'Delivery is not available for this address.'}
           </p>
         </div>
       </div>

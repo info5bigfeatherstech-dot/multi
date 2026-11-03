@@ -15,6 +15,13 @@ import { AdminProduct, restoreProduct } from '../../../../store/adminProductsSli
 import { adminProductsApi } from '../../../../api/adminApi';
 import { toast } from 'react-hot-toast';
 
+const getCategoryLabel = (cat: any): string => {
+  if (!cat) return 'General';
+  if (typeof cat === 'string') return cat;
+  if (typeof cat === 'object') return cat.name || cat.title || cat.slug || 'General';
+  return String(cat);
+};
+
 interface ArchivedProductsTabProps {
   onOpenAddProduct?: () => void;
 }
@@ -170,7 +177,8 @@ export const ArchivedProductsTab: React.FC<ArchivedProductsTabProps> = () => {
   const categoriesList = useMemo(() => {
     const cats = new Set<string>();
     archivedProducts.forEach((p) => {
-      if (p.category) cats.add(p.category);
+      const c = getCategoryLabel(p.category);
+      if (c) cats.add(c);
     });
     return ['All', ...Array.from(cats)];
   }, [archivedProducts]);
@@ -178,14 +186,19 @@ export const ArchivedProductsTab: React.FC<ArchivedProductsTabProps> = () => {
   // Filtered Products
   const filteredProducts = useMemo(() => {
     return archivedProducts.filter((p) => {
+      const titleStr = (typeof p.title === 'string' ? p.title : ((p as any).name || '')).toLowerCase();
+      const skuStr = (p.sku || '').toLowerCase();
+      const catStr = getCategoryLabel(p.category).toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+
       const matchSearch =
-        searchQuery === '' ||
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase()));
+        q === '' ||
+        titleStr.includes(q) ||
+        skuStr.includes(q) ||
+        catStr.includes(q);
 
       const matchCategory =
-        categoryFilter === 'All' || p.category === categoryFilter;
+        categoryFilter === 'All' || getCategoryLabel(p.category) === categoryFilter;
 
       return matchSearch && matchCategory;
     });
@@ -451,7 +464,7 @@ export const ArchivedProductsTab: React.FC<ArchivedProductsTabProps> = () => {
 
                       <td className="py-3.5 px-4">
                         <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200/60">
-                          {product.category || 'General'}
+                          {getCategoryLabel(product.category)}
                         </span>
                       </td>
 

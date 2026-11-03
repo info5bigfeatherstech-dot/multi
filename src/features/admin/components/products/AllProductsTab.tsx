@@ -44,6 +44,13 @@ import {
 import { adminProductsApi } from '../../../../api/adminApi';
 import toast from 'react-hot-toast';
 
+const getCategoryLabel = (cat: any): string => {
+  if (!cat) return 'General';
+  if (typeof cat === 'string') return cat;
+  if (typeof cat === 'object') return cat.name || cat.title || cat.slug || 'General';
+  return String(cat);
+};
+
 interface AllProductsTabProps {
   onEditProduct: (product: AdminProduct) => void;
   onArchiveProduct: (product: AdminProduct) => void;
@@ -87,19 +94,33 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      list = list.filter((p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        (p.brand && p.brand.toLowerCase().includes(q)) ||
-        p.category.toLowerCase().includes(q) ||
-        (p.tag && p.tag.toLowerCase().includes(q)) ||
-        (p.badges && p.badges.some(b => b.toLowerCase().includes(q)))
-      );
+      list = list.filter((p) => {
+        const titleStr = (typeof p.title === 'string' ? p.title : ((p as any).name || '')).toLowerCase();
+        const skuStr = (p.sku || '').toLowerCase();
+        const brandStr = (typeof p.brand === 'object' && p.brand !== null ? ((p.brand as any).name || '') : (p.brand || '')).toLowerCase();
+        const catStr = getCategoryLabel(p.category).toLowerCase();
+        const subStr = getCategoryLabel(p.subcategory).toLowerCase();
+        const tagStr = (typeof p.tag === 'object' && p.tag !== null ? ((p.tag as any).name || '') : (p.tag || '')).toLowerCase();
+        const badgesMatch = Array.isArray(p.badges) && p.badges.some((b: any) => {
+          const bStr = typeof b === 'object' && b !== null ? ((b as any).name || (b as any).label || '') : String(b || '');
+          return bStr.toLowerCase().includes(q);
+        });
+
+        return (
+          titleStr.includes(q) ||
+          skuStr.includes(q) ||
+          brandStr.includes(q) ||
+          catStr.includes(q) ||
+          subStr.includes(q) ||
+          tagStr.includes(q) ||
+          badgesMatch
+        );
+      });
     }
 
     // Category filter
     if (selectedCategory !== 'All') {
-      list = list.filter((p) => p.category === selectedCategory);
+      list = list.filter((p) => getCategoryLabel(p.category) === selectedCategory);
     }
 
     // Stock filter
@@ -348,11 +369,14 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All">All Categories ({categories.length})</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.name}>
-                    {c.name}
-                  </SelectItem>
-                ))}
+                {categories.map((c) => {
+                  const catName = typeof c === 'string' ? c : (c.name || (c as any).title || String(c.id));
+                  return (
+                    <SelectItem key={c.id || catName} value={catName}>
+                      {catName}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -670,7 +694,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                         <div className="flex items-center gap-3">
                           <img
                             src={displayImage}
-                            alt={product.title}
+                            alt={typeof product.title === 'string' ? product.title : ((product as any).name || 'Product')}
                             className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100 shrink-0 shadow-sm"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=150&q=80';
@@ -678,24 +702,27 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                           />
                           <div className="min-w-0 max-w-xs md:max-w-md">
                             <h3 className="font-semibold text-slate-900 truncate text-xs sm:text-sm hover:text-indigo-600 transition-colors">
-                              {product.title}
+                              {typeof product.title === 'string' ? product.title : ((product as any).name || 'Product')}
                             </h3>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
                               {product.brand && (
                                 <span className="text-[10px] text-slate-500 font-medium">
-                                  {product.brand} •
+                                  {typeof product.brand === 'object' && product.brand !== null ? ((product.brand as any).name || 'Generic') : product.brand} •
                                 </span>
                               )}
                               {product.tag && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
-                                  {product.tag}
+                                  {typeof product.tag === 'object' && product.tag !== null ? ((product.tag as any).name || String(product.tag)) : String(product.tag)}
                                 </span>
                               )}
-                              {product.badges?.map((badge, idx) => (
-                                <span key={idx} className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                  {badge}
-                                </span>
-                              ))}
+                              {product.badges?.map((badge, idx) => {
+                                const badgeText = typeof badge === 'object' && badge !== null ? ((badge as any).name || (badge as any).label || String(badge)) : String(badge);
+                                return (
+                                  <span key={idx} className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    {badgeText}
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -707,9 +734,9 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
                           {product.sku}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
-                          {product.category}
+                          {getCategoryLabel(product.category)}
                           {product.subcategory && (
-                            <span className="text-slate-400"> › {product.subcategory}</span>
+                            <span className="text-slate-400"> › {getCategoryLabel(product.subcategory)}</span>
                           )}
                         </div>
                       </td>

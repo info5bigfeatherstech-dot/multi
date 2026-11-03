@@ -3,11 +3,16 @@ import { isAuthenticated } from './authGuard';
 
 /**
  * Wishlist Storage Utility
- * Manages wishlisted product IDs in localStorage so guest users can wishlist items,
- * and seamlessly merges guest wishlist with backend wishlist upon login.
+ * Manages wishlisted product IDs in localStorage for storefront shopping.
+ * Backend wishlist APIs are ONLY hit when the user explicitly clicks the heart/wishlist button!
  */
 
 const STORAGE_KEY = 'abb_storefront_wishlist_ids';
+
+const isAdminRoute = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/admin') || window.location.hash.startsWith('#admin');
+};
 
 /**
  * Get all wishlisted product IDs from localStorage
@@ -18,7 +23,7 @@ export const getWishlistIds = (): string[] => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
+    return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -34,6 +39,7 @@ export const isItemInWishlist = (id: string | number): boolean => {
 
 /**
  * Toggle a product ID in wishlist. Returns true if now wishlisted, false if removed.
+ * ONLY hits the backend API when explicitly called by user action, NEVER on page load or on admin!
  */
 export const toggleWishlistItem = (id: string | number, slug?: string): boolean => {
   const sId = String(id);
@@ -56,12 +62,16 @@ export const toggleWishlistItem = (id: string | number, slug?: string): boolean 
     );
   }
 
-  // If user is authenticated, sync change with backend
-  if (isAuthenticated()) {
-    if (!exists) {
-      storefrontWishlistApi.toggle(sId, slug).catch(() => {});
-    } else {
-      storefrontWishlistApi.remove(slug || sId).catch(() => {});
+  // Sync change with backend ONLY when explicitly toggled by an authenticated storefront customer (never on admin)
+  if (isAuthenticated() && !isAdminRoute()) {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(sId);
+    const resolvedSlug = String(slug || (!isObjectId ? sId : '')).trim();
+    if (resolvedSlug) {
+      if (!exists) {
+        storefrontWishlistApi.add(resolvedSlug).catch(() => {});
+      } else {
+        storefrontWishlistApi.remove(resolvedSlug).catch(() => {});
+      }
     }
   }
 
@@ -76,50 +86,42 @@ export const getWishlistCount = (): number => {
 };
 
 /**
- * Sync guest wishlist from localStorage with backend account wishlist
+ * Refresh wishlist IDs from backend for logged in storefront user (read-only query)
+ * Never auto-spams POST /wishlist/add!
  */
-export const syncWishlistWithBackend = async () => {
-  if (!isAuthenticated()) return;
+export const refreshWishlistFromBackend = async () => {
+  if (!isAuthenticated() || isAdminRoute()) return;
 
   try {
-    const localIds = getWishlistIds();
     const backendItems = await storefrontWishlistApi.getWishlist();
-
-    const backendIds: string[] = [];
     if (Array.isArray(backendItems)) {
+      const backendIds: string[] = [];
       backendItems.forEach((p: any) => {
         const id = String(p.productId?._id || p.productId || p._id || p.id || '');
         if (id) backendIds.push(id);
       });
-    }
-
-    // Merge guest local IDs and backend IDs
-    const mergedIds = Array.from(new Set([...localIds, ...backendIds]));
-
-    // Update localStorage with merged list
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedIds));
-
-    // Push any guest items that were not on backend yet
-    for (const localId of localIds) {
-      if (!backendIds.includes(localId)) {
-        storefrontWishlistApi.toggle(localId).catch(() => {});
+      const localIds = getWishlistIds();
+      const mergedIds = Array.from(new Set([...localIds, ...backendIds]));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedIds));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('abb_wishlist_change', {
+            detail: { count: mergedIds.length },
+          })
+        );
       }
     }
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('abb_wishlist_change', {
-          detail: { count: mergedIds.length },
-        })
-      );
-    }
-  } catch (err) {
-    console.warn('Wishlist backend sync note:', err);
+  } catch {
+    // Non-blocking
   }
 };
 
-// Automatically sync on initial load and whenever auth state changes (login)
+// DO NOT auto-sync or blast POST /wishlist/add on initial page load or import!
+// Only refresh count on explicit customer auth change
 if (typeof window !== 'undefined') {
-  syncWishlistWithBackend();
-  window.addEventListener('abb_auth_change', syncWishlistWithBackend);
+  window.addEventListener('abb_auth_change', () => {
+    if (isAuthenticated() && !isAdminRoute()) {
+      refreshWishlistFromBackend();
+    }
+  });
 }

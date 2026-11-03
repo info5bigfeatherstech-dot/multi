@@ -74,8 +74,6 @@ export const persistUserPhone = (emailOrId: string, phone: string): void => {
  */
 export const getPersistedUserPhone = (emailOrId?: string): string | null => {
   if (typeof window === 'undefined') return null;
-  const current = localStorage.getItem('abb_user_profile_phone');
-  if (current && current.trim()) return current.trim();
 
   const effectiveKey = (emailOrId || localStorage.getItem('abb_user_profile_email') || '').toLowerCase().trim();
   if (effectiveKey) {
@@ -84,11 +82,17 @@ export const getPersistedUserPhone = (emailOrId?: string): string | null => {
       const found = map[effectiveKey];
       if (found && typeof found === 'string' && found.trim()) {
         const cleaned = found.trim().replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(0, 10);
-        localStorage.setItem('abb_user_profile_phone', cleaned);
         return cleaned;
       }
     } catch {}
   }
+
+  // Only fallback to global phone if no specific email was requested
+  if (!emailOrId) {
+    const current = localStorage.getItem('abb_user_profile_phone');
+    if (current && current.trim()) return current.trim();
+  }
+
   return null;
 };
 

@@ -248,8 +248,17 @@ const mapBackendSearchProduct = (p: any): ProductItem => {
       : p.category.name || p.category.slug || ''
     : 'General';
 
+  const totalStock = Array.isArray(p.variants) && p.variants.length > 0
+    ? p.variants.reduce((sum: number, v: any) => {
+        const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
+        return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof p.stock === 'number' ? p.stock : 1));
+      }, 0)
+    : (typeof p.stock === 'number' ? p.stock : undefined);
+  const isOutOfStock = p.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || p.availability?.ecomm?.inStock === false || p.status === 'out_of_stock' || p.status === 'OutOfStock' || p.variants?.[0]?.availability?.status === 'OUT_OF_STOCK';
+
   return {
     id: p.slug || p._id || p.id,
+    slug: p.slug,
     title: p.title || p.name || 'Apna Bharat Bazaar Product',
     category: catName || 'General',
     currentPrice,
@@ -258,7 +267,8 @@ const mapBackendSearchProduct = (p: any): ProductItem => {
     image: typeof img === 'string' ? img : img?.url || '/images/products/placeholder.png',
     rating: typeof p.rating?.value === 'number' ? p.rating.value : 4.6,
     reviews: Number(p.rating?.count || 48),
-    inStock: p.inStock !== false && p.variants?.[0]?.availability?.status !== 'OUT_OF_STOCK',
+    inStock: !isOutOfStock,
+    stock: typeof p.stock === 'number' ? p.stock : totalStock,
     isTopDeal: Boolean(p.isFeatured) || discountPct >= 40,
     tag: p.appliedTags?.[0] || (p.isFeatured ? 'FEATURED' : undefined),
   };
@@ -1221,7 +1231,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Store Navigation Links with clean modern pill styles */}
-            <div className="flex items-center space-x-1 sm:space-x-1.5 flex-1 min-w-0 pl-1">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0 pl-1 overflow-x-auto scrollbar-none py-0.5">
               <button
                 type="button"
                 onClick={() => {
@@ -1231,19 +1241,10 @@ export const Header: React.FC<HeaderProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-navy hover:bg-stone-200/70 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-navy hover:bg-stone-200/70 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               >
                 Home
               </button>
-              {/* <button
-                type="button"
-                onClick={() => {
-                  document.querySelector('.section-top-categories')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer"
-              >
-                Featured Categories
-              </button> */}
               {storefrontNavLabels.slice(0, 3).map((lbl) => {
                 const isFestive = lbl.badgeText === 'FESTIVE' || lbl.icon === 'sparkles' || (lbl as any).style?.includes('Festive');
 
@@ -1266,7 +1267,7 @@ export const Header: React.FC<HeaderProps> = ({
                       window.dispatchEvent(new PopStateEvent('popstate'));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="group relative px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer bg-[#A44101]/8 hover:bg-[#A44101]/14 border border-[#A44101]/30 hover:border-[#A44101]/50 text-navy shadow-2xs hover:shadow-xs active:scale-98"
+                    className="group relative px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer bg-[#A44101]/8 hover:bg-[#A44101]/14 border border-[#A44101]/30 hover:border-[#A44101]/50 text-navy shadow-2xs hover:shadow-xs active:scale-98 shrink-0 whitespace-nowrap"
                   >
                     {renderIcon()}
                     <span className="font-bold tracking-tight whitespace-nowrap text-navy">{lbl.name}</span>
@@ -1279,25 +1280,25 @@ export const Header: React.FC<HeaderProps> = ({
                 );
               })}
 
+              <button
+                type="button"
+                onClick={() => {
+                  if (onGoToBecomeDropshipper) onGoToBecomeDropshipper();
+                  else {
+                    window.history.pushState(null, '', '/become-dropshipper');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                className="hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer items-center gap-1.5 shrink-0 whitespace-nowrap"
+                title="Become an Official Dropship Partner"
+              >
+                <PackageCheck className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+                <span>Dropship</span>
+                <span className="text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.2 rounded shrink-0">
+                  B2B
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (onGoToBecomeDropshipper) onGoToBecomeDropshipper();
-                else {
-                  window.history.pushState(null, '', '/become-dropshipper');
-                  window.dispatchEvent(new PopStateEvent('popstate'));
-                }
-              }}
-              className="hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer items-center gap-1.5"
-              title="Become an Official Dropship Partner"
-            >
-              <PackageCheck className="w-3.5 h-3.5 text-[#A44101]" />
-              <span>Dropship</span>
-              <span className="text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.2 rounded">
-                B2B
-              </span>
-            </button>
               <button
                 type="button"
                 onClick={() => {
@@ -1307,36 +1308,38 @@ export const Header: React.FC<HeaderProps> = ({
                     window.dispatchEvent(new PopStateEvent('popstate'));
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                 title="Bulk Orders & Wholesale Enquiries (Min. ₹3,000)"
               >
-                <Building2 className="w-3.5 h-3.5 text-[#A44101]" />
+                <Building2 className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
                 <span>Bulk Orders</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onGoToContact) onGoToContact();
+                  else {
+                    window.history.pushState(null, '', '/contact');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                title="24/7 Customer Support & Help Desk"
+              >
+                <Headphones className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+                <span>Customer Support</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (onGoToContact) onGoToContact();
-                else {
-                  window.history.pushState(null, '', '/contact');
-                  window.dispatchEvent(new PopStateEvent('popstate'));
-                }
-              }}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5"
-              title="24/7 Customer Support & Help Desk"
-            >
-              <Headphones className="w-3.5 h-3.5 text-[#A44101]" />
-              <span>Customer Support</span>
-            </button>
+
             {/* Right Mini Guarantee & Delivery Badges */}
-            <div className="hidden xl:flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-navy bg-slate-100 border border-slate-200 px-3 py-1 rounded-full font-bold shadow-2xs">
-                <ShieldCheck className="w-3.5 h-3.5 text-navy" />
+            <div className="hidden min-[1380px]:flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs text-navy bg-slate-100 border border-slate-200 px-3 py-1 rounded-full font-bold shadow-2xs whitespace-nowrap">
+                <ShieldCheck className="w-3.5 h-3.5 text-navy shrink-0" />
                 <span>Lowest Price Guarantee</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#A44101] bg-[#A44101]/10 border border-[#A44101]/20 px-3 py-1 rounded-full font-bold shadow-2xs">
-                <PackageCheck className="w-3.5 h-3.5 text-[#A44101]" />
+              <div className="flex items-center gap-1.5 text-xs text-[#A44101] bg-[#A44101]/10 border border-[#A44101]/20 px-3 py-1 rounded-full font-bold shadow-2xs whitespace-nowrap">
+                <PackageCheck className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
                 <span>Pan-India Delivery</span>
               </div>
             </div>

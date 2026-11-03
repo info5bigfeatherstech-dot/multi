@@ -16,7 +16,8 @@ import {
   RefreshCw,
   Pencil,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Zap
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
@@ -101,7 +102,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       setIsAddressModalOpen(true);
       return;
     }
-    if (serverQuote?.isDeliverable === false) {
+    const isBlockedByDelivery = serverQuote?.isDeliverable === false && (shippingSpeed === 'same_day' || !/same day/i.test(serverQuote?.message || ''));
+    if (isBlockedByDelivery) {
       return;
     }
     setCurrentStep(3);
@@ -213,7 +215,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Synchronous Calculations (Local Fallbacks)
   // --------------------------------------------------------------------------
   const subtotalCurrent = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const deliveryFee = 0; // FREE Delivery
+  const sameDayFee = Number(sameDayOption?.deliveryCharges ?? 99);
+  const standardFee = Number(standardDeliveryCharges ?? 0);
+  const deliveryFee = shippingSpeed === 'same_day' ? sameDayFee : standardFee;
   const fallbackFinalTotal = Math.max(0, subtotalCurrent - couponDiscount + deliveryFee);
 
   // Active Authoritative Values (Server Quote overrides with local fallback)
@@ -297,13 +301,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // --------------------------------------------------------------------------
   // Delivery Pincode Verification on Address Change
   // --------------------------------------------------------------------------
-  const standardDeliveryOff =
-    checkoutSettings.standardDeliveryEnabled === false ||
-    serverQuote?.standardDeliveryEnabled === false;
-  const standardDeliveryOn =
-    !standardDeliveryOff &&
-    (checkoutSettings.standardDeliveryEnabled === true ||
-      serverQuote?.standardDeliveryEnabled === true);
+  const standardDeliveryOff = false;
+  const standardDeliveryOn = true;
 
   useEffect(() => {
     if (standardDeliveryOff) {
@@ -699,8 +698,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         }
       }
 
-      if (activeQuote?.isDeliverable === false) {
-        alert(activeQuote.message || 'Delivery is not available for this address.');
+      const isBlocked = activeQuote?.isDeliverable === false && (shippingSpeed === 'same_day' || !/same day/i.test(activeQuote?.message || ''));
+      if (isBlocked) {
+        alert(activeQuote?.message || 'Delivery is not available for this address.');
         setIsPlacingOrder(false);
         return;
       }
@@ -1300,6 +1300,129 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         )}
                       </form>
 
+                      {/* Delivery Option Selector (Standard Delivery vs Same Day Delivery) */}
+                      <div className="pt-5 border-t border-slate-100 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-4 h-4 text-[#A44101]" />
+                            <h3 className="text-xs sm:text-sm font-bold text-navy">
+                              Select Delivery Option
+                            </h3>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            Choose how fast you want your order delivered
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Standard Delivery */}
+                          <div
+                            onClick={() => setShippingSpeed('standard')}
+                            className={`relative p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                              shippingSpeed === 'standard'
+                                ? 'border-[#A44101] bg-orange-50/40 shadow-xs ring-2 ring-[#A44101]/20'
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                  shippingSpeed === 'standard' ? 'bg-[#A44101] text-white shadow-xs' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  <Truck className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs sm:text-sm font-bold text-navy">Standard Delivery</span>
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+                                      FREE
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                    Estimated delivery in 3–5 business days
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 ${
+                                shippingSpeed === 'standard' ? 'border-[#A44101] bg-[#A44101]' : 'border-slate-300 bg-white'
+                              }`}>
+                                {shippingSpeed === 'standard' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px]">
+                              <span className="text-slate-500">Pan-India Courier Service</span>
+                              <span className="font-extrabold text-emerald-700">₹0 (Free)</span>
+                            </div>
+                          </div>
+
+                          {/* Same Day Delivery */}
+                          <div
+                            onClick={() => setShippingSpeed('same_day')}
+                            className={`relative p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                              shippingSpeed === 'same_day'
+                                ? 'border-[#A44101] bg-orange-50/40 shadow-xs ring-2 ring-[#A44101]/20'
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                  shippingSpeed === 'same_day' ? 'bg-[#A44101] text-white shadow-xs' : 'bg-amber-100 text-[#A44101]'
+                                }`}>
+                                  <Zap className="w-4 h-4 fill-current" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs sm:text-sm font-bold text-navy">Same Day Delivery</span>
+                                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-[#A44101] uppercase flex items-center gap-0.5 tracking-wider">
+                                      <Zap className="w-2.5 h-2.5 fill-current" /> EXPRESS
+                                    </span>
+                                  </div>
+                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                    {sameDayOption?.etaLabel || 'Guaranteed delivery by tonight'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 ${
+                                shippingSpeed === 'same_day' ? 'border-[#A44101] bg-[#A44101]' : 'border-slate-300 bg-white'
+                              }`}>
+                                {shippingSpeed === 'same_day' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                              </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px]">
+                              <span className="text-slate-500">Dedicated Doorstep Rider</span>
+                              <span className="font-extrabold text-[#A44101]">
+                                ₹{sameDayOption?.deliveryCharges != null ? Math.round(Number(sameDayOption.deliveryCharges)) : 99}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Quick Summary Strip */}
+                        <div className="bg-slate-50 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600 text-[11px] sm:text-xs">
+                            <span>Items ({cartItems.reduce((s, i) => s + i.qty, 0)}): <strong className="text-navy">₹{subtotalCurrent}</strong></span>
+                            {couponDiscount > 0 && (
+                              <span className="text-emerald-700">Coupon Discount: <strong>-₹{couponDiscount}</strong></span>
+                            )}
+                            <span>
+                              Delivery ({shippingSpeed === 'same_day' ? 'Same Day' : 'Standard'}):{' '}
+                              <strong className={shippingSpeed === 'same_day' ? 'text-[#A44101]' : 'text-emerald-700'}>
+                                {shippingSpeed === 'same_day' ? `₹${sameDayOption?.deliveryCharges != null ? Math.round(Number(sameDayOption.deliveryCharges)) : 99}` : 'FREE'}
+                              </strong>
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-2 sm:justify-end border-t sm:border-t-0 pt-1.5 sm:pt-0 border-slate-200">
+                            <span className="text-slate-500 font-bold text-xs">Total Payable:</span>
+                            <span className="text-sm sm:text-base font-black text-navy">₹{displayTotalPayable}</span>
+                          </div>
+                        </div>
+                      </div>
+
                     </div>
 
                     {/* Step 1 Footer CTA */}
@@ -1460,8 +1583,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       selected={shippingSpeed}
                       standardCharges={standardDeliveryCharges ?? serverQuote?.deliveryCharges}
                       sameDayOption={sameDayOption}
-                      standardEnabled={!standardDeliveryOff}
-                      unavailableMessage={serverQuote?.message}
+                      standardEnabled={true}
+                      unavailableMessage={shippingSpeed === 'same_day' ? serverQuote?.message : null}
                       disabled={isQuoteLoading}
                       onSelect={setShippingSpeed}
                     />
@@ -1481,7 +1604,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       <button
                         type="button"
                         onClick={handleProceedToStep3}
-                        disabled={isQuoteLoading || serverQuote?.isDeliverable === false}
+                        disabled={isQuoteLoading || (serverQuote?.isDeliverable === false && (shippingSpeed === 'same_day' || !/same day/i.test(serverQuote?.message || '')))}
                         className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <span>Proceed to Payment Method</span>

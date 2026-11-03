@@ -165,6 +165,7 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {filteredProducts.map((product, idx) => {
               const isAdded = !!addedItemIds[product.id];
+              const isOutOfStock = product.inStock === false || (typeof (product as any).stock === 'number' && (product as any).stock <= 0);
 
               return (
                 <motion.article
@@ -177,6 +178,13 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
                 >
                   {/* Image & Badges Container */}
                   <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                    {isOutOfStock && (
+                      <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                        <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                          Out of Stock
+                        </span>
+                      </div>
+                    )}
                     
                     {/* Discount Badge */}
                     <div className="absolute top-2.5 left-2.5 z-10 bg-[#A44101] text-white text-[11px] font-black px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
@@ -238,6 +246,17 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
                       </div>
 
                       {/* Action Buttons */}
+                      {isOutOfStock ? (
+                        <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            disabled
+                            className="w-full py-2 px-2 rounded-theme text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                          >
+                            <span>Out of Stock</span>
+                          </button>
+                        </div>
+                      ) : (
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -276,6 +295,7 @@ export const EveryProductSection: React.FC<EveryProductSectionProps> = ({ onProd
                           Buy Now
                         </button>
                       </div>
+                      )}
                     </div>
                   </div>
                 </motion.article>

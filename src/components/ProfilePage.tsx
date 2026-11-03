@@ -133,6 +133,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           const currPrice = Number(prod.currentPrice || prod.price || prod.salePrice || 0);
           const origPrice = Number(prod.originalPrice || prod.regularPrice || currPrice || 0);
           const discount = origPrice > currPrice ? Math.round(((origPrice - currPrice) / origPrice) * 100) : 0;
+          const totalStock = Array.isArray(prod.variants) && prod.variants.length > 0
+            ? prod.variants.reduce((sum: number, v: any) => {
+                const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
+                return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof prod.stock === 'number' ? prod.stock : 1));
+              }, 0)
+            : (typeof prod.stock === 'number' ? prod.stock : undefined);
+          const isOutOfStockItem = prod.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || prod.availability?.ecomm?.inStock === false || prod.status === 'out_of_stock' || prod.status === 'OutOfStock';
+
           return {
             id: String(prod._id || prod.id || item.productId),
             slug: prod.slug,
@@ -144,7 +152,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             category: prod.category?.name || prod.category || 'General',
             rating: prod.rating || 4.5,
             reviews: prod.reviews || prod.reviewsCount || 10,
-            inStock: prod.inStock !== false,
+            inStock: !isOutOfStockItem,
+            stock: typeof prod.stock === 'number' ? prod.stock : totalStock,
           };
         });
 
@@ -193,12 +202,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const handleRemoveFromWishlist = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    toggleWishlistItem(id);
+    const item = wishlistItems.find((it) => it.id === id);
+    const slug = item?.slug || item?.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || id;
+    toggleWishlistItem(id, slug);
     setWishlistItems((prev) => prev.filter((it) => it.id !== id));
     setWishlistCount(getWishlistCount());
-    try {
-      await storefrontWishlistApi.remove(id);
-    } catch {}
     toast.success('Item removed from wishlist');
   };
 
@@ -212,17 +220,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       image: item.image,
       category: item.category,
     });
-    toggleWishlistItem(item.id);
+    const slug = item.slug || item.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || item.id;
+    toggleWishlistItem(item.id, slug);
     setWishlistItems((prev) => prev.filter((it) => it.id !== item.id));
     setWishlistCount(getWishlistCount());
-    try {
-      storefrontWishlistApi.remove(item.id);
-    } catch {}
     toast.success('Moved to cart!');
   };
 
   const handleMoveAllWishlistToCart = () => {
     if (wishlistItems.length === 0) return;
+    const count = wishlistItems.length;
     wishlistItems.forEach((item) => {
       addToCart(
         {
@@ -236,14 +243,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         1,
         { silent: true }
       );
-      toggleWishlistItem(item.id);
-      try {
-        storefrontWishlistApi.remove(item.id);
-      } catch {}
+      const slug = item.slug || item.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || item.id;
+      toggleWishlistItem(item.id, slug);
     });
     setWishlistItems([]);
     setWishlistCount(0);
-    toast.success(`Moved all ${wishlistItems.length} items to cart!`);
+    toast.success(`Moved all ${count} items to cart!`);
   };
 
   // User Profile Form State
@@ -395,15 +400,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       .then((profile) => {
         if (profile) {
           if (profile.name) setUserName(profile.name);
-          if (profile.email) setUserEmail(profile.email);
+          if (profile.email) {
+            setUserEmail(profile.email);
+            localStorage.setItem('abb_user_profile_email', profile.email);
+          }
           if (profile.phone) {
             setUserPhone(profile.phone);
-            persistUserPhone(profile.email || userEmail, profile.phone);
+            persistUserPhone(profile.email, profile.phone);
           } else {
-            const persisted = getPersistedUserPhone(profile.email || userEmail);
+            // Profile has NO phone registered on backend database
+            const persisted = getPersistedUserPhone(profile.email);
             if (persisted) {
               setUserPhone(persisted);
-              storefrontAuthApi.updateProfile({ phone: persisted }).catch(() => {});
+            } else {
+              setUserPhone('');
             }
           }
         }
@@ -2066,8 +2076,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           onClick={() => {
                             if (window.confirm('Clear all items from your wishlist?')) {
                               wishlistItems.forEach((it) => {
-                                toggleWishlistItem(it.id);
-                                storefrontWishlistApi.remove(it.id).catch(() => {});
+                                const slug = it.slug || it.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || it.id;
+                                toggleWishlistItem(it.id, slug);
                               });
                               setWishlistItems([]);
                               setWishlistCount(0);
@@ -2169,14 +2179,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             )}
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={(e) => handleMoveWishlistToCart(item, e)}
-                            className="w-full py-2 px-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] active:scale-[0.99] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
-                          >
-                            <ShoppingBag className="w-3.5 h-3.5" />
-                            <span>Move to Cart</span>
-                          </button>
+                          {item.inStock === false ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full py-2 px-3 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-xs font-bold cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                            >
+                              <span>Out of Stock</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => handleMoveWishlistToCart(item, e)}
+                              className="w-full py-2 px-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] active:scale-[0.99] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <ShoppingBag className="w-3.5 h-3.5" />
+                              <span>Move to Cart</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

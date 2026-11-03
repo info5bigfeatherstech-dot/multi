@@ -555,11 +555,29 @@ export const adminOrdersApi = {
     page?: number;
     limit?: number;
     status?: string;
+    bucket?: string;
+    rangePreset?: string;
     search?: string;
     shippingSpeedScope?: 'standard' | 'same_day' | 'all' | string;
   }) => {
     try {
-      const res = await apiClient.get("/admin/orders", { params });
+      const queryParams: any = { ...params };
+      if (!queryParams.bucket && queryParams.status) {
+        const s = String(queryParams.status).toLowerCase();
+        if (s === 'pending') queryParams.bucket = 'new';
+        else if (s === 'confirmed') queryParams.bucket = 'bill_sent';
+        else if (s === 'ready to ship' || s === 'ready_to_ship') queryParams.bucket = 'ready_to_ship';
+        else if (s === 'processing') queryParams.bucket = 'ready_to_pick';
+        else if (s === 'shipped') queryParams.bucket = 'in_transit';
+        else if (s === 'delivered') queryParams.bucket = 'completed';
+        else if (s === 'cancelled') queryParams.bucket = 'others';
+        else if (s === 'rto') queryParams.bucket = 'rto';
+        else if (s === 'all') queryParams.bucket = 'all';
+      }
+      if (!queryParams.rangePreset && !queryParams.search) {
+        queryParams.rangePreset = 'all';
+      }
+      const res = await apiClient.get("/admin/orders", { params: queryParams });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));

@@ -7,7 +7,6 @@ import {
   Minus, 
   Trash2, 
   ArrowRight, 
-  Truck, 
   Sparkles,
   Sparkle
 } from 'lucide-react';
@@ -116,17 +115,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
                 >
                   <X className="w-5 h-5" />
                 </button>
-              </div>
-
-              {/* 2. Free Delivery Perk Pill */}
-              <div className="bg-[#A44101]/5 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-navy font-bold">
-                  <Truck className="w-4 h-4 text-[#A44101] shrink-0" />
-                  <span>Free Express Delivery Across India</span>
-                </div>
-                <span className="text-[10px] bg-[#A44101] text-white font-black px-1.5 py-0.5 rounded uppercase">
-                  Unlocked
-                </span>
               </div>
 
               {/* 3. Drawer Body: Cart Items or Empty State */}

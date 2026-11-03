@@ -13,7 +13,6 @@ import {
   toggleVariantDropshipListing,
 } from '../../../../store/adminDropshipperSlice';
 import { adminProductsApi } from '../../../../api';
-import { setProductsFromApi } from '../../../../store/adminProductsSlice';
 import toast from 'react-hot-toast';
 
 const getCategoryName = (category: any): string => {
@@ -52,6 +51,7 @@ export const AdminDropshipperPricingView: React.FC = () => {
   const [priceInput, setPriceInput] = useState<number>(0);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<any[]>([]);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -59,7 +59,8 @@ export const AdminDropshipperPricingView: React.FC = () => {
       try {
         const res = await adminProductsApi.getAll({ search: searchQuery || undefined, limit: 50 });
         if (res) {
-          dispatch(setProductsFromApi(res.products || res));
+          const list = res.products || (Array.isArray(res) ? res : []);
+          setCatalogProducts(list);
         }
       } catch {
         // use redux products if api fails
@@ -68,7 +69,7 @@ export const AdminDropshipperPricingView: React.FC = () => {
       }
     };
     loadProducts();
-  }, [dispatch, searchQuery]);
+  }, [searchQuery]);
 
   const handleStartEdit = (productCode: string, currentPrice: number) => {
     setEditingCode(productCode);
@@ -94,7 +95,10 @@ export const AdminDropshipperPricingView: React.FC = () => {
       toast.success(`Updated dropship price for ${productCode} to ₹${priceInput}`);
       setEditingCode(null);
       const res = await adminProductsApi.getAll({ search: searchQuery || undefined, limit: 50 });
-      if (res) dispatch(setProductsFromApi(res.products || res));
+      if (res) {
+        const list = res.products || (Array.isArray(res) ? res : []);
+        setCatalogProducts(list);
+      }
     } catch (err: any) {
       toast.error(err || 'Failed to update dropship base price');
     } finally {
@@ -119,11 +123,16 @@ export const AdminDropshipperPricingView: React.FC = () => {
         `Variant ${productCode} dropship listing ${currentlyActive ? 'disabled' : 'enabled'}`
       );
       const res = await adminProductsApi.getAll({ search: searchQuery || undefined, limit: 50 });
-      if (res) dispatch(setProductsFromApi(res.products || res));
+      if (res) {
+        const list = res.products || (Array.isArray(res) ? res : []);
+        setCatalogProducts(list);
+      }
     } catch (err: any) {
       toast.error(err || 'Failed to update dropship visibility');
     }
   };
+
+  const displayProducts = catalogProducts.length > 0 ? catalogProducts : products;
 
   return (
     <div className="space-y-6">
@@ -156,7 +165,7 @@ export const AdminDropshipperPricingView: React.FC = () => {
             <Loader2 className="w-6 h-6 animate-spin text-[#A44101]" />
             <span className="text-xs font-bold">Loading catalog items...</span>
           </div>
-        ) : products.length === 0 ? (
+        ) : displayProducts.length === 0 ? (
           <div className="text-center py-16 space-y-2">
             <Package className="w-10 h-10 text-slate-300 mx-auto" />
             <h3 className="text-sm font-black text-navy">No products found</h3>
@@ -176,7 +185,7 @@ export const AdminDropshipperPricingView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {products.map((p: any) => {
+                {displayProducts.map((p: any) => {
                   const variants = p.variants && p.variants.length > 0 ? p.variants : [p];
                   const categoryName = getCategoryName(p.category);
                   const productName = getProductName(p);

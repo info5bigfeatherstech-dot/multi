@@ -88,6 +88,14 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
             const rating = typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (p.reviewSummary?.average || 0));
             const reviews = Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? 0);
 
+            const totalStock = Array.isArray(p.variants) && p.variants.length > 0
+              ? p.variants.reduce((sum: number, v: any) => {
+                  const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
+                  return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof p.stock === 'number' ? p.stock : 1));
+                }, 0)
+              : (typeof p.stock === 'number' ? p.stock : undefined);
+            const isOutOfStockItem = p.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || p.availability?.ecomm?.inStock === false || p.status === 'out_of_stock' || p.status === 'OutOfStock';
+
             valid.push({
               id: p._id || p.id,
               slug: p.slug,
@@ -99,7 +107,8 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
               image: img,
               rating,
               reviews,
-              inStock: p.inStock !== false,
+              inStock: !isOutOfStockItem,
+              stock: typeof p.stock === 'number' ? p.stock : totalStock,
               tag: p.appliedTags?.[0] || p.tag,
             });
           });
@@ -246,6 +255,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
           {products.slice(0, 5).map((product, idx) => {
             const isAdded = addedItemIds[product.id];
             const isWishlisted = wishlistIds[product.id];
+            const isOutOfStock = product.inStock === false || (typeof (product as any).stock === 'number' && (product as any).stock <= 0);
             const savings = product.originalPrice - product.currentPrice;
 
             return (
@@ -260,6 +270,13 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
               >
                 {/* Top Image Container */}
                 <div className="relative aspect-square w-full bg-slate-50 overflow-hidden">
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                      <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                        Out of Stock
+                      </span>
+                    </div>
+                  )}
                   <img
                     src={product.image}
                     alt={product.title}
@@ -344,28 +361,40 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                       )}
                     </div>
 
-                    {/* Add to Cart Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleAddToCart(product, e)}
-                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 shadow-2xs cursor-pointer active:scale-97 ${
-                        isAdded
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-[#A44101] hover:bg-[#8C3701] text-white hover:shadow-xs'
-                      }`}
-                    >
-                      {isAdded ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          <span>Added!</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="w-3.5 h-3.5" />
-                          <span>Add to Cart</span>
-                        </>
-                      )}
-                    </button>
+                    {/* Add to Cart / Out of Stock Button */}
+                    {isOutOfStock ? (
+                      <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                        >
+                          <span>Out of Stock</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddToCart(product, e)}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 shadow-2xs cursor-pointer active:scale-97 ${
+                          isAdded
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-[#A44101] hover:bg-[#8C3701] text-white hover:shadow-xs'
+                        }`}
+                      >
+                        {isAdded ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Added!</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingCart className="w-3.5 h-3.5" />
+                            <span>Add to Cart</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>

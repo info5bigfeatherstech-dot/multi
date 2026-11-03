@@ -266,7 +266,17 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
               image: img,
               rating: ratingVal,
               reviews: reviewsCount,
-              inStock: p.inStock !== false,
+              inStock: (() => {
+                const totalStock = Array.isArray(p.variants) && p.variants.length > 0
+                  ? p.variants.reduce((sum: number, v: any) => {
+                      const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
+                      return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof p.stock === 'number' ? p.stock : 1));
+                    }, 0)
+                  : (typeof p.stock === 'number' ? p.stock : undefined);
+                const out = p.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || p.availability?.ecomm?.inStock === false || p.status === 'out_of_stock' || p.status === 'OutOfStock';
+                return !out;
+              })(),
+              stock: typeof p.stock === 'number' ? p.stock : (Array.isArray(p.variants) && p.variants.length > 0 ? p.variants.reduce((s: number, v: any) => s + Number(v.inventory?.quantity ?? v.stock ?? 0), 0) : undefined),
               tag: p.appliedTags?.[0] || p.tag,
               isTopDeal: discountPercentage >= 50,
             });
@@ -613,6 +623,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
             >
               {section.products.map((product: ProductItem) => {
                 const isAdded = !!addedItemIds[product.id];
+                const isOutOfStock = product.inStock === false || (typeof (product as any).stock === 'number' && (product as any).stock <= 0);
 
                 return (
                   <article
@@ -622,6 +633,13 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                   >
                     {/* Product Visual */}
                     <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                          <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                            Out of Stock
+                          </span>
+                        </div>
+                      )}
                       
                       {/* Discount Sticker */}
                       {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
@@ -690,7 +708,18 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                        {isOutOfStock ? (
+                          <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              disabled
+                              className="w-full py-1.5 px-2 rounded-theme text-[11px] sm:text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                            >
+                              <span>Out of Stock</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -731,6 +760,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                             Buy Now
                           </button>
                         </div>
+                        )}
                       </div>
                     </div>
                   </article>

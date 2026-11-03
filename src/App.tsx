@@ -434,11 +434,17 @@ export const App: React.FC = () => {
       }
     };
 
+    const handlePhoneRequired = () => {
+      setIsPhonePromptOpen(true);
+    };
+
     window.addEventListener('abb_require_auth', handleRequireAuth);
     window.addEventListener('abb_auth_change', checkPhoneGate);
+    window.addEventListener('abb_phone_required', handlePhoneRequired);
     return () => {
       window.removeEventListener('abb_require_auth', handleRequireAuth);
       window.removeEventListener('abb_auth_change', checkPhoneGate);
+      window.removeEventListener('abb_phone_required', handlePhoneRequired);
     };
   }, []);
 

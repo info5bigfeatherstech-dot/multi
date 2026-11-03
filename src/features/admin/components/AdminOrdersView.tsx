@@ -1,9 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
+import {
+  Eye,
   Search, 
   ShoppingBag, 
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Truck,
+  PackageCheck,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { mockAdminStore, OrderStatus, AdminOrder } from '../mockAdminStore';
 import { adminOrdersApi } from '../../../api';
@@ -17,6 +22,7 @@ interface AdminOrdersViewProps {
 const ORDER_STATUS_TABS: OrderStatus[] = [
   'Pending',
   'Confirmed',
+  'Ready to Ship',
   'Processing',
   'Shipped',
   'Delivered',
@@ -106,10 +112,25 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
           totalAmount: Math.round(ord.amountInr || ord.totalAmount || 0),
           subtotal: Math.round(ord.subtotalInr || ord.amountInr || ord.totalAmount || 0),
           discount: Math.round(ord.discountInr || 0),
-          paymentMethod: (ord.paymentMethod === 'online' ? 'UPI' : (ord.paymentMethod === 'cod' ? 'COD' : 'UPI')) as any,
-          paymentStatus: ord.paymentStatus === 'paid' ? 'Paid' : 'Pending',
+          paymentMethod: (
+            ord.paymentStatus === 'partially_paid' || ord.paymentInfo?.splitMode === 'advance'
+              ? 'Advance + COD'
+              : ord.paymentMethod === 'cod'
+              ? 'COD'
+              : 'UPI'
+          ) as any,
+          paymentStatus: (
+            ord.paymentStatus === 'paid'
+              ? 'Paid'
+              : ord.paymentStatus === 'partially_paid'
+              ? 'Advance Paid'
+              : ord.paymentStatus === 'failed'
+              ? 'Failed'
+              : 'Pending'
+          ) as any,
           status: (
             ord.orderStatus === 'confirmed' ? 'Confirmed' :
+            ord.orderStatus === 'ready_to_ship' ? 'Ready to Ship' :
             ord.orderStatus === 'processing' ? 'Processing' :
             ord.orderStatus === 'shipped' ? 'Shipped' :
             ord.orderStatus === 'delivered' ? 'Delivered' :
@@ -132,6 +153,12 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
           shippingAddress: typeof ord.shippingAddress === 'string' ? ord.shippingAddress : (
             ord.shippingAddress?.addressLine1 ? `${ord.shippingAddress.addressLine1}, ${ord.shippingAddress.city || ''} ${ord.shippingAddress.postalCode || ''}` : 'India'
           ),
+          courier: ord.courier || ord.shippingSnapshot?.courierName || ord.shipmentInfo?.courier || null,
+          courierOpsLine1: ord.courierOpsLine1 || ord.shipmentOps?.courierOpsLine1 || null,
+          courierOpsLine2: ord.courierOpsLine2 || ord.shipmentOps?.courierOpsLine2 || null,
+          awbCode: ord.awbCode || ord.shipmentInfo?.awbCode || ord.shipmentInfo?.trackingNumber || ord.tracking?.awb || null,
+          shippingProvider: ord.shippingProvider || ord.shippingSnapshot?.provider || null,
+          rawOrder: ord,
           createdAt: ord.createdAt || new Date().toISOString(),
           updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
         }));
@@ -283,6 +310,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                   <th className="py-3.5 px-4">Total</th>
                   <th className="py-3.5 px-4">Payment</th>
                   <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4">Courier &amp; Ops</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -325,7 +353,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-700">{order.paymentMethod}</div>
                       <span className={`text-[10px] font-bold ${
-                        order.paymentStatus === 'Paid' ? 'text-emerald-600' : 'text-amber-600'
+                        order.paymentStatus === 'Paid' ? 'text-emerald-600' : order.paymentStatus === 'Advance Paid' ? 'text-sky-700' : order.paymentStatus === 'Failed' ? 'text-rose-600' : 'text-amber-600'
                       }`}>
                         {order.paymentStatus}
                       </span>
@@ -347,6 +375,69 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                       >
                         {order.status}
                       </span>
+                    </td>
+
+                    {/* Courier & Ops */}
+                    <td className="py-3.5 px-4">
+                      {order.status === 'Pending' ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrderId(order.orderNumber || order.id);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-[#A44101] text-amber-900 hover:text-white border border-amber-300 hover:border-[#A44101] font-bold text-xs shadow-2xs transition-all cursor-pointer group/btn"
+                          title="View order details"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-amber-700 group-hover/btn:text-white" />
+                          <span>View All</span>
+                        </button>
+                      ) : order.status === 'Cancelled' ? (
+                        <span className="text-[11px] text-slate-400 font-medium">Order Cancelled</span>
+                      ) : order.awbCode ? (
+                        <div>
+                          <div className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                            <Truck className="w-3 h-3 shrink-0" />
+                            <span>{order.awbCode}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {order.courier || 'Assigned Courier'}
+                          </div>
+                        </div>
+                      ) : (order.status === 'Confirmed' || order.status === 'Ready to Ship' || order.status === 'Processing') ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
+                            <PackageCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>Ready to Ship</span>
+                          </span>
+                          <div className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
+                            <Truck className="w-3 h-3 text-slate-400" />
+                            <span>{order.courier || 'Shiprocket Ready'}</span>
+                          </div>
+                        </div>
+                      ) : order.status === 'Shipped' ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                            <Truck className="w-3 h-3" />
+                            <span>In Transit</span>
+                          </span>
+                          <div className="text-[10px] text-slate-500 mt-0.5">{order.courier || 'Dispatched'}</div>
+                        </div>
+                      ) : order.status === 'Delivered' ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Delivered</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200">
+                            <Clock className="w-3 h-3" />
+                            <span>{order.courierOpsLine1 || 'Awaiting Action'}</span>
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Details Action */}

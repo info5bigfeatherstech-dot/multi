@@ -637,10 +637,12 @@ export const LabelsBadgesTab: React.FC = () => {
     if (!assignSearch.trim()) return products;
     const q = assignSearch.toLowerCase().trim();
     return products.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+      (p) => {
+        const titleStr = (typeof p.title === 'string' ? p.title : ((p as any).name || '')).toLowerCase();
+        const skuStr = (p.sku || '').toLowerCase();
+        const catStr = (typeof p.category === 'object' && p.category !== null ? ((p.category as any).name || (p.category as any).slug || '') : (p.category || '')).toLowerCase();
+        return titleStr.includes(q) || skuStr.includes(q) || catStr.includes(q);
+      }
     );
   }, [products, assignSearch]);
 

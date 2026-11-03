@@ -18,13 +18,11 @@ import {
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
 import { useCart } from '../context/CartContext';
-import { isAuthenticated } from '../utils/authGuard';
 import { isItemInWishlist, toggleWishlistItem } from '../utils/wishlistStorage';
 import { toast } from 'react-hot-toast';
 import { 
   apiClient,
   storefrontProductsApi, 
-  storefrontWishlistApi,
   adminCouponsApi,
   storefrontCheckoutApi
 } from '../api';
@@ -750,7 +748,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   };
 
   const handleToggleWishlist = async () => {
-    const nextState = toggleWishlistItem(product.id);
+    const slug = product.slug || product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const nextState = toggleWishlistItem(product.id, slug);
     setIsWishlisted(nextState);
     const prodTitle = product.title && product.title.length > 32 
       ? `${product.title.slice(0, 32)}...` 
@@ -765,13 +764,6 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         id: `wishlist-${product.id}`,
         icon: '🤍',
       });
-    }
-    if (isAuthenticated()) {
-      try {
-        await storefrontWishlistApi.toggle(product.id, product.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-      } catch {
-        // offline fallback
-      }
     }
   };
 
@@ -1261,20 +1253,32 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
               {/* Primary Action Buttons: Buy Now + Add to Cart + Wishlist */}
               <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={handleBuyNow}
-                  className="flex-1 py-3.5 px-6 bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
-                >
-                  Buy Now
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddToCart}
-                  className="flex-1 py-3.5 px-6 bg-[#A44101] hover:bg-[#8C3701] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
-                >
-                  {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
-                </button>
+                {isOutOfStock ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 py-3.5 px-6 bg-slate-100 text-slate-400 text-sm font-bold rounded-xl border border-slate-200 cursor-not-allowed text-center select-none shadow-xs"
+                  >
+                    Out of Stock
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleBuyNow}
+                      className="flex-1 py-3.5 px-6 bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
+                    >
+                      Buy Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="flex-1 py-3.5 px-6 bg-[#A44101] hover:bg-[#8C3701] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
+                    >
+                      {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={handleToggleWishlist}
@@ -1480,6 +1484,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               >
                 {relatedProducts.map((relProduct) => {
                   const isAdded = !!addedRelatedIds[relProduct.id];
+                  const isOutOfStock = relProduct.inStock === false || (typeof (relProduct as any).stock === 'number' && (relProduct as any).stock <= 0);
 
                   return (
                     <article
@@ -1492,6 +1497,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     >
                       {/* Product Visual */}
                       <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                            <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
                         {/* Discount Sticker */}
                         <div className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
                           <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white text-white" />
@@ -1552,6 +1564,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                             </span>
                           </div>
 
+                          {isOutOfStock ? (
+                            <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                disabled
+                                className="w-full py-1.5 px-2 rounded-theme text-[11px] sm:text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                              >
+                                <span>Out of Stock</span>
+                              </button>
+                            </div>
+                          ) : (
                           <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                             <button
                               type="button"
@@ -1601,6 +1624,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                               Buy Now
                             </button>
                           </div>
+                          )}
                         </div>
                       </div>
                     </article>

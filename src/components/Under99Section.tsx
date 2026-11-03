@@ -75,9 +75,10 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
   };
 
   const handleToggleWishlist = (id: string) => {
-    const isAdding = toggleWishlistItem(id);
-    setWishlistIds((prev) => ({ ...prev, [id]: isAdding }));
     const prod = UNDER_99_PRODUCTS.find((p) => p.id === id);
+    const slug = prod?.slug || prod?.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const isAdding = toggleWishlistItem(id, slug);
+    setWishlistIds((prev) => ({ ...prev, [id]: isAdding }));
     const prodTitle = prod?.title && prod.title.length > 32 
       ? `${prod.title.slice(0, 32)}...` 
       : (prod?.title || 'Product');
@@ -198,6 +199,7 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
           {filteredProducts.map((product: ProductItem, index: number) => {
             const isAdded = !!addedItemIds[product.id];
             const isWishlisted = !!wishlistIds[product.id];
+            const isOutOfStock = product.inStock === false || (typeof (product as any).stock === 'number' && (product as any).stock <= 0);
             const youSave = product.originalPrice - product.currentPrice;
 
             return (
@@ -212,6 +214,13 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
               >
                 {/* Visual Image & Badges */}
                 <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                      <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                        Out of Stock
+                      </span>
+                    </div>
+                  )}
                   {/* Discount Badge */}
                   <div className="absolute top-3 left-3 z-10 bg-[#A44101] text-white text-xs font-black px-2.5 py-1 rounded-md shadow-md flex items-center gap-1">
                     <Zap className="w-3 h-3 fill-white text-white" />
@@ -301,6 +310,17 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
                   </div>
 
                   {/* Actions: Add to Cart + Buy Now */}
+                  {isOutOfStock ? (
+                    <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-2.5 px-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                      >
+                        <span>Out of Stock</span>
+                      </button>
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       type="button"
@@ -339,6 +359,7 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  )}
                 </div>
               </motion.article>
             );

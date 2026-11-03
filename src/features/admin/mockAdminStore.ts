@@ -11,7 +11,7 @@ export interface AdminUser {
   avatar?: string;
 }
 
-export type OrderStatus = 'Pending' | 'Confirmed' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled' | 'Returned' | 'RTO';
+export type OrderStatus = 'Pending' | 'Confirmed' | 'Ready to Ship' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled' | 'Returned' | 'RTO' | string;
 
 export interface GiftIntentPayload {
   isGift: boolean;
@@ -40,14 +40,20 @@ export interface AdminOrder {
   customerPhone: string;
   shippingAddress: string;
   status: OrderStatus;
-  paymentMethod: 'COD' | 'UPI' | 'Card' | 'NetBanking';
-  paymentStatus: 'Paid' | 'Pending' | 'Refunded';
+  paymentMethod: 'COD' | 'UPI' | 'Card' | 'NetBanking' | 'Advance + COD' | string;
+  paymentStatus: 'Paid' | 'Pending' | 'Refunded' | 'Advance Paid' | 'Failed' | string;
   totalAmount: number;
   subtotal: number;
   discount: number;
   items: AdminOrderItem[];
   isGiftOrder: boolean;
   giftIntent?: GiftIntentPayload;
+  courier?: string | null;
+  courierOpsLine1?: string | null;
+  courierOpsLine2?: string | null;
+  awbCode?: string | null;
+  shippingProvider?: string | null;
+  rawOrder?: any;
   createdAt: string;
   updatedAt: string;
 }

@@ -113,6 +113,7 @@ export interface ProductItem {
   isTopDeal?: boolean;
   tag?: string;
   inStock: boolean;
+  stock?: number;
   status?: string;
   isActive?: boolean;
 }

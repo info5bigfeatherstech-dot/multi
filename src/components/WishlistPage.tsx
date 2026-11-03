@@ -61,10 +61,11 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   const handleRemove = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const item = wishlistItems.find((it) => it.id === id);
+    const slug = item?.slug || item?.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const itemTitle = item?.title && item.title.length > 32 
       ? `${item.title.slice(0, 32)}...` 
       : (item?.title || 'Item');
-    toggleWishlistItem(id);
+    toggleWishlistItem(id, slug);
     setWishlistItems((prev) => prev.filter((it) => it.id !== id));
     toast(`${itemTitle} removed from wishlist`, {
       id: `wishlist-remove-${id}`,
@@ -409,6 +410,13 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                             onClick={() => onSelectProduct?.(product)}
                             className="relative aspect-square bg-slate-50 overflow-hidden cursor-pointer flex items-center justify-center"
                           >
+                            {(product.inStock === false || (typeof (product as any).stock === 'number' && (product as any).stock <= 0)) && (
+                              <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                                <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md border border-white/20">
+                                  Out of Stock
+                                </span>
+                              </div>
+                            )}
                             <img
                               src={product.image}
                               alt={product.title}

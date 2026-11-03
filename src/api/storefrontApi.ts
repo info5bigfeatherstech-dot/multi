@@ -548,34 +548,58 @@ export const storefrontWishlistApi = {
       throw new Error(normalizeApiError(err));
     }
   },
-  toggle: async (productId: string, slug?: string) => {
+  add: async (slug: string, variantId?: string) => {
+    const cleanSlug = String(slug || '').trim();
+    if (!cleanSlug) return null;
     try {
-      const isObjectId = /^[0-9a-fA-F]{24}$/.test(productId);
-      const resolvedSlug = slug || (!isObjectId ? productId : undefined);
       const res = await apiClient.post("/wishlist/add", { 
-        productId: isObjectId ? productId : undefined, 
-        productSlug: resolvedSlug,
-        slug: resolvedSlug
+        productSlug: cleanSlug,
+        variantId: variantId || undefined,
       });
       return res.data?.data || res.data;
-    } catch (err) {
+    } catch (err: any) {
+      const msg = String(err?.response?.data?.message || err?.message || '');
+      if (msg.toLowerCase().includes('already in wishlist')) {
+        return null;
+      }
+      throw new Error(normalizeApiError(err));
+    }
+  },
+  toggle: async (productId: string, slug?: string) => {
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(productId);
+    const resolvedSlug = String(slug || (!isObjectId ? productId : '')).trim();
+    if (!resolvedSlug) return null;
+    try {
+      const res = await apiClient.post("/wishlist/add", { 
+        productSlug: resolvedSlug,
+      });
+      return res.data?.data || res.data;
+    } catch (err: any) {
+      const msg = String(err?.response?.data?.message || err?.message || '');
+      if (msg.toLowerCase().includes('already in wishlist')) {
+        return null;
+      }
       throw new Error(normalizeApiError(err));
     }
   },
   merge: async (items: Array<{ slug?: string; productId?: string }>) => {
     try {
-      const res = await apiClient.post("/wishlist/merge", { items });
+      const validItems = items.filter(it => it.slug?.trim());
+      if (validItems.length === 0) return null;
+      const res = await apiClient.post("/wishlist/merge", { items: validItems });
       return res.data?.data || res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
     }
   },
   remove: async (slug: string) => {
+    const cleanSlug = String(slug || '').trim();
+    if (!cleanSlug) return null;
     try {
-      const res = await apiClient.delete(`/wishlist/remove/${encodeURIComponent(slug)}`);
+      const res = await apiClient.delete(`/wishlist/remove/${encodeURIComponent(cleanSlug)}`);
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch {
+      return null;
     }
   },
 };

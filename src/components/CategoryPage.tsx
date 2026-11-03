@@ -467,7 +467,17 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
               image: typeof img === 'string' ? img : (img?.url || 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=600&q=80'),
               rating: ratingVal,
               reviews: reviewsCount,
-              inStock: p.inStock !== false,
+              inStock: (() => {
+                const totalStock = Array.isArray(p.variants) && p.variants.length > 0
+                  ? p.variants.reduce((sum: number, v: any) => {
+                      const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
+                      return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof p.stock === 'number' ? p.stock : 1));
+                    }, 0)
+                  : (typeof p.stock === 'number' ? p.stock : undefined);
+                const out = p.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || p.availability?.ecomm?.inStock === false || p.status === 'out_of_stock' || p.status === 'OutOfStock';
+                return !out;
+              })(),
+              stock: typeof p.stock === 'number' ? p.stock : (Array.isArray(p.variants) && p.variants.length > 0 ? p.variants.reduce((s: number, v: any) => s + Number(v.inventory?.quantity ?? v.stock ?? 0), 0) : undefined),
               isTopDeal: Boolean(p.isFeatured) || discountPct >= 50,
               tag: p.appliedTags?.[0] || p.tag,
               description: p.description || '',
@@ -681,12 +691,13 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
 
   const toggleWishlist = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const isAdding = toggleWishlistItem(productId);
+    const prod = filteredProducts.find((p: ProductItem) => p.id === productId) || apiProducts.find((p: ProductItem) => p.id === productId);
+    const slug = prod?.slug || prod?.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const isAdding = toggleWishlistItem(productId, slug);
     setWishlistIds((prev) => ({
       ...prev,
       [productId]: isAdding,
     }));
-    const prod = filteredProducts.find((p: ProductItem) => p.id === productId) || apiProducts.find((p: ProductItem) => p.id === productId);
     const prodTitle = prod?.title && prod.title.length > 32 
       ? `${prod.title.slice(0, 32)}...` 
       : (prod?.title || 'Product');
@@ -1542,6 +1553,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                 {filteredProducts.map((product) => {
                   const isWishlisted = !!wishlistIds[product.id];
                   const isAdded = !!addedIds[product.id];
+                  const isOutOfStock = product.inStock === false || (typeof (product as any).stock === 'number' && (product as any).stock <= 0);
                   const savings = product.originalPrice - product.currentPrice;
 
                   return (
@@ -1552,6 +1564,13 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                     >
                       {/* Top Image Container */}
                       <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                            <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md border border-white/20">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
                         <img
                           src={product.image}
                           alt={product.title}
@@ -1633,7 +1652,18 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                          {isOutOfStock ? (
+                            <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                disabled
+                                className="w-full py-1.5 sm:py-2 px-1 rounded-lg text-[11px] sm:text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1 select-none"
+                              >
+                                <span>Out of Stock</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                             <button
                               type="button"
                               onClick={(e) => handleAddToCart(product, e)}
@@ -1656,6 +1686,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                               <span className="truncate">Buy Now</span>
                             </button>
                           </div>
+                          )}
                         </div>
                       </div>
                     </div>

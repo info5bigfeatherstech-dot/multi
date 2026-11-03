@@ -512,6 +512,97 @@ const DEFAULT_INVENTORY_LOGS: InventoryLog[] = [
 
 const DEFAULT_BADGES = ['Trending', 'Sale', 'New Launch', 'Hot Deal', 'Bestseller', 'Limited Edition', 'Clearance'];
 
+export const sanitizeCategoryName = (category: any): string => {
+  if (!category) return 'General';
+  if (typeof category === 'string') return category;
+  if (typeof category === 'object') {
+    return category.name || category.title || category.slug || 'General';
+  }
+  return String(category || 'General');
+};
+
+export const sanitizeSubcategoryName = (subcategory: any): string | undefined => {
+  if (!subcategory) return undefined;
+  if (typeof subcategory === 'string') return subcategory;
+  if (typeof subcategory === 'object') {
+    return subcategory.name || subcategory.title || subcategory.slug || undefined;
+  }
+  return String(subcategory);
+};
+
+export const sanitizeProduct = (p: any): AdminProduct => {
+  if (!p || typeof p !== 'object') return p;
+  const category = sanitizeCategoryName(p.category);
+  const subcategory = sanitizeSubcategoryName(p.subcategory);
+  const brand = typeof p.brand === 'object' && p.brand !== null
+    ? (p.brand.name || 'Generic')
+    : (typeof p.brand === 'string' ? p.brand : 'Generic');
+  const title = typeof p.title === 'string' && p.title.trim() ? p.title.trim() : (typeof p.name === 'string' ? p.name.trim() : 'Untitled Product');
+  const id = String(p.id || p._id || `prod-${Date.now()}`);
+  const sku = typeof p.sku === 'string' && p.sku ? p.sku : (p.slug || `SKU-${id.slice(-6)}`);
+
+  let currentPrice = 0;
+  if (typeof p.currentPrice === 'number' && !isNaN(p.currentPrice)) {
+    currentPrice = p.currentPrice;
+  } else if (typeof p.price === 'number' && !isNaN(p.price)) {
+    currentPrice = p.price;
+  } else if (p.price && typeof p.price === 'object') {
+    currentPrice = Number(p.price.sale ?? p.price.base ?? 0);
+  } else if (p.variants?.[0]?.price) {
+    const vp = p.variants[0].price;
+    currentPrice = typeof vp === 'number' ? vp : Number(vp.sale ?? vp.base ?? 0);
+  }
+
+  let originalPrice = currentPrice;
+  if (typeof p.originalPrice === 'number' && !isNaN(p.originalPrice)) {
+    originalPrice = p.originalPrice;
+  } else if (typeof p.mrp === 'number' && !isNaN(p.mrp)) {
+    originalPrice = p.mrp;
+  } else if (p.variants?.[0]?.mrp) {
+    originalPrice = Number(p.variants[0].mrp);
+  }
+  if (originalPrice < currentPrice) originalPrice = currentPrice;
+
+  let image = '';
+  if (typeof p.image === 'string' && p.image) {
+    image = p.image;
+  } else if (p.image && typeof p.image === 'object') {
+    image = p.image.url || p.image.secure_url || '';
+  } else if (Array.isArray(p.images) && p.images.length > 0) {
+    const firstImg = p.images[0];
+    image = typeof firstImg === 'string' ? firstImg : (firstImg?.url || '');
+  } else if (p.cardImage) {
+    image = typeof p.cardImage === 'string' ? p.cardImage : (p.cardImage?.url || '');
+  } else if (p.thumbnail) {
+    image = typeof p.thumbnail === 'string' ? p.thumbnail : (p.thumbnail?.url || '');
+  }
+  if (!image) {
+    image = 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=600&q=80';
+  }
+
+  return {
+    ...p,
+    id,
+    sku,
+    title,
+    brand,
+    category,
+    subcategory,
+    currentPrice,
+    originalPrice,
+    discountPercentage: typeof p.discountPercentage === 'number' ? p.discountPercentage : 0,
+    stock: typeof p.stock === 'number' ? p.stock : (p.inStock ? 50 : 0),
+    lowStockThreshold: typeof p.lowStockThreshold === 'number' ? p.lowStockThreshold : 10,
+    rating: typeof p.rating === 'number' ? p.rating : (p.rating?.average || 5.0),
+    reviews: typeof p.reviews === 'number' ? p.reviews : (p.rating?.count || 0),
+    status: (p.status === 'Archived' || p.status === 'archived' || p.isArchived)
+      ? 'Archived'
+      : (String(p.status || '').toLowerCase() === 'inactive' ? 'Inactive' : 'Active'),
+    image,
+    dateAdded: p.dateAdded || p.createdAt || new Date().toISOString()
+  };
+};
+
 // Load state from localStorage or return default initial state
 const loadInitialState = (): AdminProductsState => {
   if (typeof window === 'undefined') {
@@ -531,7 +622,7 @@ const loadInitialState = (): AdminProductsState => {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.products) && parsed.products.length > 0) {
         return {
-          products: parsed.products,
+          products: parsed.products.map(sanitizeProduct),
           categories: parsed.categories || DEFAULT_CATEGORIES,
           inventoryLogs: parsed.inventoryLogs || DEFAULT_INVENTORY_LOGS,
           selectedProductIds: [],
@@ -578,7 +669,7 @@ export const adminProductsSlice = createSlice({
     // 1. Add Product: Generates unique ID, sets dateAdded, default status Active, unshifts
     addProduct: (state, action: PayloadAction<Omit<AdminProduct, 'id' | 'dateAdded'> & { id?: string; dateAdded?: string }>) => {
       const now = new Date().toISOString();
-      const newProduct: AdminProduct = {
+      const newProduct: AdminProduct = sanitizeProduct({
         ...action.payload,
         id: action.payload.id || `prod-${Date.now()}`,
         dateAdded: action.payload.dateAdded || now,
@@ -588,7 +679,7 @@ export const adminProductsSlice = createSlice({
         lowStockThreshold: action.payload.lowStockThreshold ?? 10,
         createdAt: now,
         updatedAt: now
-      };
+      });
       state.products.unshift(newProduct);
       state.lastUpdated = now;
       saveStateToStorage(state);
@@ -598,9 +689,16 @@ export const adminProductsSlice = createSlice({
     updateProduct: (state, action: PayloadAction<{ id: string; updates: Partial<AdminProduct> }>) => {
       const index = state.products.findIndex((p) => p.id === action.payload.id);
       if (index !== -1) {
+        const updates = { ...action.payload.updates };
+        if ('category' in updates && updates.category !== undefined) {
+          updates.category = sanitizeCategoryName(updates.category);
+        }
+        if ('subcategory' in updates && updates.subcategory !== undefined) {
+          updates.subcategory = sanitizeSubcategoryName(updates.subcategory);
+        }
         state.products[index] = {
           ...state.products[index],
-          ...action.payload.updates,
+          ...updates,
           updatedAt: new Date().toISOString()
         };
         state.lastUpdated = new Date().toISOString();
@@ -815,9 +913,9 @@ export const adminProductsSlice = createSlice({
     },
 
     // 16. Load Live Products from Backend
-    setProductsFromApi: (state, action: PayloadAction<AdminProduct[]>) => {
+    setProductsFromApi: (state, action: PayloadAction<any[]>) => {
       if (Array.isArray(action.payload) && action.payload.length > 0) {
-        state.products = action.payload;
+        state.products = action.payload.map(sanitizeProduct);
         state.lastUpdated = new Date().toISOString();
         saveStateToStorage(state);
       }

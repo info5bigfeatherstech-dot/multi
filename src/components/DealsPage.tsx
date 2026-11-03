@@ -11,9 +11,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { ProductItem, getAllProducts } from '../data/storeData';
-import { storefrontWishlistApi, apiClient } from '../api';
+import { apiClient } from '../api';
 import { useCart } from '../context/CartContext';
-import { isAuthenticated } from '../utils/authGuard';
 import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { isProductActive } from '../utils/productUtils';
 import { toast } from 'react-hot-toast';
@@ -153,6 +152,14 @@ export const DealsPage: React.FC<DealsPageProps> = ({
                     : p.category.name || p.category.slug || ''
                   : 'General';
 
+                const totalStock = Array.isArray(p.variants) && p.variants.length > 0
+                  ? p.variants.reduce((sum: number, v: any) => {
+                      const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
+                      return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof p.stock === 'number' ? p.stock : 1));
+                    }, 0)
+                  : (typeof p.stock === 'number' ? p.stock : undefined);
+                const isOutOfStockItem = p.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || p.availability?.ecomm?.inStock === false || p.status === 'out_of_stock' || p.status === 'OutOfStock';
+
                 return {
                   id: p._id || p.id,
                   slug: p.slug,
@@ -164,7 +171,8 @@ export const DealsPage: React.FC<DealsPageProps> = ({
                   image: img,
                   rating: typeof p.rating === 'number' ? p.rating : (p.rating?.value || 4.8),
                   reviews: p.soldInfo?.count || 85,
-                  inStock: p.inStock !== undefined ? p.inStock : true,
+                  inStock: !isOutOfStockItem,
+                  stock: typeof p.stock === 'number' ? p.stock : totalStock,
                   isTopDeal: discountPercentage >= 40,
                   tag: discountPercentage >= 50 ? 'MEGA DEAL' : undefined,
                 };
@@ -232,7 +240,8 @@ export const DealsPage: React.FC<DealsPageProps> = ({
   // Wishlist handler
   const handleToggleWishlist = async (prod: ProductItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const isNowWishlisted = toggleWishlistItem(prod.id);
+    const slug = prod.slug || prod.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || prod.id;
+    const isNowWishlisted = toggleWishlistItem(prod.id, slug);
     const next = new Set(wishlistIds);
     if (isNowWishlisted) {
       next.add(prod.id);
@@ -245,14 +254,6 @@ export const DealsPage: React.FC<DealsPageProps> = ({
       toast('Removed from wishlist', { icon: '🤍' });
     }
     setWishlistIds(next);
-
-    if (isAuthenticated()) {
-      try {
-        await storefrontWishlistApi.toggle(prod.id, prod.slug || prod.id);
-      } catch {
-        // Background sync
-      }
-    }
   };
 
   // Add to cart handler
@@ -545,6 +546,7 @@ export const DealsPage: React.FC<DealsPageProps> = ({
             {displayedProducts.map((prod) => {
               const isWish = wishlistIds.has(prod.id);
               const isAdded = addedItemIds.has(prod.id);
+              const isOutOfStock = prod.inStock === false || (typeof (prod as any).stock === 'number' && (prod as any).stock <= 0);
 
               return (
                 <div
@@ -555,6 +557,13 @@ export const DealsPage: React.FC<DealsPageProps> = ({
                   {/* Top Image Box */}
                   <div>
                     <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center mb-3">
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
+                          <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md border border-white/20">
+                            Out of Stock
+                          </span>
+                        </div>
+                      )}
                       {/* Discount Badge */}
                       <span className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-md shadow-xs">
                         {prod.discountPercentage}% OFF
@@ -608,26 +617,38 @@ export const DealsPage: React.FC<DealsPageProps> = ({
 
                   {/* Add to Cart Button */}
                   <div className="pt-3 mt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={(e) => handleAddToCart(prod, e)}
-                      className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-98 ${
-                        isAdded
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-[#A44101] hover:bg-[#8C3701] text-white'
-                      }`}
-                    >
-                      {isAdded ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Added to Cart!</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Add to Cart</span>
-                        </>
-                      )}
-                    </button>
+                    {isOutOfStock ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                        >
+                          <span>Out of Stock</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleAddToCart(prod, e)}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-98 ${
+                          isAdded
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-[#A44101] hover:bg-[#8C3701] text-white'
+                        }`}
+                      >
+                        {isAdded ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Added to Cart!</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Add to Cart</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

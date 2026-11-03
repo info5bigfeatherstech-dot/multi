@@ -490,6 +490,14 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Handle Customer 403 Phone Required Gate
+    if (status === 403 && !isAdminRoute && !isDropshipperRoute) {
+      const errCode = error.response?.data?.code;
+      if (errCode === "PHONE_REQUIRED" && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("abb_phone_required", { detail: error.response?.data }));
+      }
+    }
+
     return Promise.reject(error);
   }
 );
