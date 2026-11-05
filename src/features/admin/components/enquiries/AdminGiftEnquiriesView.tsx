@@ -186,7 +186,7 @@ export const AdminGiftEnquiriesView: React.FC<AdminGiftEnquiriesViewProps> = ({ 
               E-Commerce Storefront
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500 capitalize">
             {isBulk
               ? 'Manage retailer wholesale requests, visiting cards, order quantities, and quote follow-ups.'
               : 'Review corporate gifting custom requests, company logos, artwork proofs, and status updates.'}

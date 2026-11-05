@@ -118,8 +118,8 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
           <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
             <Layers className="w-6 h-6 text-indigo-600" />
             Categories & Subcategory Hierarchy
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          </h1>   
+          <p className="text-xs text-slate-500 mt-0.5 capitalize">
             Organize catalog departments, badges, nested sub-tags, and product assignments
           </p>
         </div>

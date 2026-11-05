@@ -14,9 +14,15 @@ import {
   RefreshCw,
   ShoppingBag,
   Loader2,
-  Package
+  Package,
+  RotateCcw,
+  MessageSquare,
+  Headphones,
 } from 'lucide-react';
 import { storefrontCheckoutApi } from '../../api';
+import { ReturnRequestModal } from './ReturnRequestModal';
+import { ReturnStatusCard } from './ReturnStatusCard';
+import { FloatingOrderChatWidget } from './FloatingOrderChatWidget';
 
 export interface OrderDetailTrackingViewProps {
   orderId: string;
@@ -40,6 +46,8 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const effectiveOrderId = initialOrder?.orderId || initialOrder?.id || orderId;
 
@@ -82,8 +90,8 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
       navigator.clipboard.writeText(text);
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 2500);
-    } catch {
-      // fallback
+    } catch(err) {
+      console.error(err);
     }
   };
 
@@ -122,7 +130,10 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
   let trackingStep = 1;
   let statusBadgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
 
-  if (statusLower.includes('deliver')) {
+  if (statusLower.includes('return')) {
+    trackingStep = 4;
+    statusBadgeStyle = 'bg-orange-50 text-orange-800 border-orange-200';
+  } else if (statusLower.includes('deliver')) {
     trackingStep = 4;
     statusBadgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
   } else if (statusLower.includes('out for delivery')) {
@@ -135,6 +146,13 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
     trackingStep = 1;
     statusBadgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
   }
+
+  // Returns eligibility
+  const returnInfo = order?.returnInfo;
+  const hasReturn = Boolean(
+    (returnInfo && returnInfo.status && returnInfo.status !== 'closed') ||
+    statusLower.includes('return')
+  );
 
   // Items extraction from API
   const rawItems = order?.items || order?.orderItems || order?.products || [];
@@ -321,6 +339,29 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               <span className="hidden md:inline">Refresh</span>
             </button>
 
+            {hasReturn && (
+              <button
+                type="button"
+                onClick={() => setIsChatOpen(true)}
+                className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-navy text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 active:scale-98"
+                title="Open direct chat with store support & admin"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-[#A44101]" />
+                <span>Chat Support</span>
+              </button>
+            )}
+
+            {!hasReturn && (
+              <button
+                type="button"
+                onClick={() => setIsReturnModalOpen(true)}
+                className="px-3.5 py-2.5 rounded-xl border border-[#A44101]/40 bg-orange-50 hover:bg-orange-100 text-[#A44101] text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5 active:scale-98"
+                title="Initiate a product return / defect request"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Raise Return</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -346,6 +387,15 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
         )}
       </div>
 
+      {/* 1.5. RETURN STATUS & RESOLUTION CARD */}
+      {hasReturn && (
+        <ReturnStatusCard
+          orderId={effectiveOrderId}
+          returnInfo={returnInfo || { status: order?.orderStatus || 'requested' }}
+          onRefresh={() => fetchOrderDetails(true)}
+        />
+      )}
+
       {/* 2. SHIPMENT TRACKING & COURIER HERO CARD */}
       <div className="bg-gradient-to-br from-white via-white to-orange-50/30 rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-xs space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200/80">
@@ -357,7 +407,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               <span className="text-[10px] font-black uppercase tracking-wider text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded-full">
                 Courier Tracking Journey
               </span>
-              <h2 className="text-base sm:text-lg font-black text-navy mt-1">
+              <h2 className="text-base sm:text-lg font-black text-navy mt-1 capitalize">
                 {currentStatus === 'Delivered' ? 'Package Delivered Successfully' : 'Estimated Delivery in 2-4 Business Days'}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
@@ -423,8 +473,8 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
                   </div>
                   <h4 className="text-xs font-bold text-navy truncate">{ev.title}</h4>
                 </div>
-                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{ev.desc}</p>
-                <span className="text-[10px] font-bold text-[#A44101] block mt-1.5 font-mono">{ev.time}</span>
+                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed capitalize">{ev.desc}</p>
+                <span className="text-[10px] font-bold text-[#A44101] block mt-1.5 font-mono capitalize">{ev.time}</span>
               </div>
             ))}
           </div>
@@ -443,7 +493,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
                   Ordered Products ({items.length} {items.length === 1 ? 'item' : 'items'})
                 </h3>
               </div>
-              <span className="text-[11px] text-slate-500 font-medium">All items packed together</span>
+              <span className="text-[11px] text-slate-500 font-medium capitalize">All items packed together</span>
             </div>
 
             {/* Product Items Loop */}
@@ -613,9 +663,83 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
           </div>
 
           {/* Need Help / Support Accordion */}
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-[#A44101]" />
+                <h3 className="text-xs sm:text-sm font-bold text-navy">Need Order Assistance?</h3>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Admin Support Online
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed capitalize">
+              Have questions about your delivery status, received a damaged item, or need to raise an issue directly with the store team?
+            </p>
+
+            <div className="flex flex-col gap-2.5 pt-1">
+              {hasReturn ? (
+                <button
+                  type="button"
+                  onClick={() => setIsChatOpen(true)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Open Return Support Chat</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsReturnModalOpen(true)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Raise Return / Issue Claim</span>
+                </button>
+              )}
+            </div>
+          </div>
 
         </div>
       </div>
+
+      {/* 4. RAISE RETURN REQUEST MODAL */}
+      {isReturnModalOpen && (
+        <ReturnRequestModal
+          orderId={effectiveOrderId}
+          orderTitle={items[0]?.title}
+          onClose={() => setIsReturnModalOpen(false)}
+          onSuccess={(newReturn) => {
+            setIsReturnModalOpen(false);
+            setActionNotice('Return request submitted successfully! Resolution team will review your proofs.');
+            setOrder((prev: any) => ({
+              ...(prev || {}),
+              orderStatus: 'return_requested',
+              status: 'return_requested',
+              returnInfo: newReturn,
+            }));
+            setTimeout(() => setActionNotice(null), 5000);
+            fetchOrderDetails(true);
+          }}
+        />
+      )}
+      {/* 5. FLOATING ADMIN & SUPPORT CHAT WIDGET - Only available when return has been raised */}
+      {hasReturn && (
+        <FloatingOrderChatWidget
+          orderId={effectiveOrderId}
+          orderStatus={currentStatus}
+          returnInfo={returnInfo}
+          isOpen={isChatOpen}
+          onToggle={() => setIsChatOpen((prev) => !prev)}
+          onClose={() => setIsChatOpen(false)}
+          onOpenReturnModal={() => {
+            setIsChatOpen(false);
+            setIsReturnModalOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 };

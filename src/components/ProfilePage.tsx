@@ -493,8 +493,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             let statusColor = 'text-[#A44101] bg-[#A44101]/10 border-[#A44101]/25';
             let trackingStep = 1;
 
+            let displayStatus = status;
             const s = String(status).toLowerCase();
-            if (s.includes('deliver')) {
+            if (s.includes('return') || o.returnInfo?.status) {
+              const rStatus = o.returnInfo?.status ? String(o.returnInfo.status).replace('_', ' ') : 'Return Requested';
+              displayStatus = `Return: ${rStatus}`;
+              statusColor = 'text-amber-800 bg-amber-50 border-amber-300';
+              trackingStep = 4;
+            } else if (s.includes('deliver')) {
               statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
               trackingStep = 4;
             } else if (s.includes('out for delivery')) {
@@ -578,7 +584,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               id: orderId,
               date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : (local.date || 'Recent'),
               time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
-              status,
+              status: displayStatus,
               statusColor,
               eta: o.estimatedDelivery 
                 ? `Delivery Expected: ${new Date(o.estimatedDelivery).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
@@ -605,6 +611,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               items,
               orderId: o.orderId || orderId,
               _id: o._id,
+              returnInfo: o.returnInfo || local.returnInfo,
               raw: o,
             };
           });
@@ -1264,7 +1271,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                   <div>
                     <h2 className="text-lg font-bold text-navy">Order History & Shipment Tracking</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">Track your packages, download GST invoices, and reorder</p>
+                    <p className="text-xs text-slate-500 mt-0.5 capitalize">Track your packages, download GST invoices, and reorder</p>
                   </div>
                   <span className="text-xs text-navy bg-slate-100 px-2.5 py-1 rounded-full font-bold border border-slate-200">
                     {isLoadingOrders ? 'Checking status...' : orders.length > 0 ? `${orders.length} Order${orders.length === 1 ? '' : 's'}` : '0 Orders'}

@@ -157,7 +157,10 @@ export const AdminReturnsRefundsView: React.FC = () => {
       }
 
       if (chatRes.status === 'fulfilled') {
-        const msgs = chatRes.value?.chat?.messages || chatRes.value?.messages || chatRes.value?.data || [];
+        const val = chatRes.value;
+        const msgs = Array.isArray(val?.chat)
+          ? val.chat
+          : (val?.chat?.messages || val?.messages || val?.data || []);
         setChatMessages(Array.isArray(msgs) ? msgs : []);
       } else {
         setChatMessages([]);
@@ -221,15 +224,43 @@ export const AdminReturnsRefundsView: React.FC = () => {
     }
   };
 
+  const [isRetryingPickup, setIsRetryingPickup] = useState(false);
+
+  const handleRetryReversePickup = async () => {
+    if (!detailModalItem?.orderId) return;
+    setIsRetryingPickup(true);
+    try {
+      await adminReturnsApi.retryReversePickup(detailModalItem.orderId);
+      toast.success(`Reverse pickup retried for ${detailModalItem.orderId}`);
+      const refreshed = await adminReturnsApi.getRequest(detailModalItem.orderId);
+      const ord = refreshed?.order || refreshed?.data || refreshed;
+      if (ord) setDetailModalItem(ord);
+      fetchReturns();
+    } catch (err: any) {
+      toast.error(err.message || 'Reverse pickup retry failed');
+    } finally {
+      setIsRetryingPickup(false);
+    }
+  };
+
   const handleSendChat = async () => {
     if (!detailModalItem?.orderId || !newChatMessage.trim()) return;
     setIsSendingChat(true);
     try {
-      await adminReturnsApi.sendChat(detailModalItem.orderId, newChatMessage.trim());
+      const res = await adminReturnsApi.sendChat(detailModalItem.orderId, newChatMessage.trim());
       setNewChatMessage('');
-      const res = await adminReturnsApi.getChat(detailModalItem.orderId);
-      const msgs = res?.chat?.messages || res?.messages || res?.data || [];
-      setChatMessages(Array.isArray(msgs) ? msgs : []);
+      const msgs = Array.isArray(res?.chat)
+        ? res.chat
+        : (res?.chat?.messages || res?.messages || res?.data || []);
+      if (msgs.length > 0) {
+        setChatMessages(msgs);
+      } else {
+        const refreshed = await adminReturnsApi.getChat(detailModalItem.orderId);
+        const refMsgs = Array.isArray(refreshed?.chat)
+          ? refreshed.chat
+          : (refreshed?.chat?.messages || refreshed?.messages || refreshed?.data || []);
+        setChatMessages(Array.isArray(refMsgs) ? refMsgs : []);
+      }
       toast.success('Message sent to customer');
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message');
@@ -316,19 +347,30 @@ export const AdminReturnsRefundsView: React.FC = () => {
         return { title, code, qty, price };
       });
 
-      // Proofs: Normalize whether strings or { kind, url } objects safely without calling endsWith on an object
-      const rawProofs = Array.isArray(ri.proofs) ? ri.proofs : [];
+      // Proofs: Normalize whether strings, arrays or { kind, url } objects safely
+      const rawProofs: any[] = [];
+      if (ri.proofVideo) {
+        rawProofs.push(typeof ri.proofVideo === 'string' ? { kind: 'video', url: ri.proofVideo } : ri.proofVideo);
+      }
+      if (Array.isArray(ri.proofImages)) {
+        ri.proofImages.forEach((img: any) => {
+          rawProofs.push(typeof img === 'string' ? { kind: 'image', url: img } : img);
+        });
+      }
+      if (Array.isArray(ri.proofs)) {
+        rawProofs.push(...ri.proofs);
+      }
       const normalizedProofs: Array<{ kind: 'image' | 'video'; url: string }> = [];
 
       for (const p of rawProofs) {
         if (!p) continue;
         if (typeof p === 'string') {
-          const isVideo = p.endsWith('.mp4') || p.endsWith('.webm') || p.includes('/video/');
+          const isVideo = p.endsWith('.mp4') || p.endsWith('.webm') || p.endsWith('.mov') || p.endsWith('.mkv') || p.includes('/video/');
           normalizedProofs.push({ kind: isVideo ? 'video' : 'image', url: p });
         } else if (typeof p === 'object') {
           const url = String(p.url || p.secure_url || p.src || '');
           if (!url) continue;
-          const isVideo = p.kind === 'video' || url.endsWith('.mp4') || url.endsWith('.webm') || url.includes('/video/');
+          const isVideo = p.kind === 'video' || url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov') || url.endsWith('.mkv') || url.includes('/video/');
           normalizedProofs.push({ kind: isVideo ? 'video' : 'image', url });
         }
       }
@@ -412,7 +454,7 @@ export const AdminReturnsRefundsView: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-navy">Returns & Refunds</h1>
-              <p className="text-xs sm:text-sm text-slate-500">
+              <p className="text-xs sm:text-sm text-slate-500 capitalize">
                 Process customer return requests, inspect proofs, arrange reverse pickups, and issue refunds
               </p>
             </div>
@@ -442,7 +484,7 @@ export const AdminReturnsRefundsView: React.FC = () => {
             </div>
           </div>
           <div className="text-2xl font-extrabold text-navy">{stats.total}</div>
-          <span className="text-[11px] text-slate-400 mt-0.5 block">Customer return filings</span>
+          <span className="text-[11px] text-slate-400 mt-0.5 block capitalize">Customer return filings</span>
         </div>
 
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
@@ -460,7 +502,7 @@ export const AdminReturnsRefundsView: React.FC = () => {
               </span>
             )}
           </div>
-          <span className="text-[11px] text-amber-700/80 mt-0.5 block">Pending decision</span>
+          <span className="text-[11px] text-amber-700/80 mt-0.5 block capitalize">Pending decision</span>
         </div>
 
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
@@ -484,7 +526,7 @@ export const AdminReturnsRefundsView: React.FC = () => {
           <div className="text-2xl font-extrabold text-emerald-600">
             ₹{stats.totalRefunded.toLocaleString('en-IN')}
           </div>
-          <span className="text-[11px] text-slate-400 mt-0.5 block">Successfully returned funds</span>
+          <span className="text-[11px] text-slate-400 mt-0.5 block capitalize">Successfully returned funds</span>
         </div>
       </div>
 
@@ -1095,6 +1137,22 @@ export const AdminReturnsRefundsView: React.FC = () => {
                           <span>APPROVE & GENERATE REVERSE PICKUP</span>
                         </button>
                       </>
+                    )}
+
+                    {modalData.status === 'approval_failed' && (
+                      <button
+                        type="button"
+                        onClick={handleRetryReversePickup}
+                        disabled={isRetryingPickup}
+                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                      >
+                        {isRetryingPickup ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        <span>RETRY REVERSE PICKUP</span>
+                      </button>
                     )}
 
                     {modalData.status === 'approved' && (

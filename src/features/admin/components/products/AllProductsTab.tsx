@@ -296,7 +296,7 @@ export const AllProductsTab: React.FC<AllProductsTabProps> = ({
             <Package className="w-6 h-6 text-indigo-600" />
             Catalog & Products Management
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5 capitalize">
             Manage your master inventory, prices, variants, categories, and client-side storage
           </p>
         </div>

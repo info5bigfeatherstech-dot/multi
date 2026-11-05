@@ -402,7 +402,7 @@ export const AdminRtoView: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-black text-navy tracking-tight">
               {subTabs.find((t) => t.id === activeSubTab)?.label || 'RTO Management'}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 capitalize">
               Inspect, track, synchronize statuses, and disburse refunds for delivery failure orders
             </p>
           </div>
@@ -853,7 +853,7 @@ export const AdminRtoView: React.FC = () => {
               <div className="p-8 sm:p-12 text-left">
                 <div className="text-2xl mb-2">📦</div>
                 <h3 className="text-sm font-bold text-navy">No RTO Orders Found</h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 mt-1 capitalize">
                   No returned-to-origin orders match your current filters or search criteria.
                 </p>
               </div>

@@ -931,20 +931,6 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       isActive={currentTab === 'gift-customization'}
                       onClick={() => handleTabClick('gift-customization')}
                     />
-
-                    <SidebarNavItem
-                      icon={Layers}
-                      label="Bulk Inquiries"
-                      isActive={currentTab === 'bulk-inquiries'}
-                      onClick={() => handleTabClick('bulk-inquiries')}
-                    />
-
-                    <SidebarNavItem
-                      icon={Gift}
-                      label="Gift Customization"
-                      isActive={currentTab === 'gift-customization'}
-                      onClick={() => handleTabClick('gift-customization')}
-                    />
                   </div>
                 </div>
 

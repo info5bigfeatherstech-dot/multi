@@ -223,9 +223,9 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-navy tracking-tight">
-            {shippingSpeedScope === 'same_day' ? 'Same Day Orders' : 'Orders &amp; Gift Intent Management'}
+            {shippingSpeedScope === 'same_day' ? 'Same Day Orders' : 'Orders Gift Intent Management'}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 capitalize">
             Monitor orders, update fulfillment statuses in real time, and customize gift cards &amp; recipient packaging.
           </p>
         </div>

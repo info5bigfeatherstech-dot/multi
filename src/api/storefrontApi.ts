@@ -403,7 +403,7 @@ export const storefrontProductsApi = {
       throw new Error(normalizeApiError(err));
     }
   },
-  requestOosAlert: async (payload: { productId: string; email: string; phone?: string }) => {
+  requestOosAlert: async (payload: { productId: string; email?: string; phone?: string; variantId?: string; reason?: string; name?: string }) => {
     try {
       const res = await apiClient.post("/oos-inquiries", payload);
       return res.data;
@@ -949,6 +949,175 @@ export const storefrontCheckoutApi = {
       return res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));
+    }
+  },
+  // Customer Product Returns & Chat delegates
+  createReturnRequest: async (
+    orderId: string,
+    data: CreateReturnRequestInput | FormData
+  ): Promise<ReturnRequestResponse> => {
+    return customerReturnsApi.createReturnRequest(orderId, data);
+  },
+  getReturnChat: async (orderId: string): Promise<ReturnChatResponse> => {
+    return customerReturnsApi.getReturnChat(orderId);
+  },
+  sendReturnChat: async (orderId: string, message: string): Promise<ReturnChatResponse> => {
+    return customerReturnsApi.sendReturnChat(orderId, message);
+  },
+};
+
+/* ============================================================
+   11b. CUSTOMER PRODUCT RETURN & CHAT APIs
+   ============================================================ */
+export type ReturnReasonType = 'damaged' | 'wrong_item';
+
+export interface CreateReturnRequestInput {
+  reasonType: ReturnReasonType;
+  reasonMessage: string;
+  proofVideo: File;
+  proofImages: File[]; // 1 to 3 images
+}
+
+export interface ReturnRequestSummary {
+  orderId: string;
+  status: 'requested' | 'approved' | 'rejected' | 'refunded' | 'approval_failed' | string;
+  reasonType: ReturnReasonType | string;
+  requestedAt: string;
+  reasonMessage?: string;
+  proofs?: Array<string | { kind: 'image' | 'video'; url: string }>;
+  proofVideo?: string;
+  proofImages?: string[];
+  windowDays?: number;
+  reverseAwb?: string;
+  reverseCarrier?: string;
+  decisionReason?: string | null;
+  [key: string]: any;
+}
+
+export interface ReturnChatMessage {
+  sender: 'user' | 'admin';
+  message: string;
+  createdAt: string;
+  senderType?: 'user' | 'admin';
+  text?: string;
+}
+
+export interface ReturnChatResponse {
+  success: boolean;
+  chat: ReturnChatMessage[];
+  userLastRead?: string;
+  adminLastRead?: string;
+  chatWindowDeadline?: string;
+  isChatActive?: boolean;
+}
+
+export interface ReturnRequestResponse {
+  success: boolean;
+  message: string;
+  returnRequest: ReturnRequestSummary;
+}
+
+export const customerReturnsApi = {
+  /**
+   * 1. Create return request
+   * POST /orders/items/:orderId/return-request
+   * Content-Type: multipart/form-data
+   * Headers: Authorization: Bearer <token>, x-storefront: ecomm
+   */
+  createReturnRequest: async (
+    orderId: string,
+    data: CreateReturnRequestInput | FormData
+  ): Promise<ReturnRequestResponse> => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      let formData: FormData;
+      if (data instanceof FormData) {
+        formData = data;
+      } else {
+        formData = new FormData();
+        formData.append('reasonType', data.reasonType);
+        formData.append('reasonMessage', data.reasonMessage.trim());
+        if (data.proofVideo) {
+          formData.append('proofVideo', data.proofVideo);
+        }
+        if (Array.isArray(data.proofImages)) {
+          data.proofImages.forEach((img) => {
+            formData.append('proofImages', img);
+          });
+        }
+      }
+
+      const res = await apiClient.post(
+        `/orders/items/${encodeURIComponent(cleanId)}/return-request`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'x-storefront': 'ecomm',
+          },
+        }
+      );
+      return res.data;
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
+    }
+  },
+
+  /**
+   * 2. Return chat — get messages
+   * GET /orders/items/:orderId/return-chat
+   */
+  getReturnChat: async (orderId: string): Promise<ReturnChatResponse> => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.get(
+        `/orders/items/${encodeURIComponent(cleanId)}/return-chat`,
+        {
+          headers: { 'x-storefront': 'ecomm' },
+        }
+      );
+      return res.data;
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
+    }
+  },
+
+  /**
+   * 3. Return chat — send message
+   * POST /orders/items/:orderId/return-chat
+   * Body: { message: string }
+   */
+  sendReturnChat: async (orderId: string, message: string): Promise<ReturnChatResponse> => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(
+        `/orders/items/${encodeURIComponent(cleanId)}/return-chat`,
+        { message: message.trim() },
+        {
+          headers: { 'x-storefront': 'ecomm' },
+        }
+      );
+      return res.data;
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
 };

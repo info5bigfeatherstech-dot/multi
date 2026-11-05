@@ -131,7 +131,7 @@ export const AdminOutOfStockInquiriesView: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-navy">Out of Stock Query</h1>
-              <p className="text-xs sm:text-sm text-slate-500">
+              <p className="text-xs sm:text-sm text-slate-500 capitalize">
                 Customer back-in-stock alerts and waitlist notifications submitted on product detail pages
               </p>
             </div>

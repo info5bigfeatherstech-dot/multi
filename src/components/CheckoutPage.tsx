@@ -1338,7 +1338,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                                       FREE
                                     </span>
                                   </div>
-                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
+                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5 capitalize">
                                     Estimated delivery in 3–5 business days
                                   </span>
                                 </div>

@@ -762,7 +762,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
               <h3 className="text-sm font-bold text-slate-900">
                 Edit items before confirm
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5 capitalize">
                 Change quantity or remove a product, then Preview and Apply. Confirm the order only after stock looks correct.
               </p>
             </div>
@@ -910,7 +910,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Customer &amp; Address</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Who receives this order</p>
+                <p className="text-xs text-slate-400 mt-0.5 capitalize">Who receives this order</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1170,8 +1170,8 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
                 <Truck className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Shipment tracking</h3>
-                <p className="text-xs text-slate-400">Where the parcel is right now</p>
+                <h3 className="text-sm font-bold text-slate-900 capitalize">Shipment tracking</h3>
+                <p className="text-xs text-slate-400 capitalize">Where the parcel is right now</p>
               </div>
             </div>
             <button
@@ -1231,8 +1231,8 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
                   <CreditCard className="w-5 h-5 stroke-[2]" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900">Payment details</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Money paid vs still due</p>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 capialize">Payment details</h3>
+                  <p className="text-xs text-slate-400 mt-0.5 capitalize">Money paid vs still due</p>
                 </div>
               </div>
               <span className={`px-3 py-0.5 rounded-full text-xs font-semibold border ${paymentBadgeClass}`}>

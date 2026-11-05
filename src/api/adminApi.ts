@@ -927,77 +927,175 @@ export interface AdminReturnRequestItem {
   returnInfo: {
     status?: string | null;
     reasonType?: string | null;
+    reasonMessage?: string | null;
     refundContext?: string | null;
     requestedAt?: string | null;
     approvedAt?: string | null;
     rejectedAt?: string | null;
     reverseProviderStatus?: string | null;
+    reverseAwb?: string | null;
+    reverseCarrier?: string | null;
     decisionReason?: string | null;
     proofs?: string[];
+    proofVideo?: string | null;
+    proofImages?: string[] | null;
+    windowDays?: number;
   };
 }
 
 export const adminReturnsApi = {
   listRequests: async (params?: { status?: string; page?: number; limit?: number }) => {
     try {
-      const res = await apiClient.get("/orders/admin/returns/requests", { params });
+      const res = await apiClient.get("/orders/admin/returns/requests", {
+        params,
+        headers: { "x-storefront": "ecomm" },
+      });
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
   getRequest: async (orderId: string) => {
     try {
       const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.get(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}`);
+      const res = await apiClient.get(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}`, {
+        headers: { "x-storefront": "ecomm" },
+      });
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
-  decide: async (orderId: string, payload: { decision: 'approve' | 'reject'; decisionReason?: string }) => {
+  decide: async (
+    orderId: string,
+    payload: {
+      decision: 'approve' | 'reject';
+      decisionReason?: string;
+      returnReasonId?: string;
+      customerRequest?: string;
+    }
+  ) => {
     try {
       const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/decision`, payload);
+      const res = await apiClient.post(
+        `/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/decision`,
+        payload,
+        { headers: { "x-storefront": "ecomm" } }
+      );
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
-  initiateRefund: async (orderId: string, payload?: { amountInr?: number }) => {
+  initiateRefund: async (orderId: string, payload?: { amountInr?: number; amount?: number }) => {
     try {
       const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/refund`, payload || {});
+      const res = await apiClient.post(
+        `/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/refund`,
+        payload || {},
+        { headers: { "x-storefront": "ecomm" } }
+      );
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
   getChat: async (orderId: string) => {
     try {
       const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.get(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/chat`);
+      const res = await apiClient.get(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/chat`, {
+        headers: { "x-storefront": "ecomm" },
+      });
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
-  sendChat: async (orderId: string, text: string) => {
+  sendChat: async (orderId: string, message: string) => {
     try {
       const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/chat`, { text });
+      const res = await apiClient.post(
+        `/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/chat`,
+        { message: message.trim(), text: message.trim() },
+        { headers: { "x-storefront": "ecomm" } }
+      );
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
   retryReversePickup: async (orderId: string) => {
     try {
       const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.post(`/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/reverse-pickup/retry`);
+      const res = await apiClient.post(
+        `/orders/admin/returns/requests/${encodeURIComponent(cleanId)}/reverse-pickup/retry`,
+        {},
+        { headers: { "x-storefront": "ecomm" } }
+      );
       return res.data;
-    } catch (err) {
-      throw new Error(normalizeApiError(err));
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
+    }
+  },
+  adminOrderRefund: async (orderId: string, payload?: { amount?: number }) => {
+    try {
+      const cleanId = orderId.replace(/^#/, '');
+      const res = await apiClient.post(
+        `/orders/admin/items/${encodeURIComponent(cleanId)}/refund`,
+        payload || {},
+        { headers: { "x-storefront": "ecomm" } }
+      );
+      return res.data;
+    } catch (err: any) {
+      const serverCode = err.response?.data?.code;
+      const serverMsg = err.response?.data?.message || err.response?.data?.error || normalizeApiError(err);
+      const customErr = new Error(serverMsg) as any;
+      customErr.code = serverCode;
+      customErr.status = err.response?.status;
+      customErr.response = err.response;
+      throw customErr;
     }
   },
 };

@@ -771,25 +771,24 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   const handleRequestAlert = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!oosEmail.trim() && !oosPhone.trim()) return;
+    if (!oosEmail.trim() && !oosPhone.trim()) {
+      toast.error('Please enter your email or mobile phone');
+      return;
+    }
     setOosSubmitting(true);
     try {
       await storefrontProductsApi.requestOosAlert({
         productId: product.id,
-        email: oosEmail.trim() || 'user@example.com',
+        email: oosEmail.trim() || undefined,
         phone: oosPhone.trim() || undefined,
+        variantId: (selectedVariant as any)?._id || (selectedVariant as any)?.id || undefined,
+        reason: 'out_of_stock',
       });
       setOosSuccess(true);
-      setTimeout(() => {
-        setShowOosModal(false);
-        setOosSuccess(false);
-      }, 2000);
+      toast.success("You're on the restock waitlist! We'll notify you when it's back.");
     } catch {
       setOosSuccess(true);
-      setTimeout(() => {
-        setShowOosModal(false);
-        setOosSuccess(false);
-      }, 2000);
+      toast.success("Restock request received! We'll notify you when it's back in stock.");
     } finally {
       setOosSubmitting(false);
     }
@@ -1214,11 +1213,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
               {/* Quantity & Stock Availability */}
               <div className="flex items-center justify-between gap-4 pt-1">
-                <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                <div className={`flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-2xs ${isOutOfStock ? 'opacity-40 cursor-not-allowed' : ''}`}>
                   <button
                     type="button"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer transition-colors"
+                    disabled={isOutOfStock}
+                    className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer transition-colors disabled:cursor-not-allowed"
                   >
                     -
                   </button>
@@ -1228,7 +1228,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <button
                     type="button"
                     onClick={() => setQuantity(quantity + 1)}
-                    className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer transition-colors"
+                    disabled={isOutOfStock}
+                    className="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 font-bold text-sm cursor-pointer transition-colors disabled:cursor-not-allowed"
                   >
                     +
                   </button>
@@ -1236,10 +1237,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-800 flex items-center justify-end gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${isOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'}`}></span>
+                    <span className={`w-2 h-2 rounded-full ${isOutOfStock ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`}></span>
                     <span>
                       {isOutOfStock ? (
-                        <span className="text-rose-600 font-bold">Out of Stock</span>
+                        <span className="text-rose-600 font-bold">Currently Out of Stock</span>
                       ) : typeof stockQuantity === 'number' && stockQuantity > 0 ? (
                         <>Only <strong className="text-[#A44101]">{stockQuantity} Units</strong> Available</>
                       ) : (
@@ -1247,51 +1248,141 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                       )}
                     </span>
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Ready for 24h factory dispatch</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {isOutOfStock ? 'Notify me when back in warehouse' : 'Ready for 24h factory dispatch'}
+                  </p>
                 </div>
               </div>
 
-              {/* Primary Action Buttons: Buy Now + Add to Cart + Wishlist */}
-              <div className="flex items-center gap-3 pt-2">
-                {isOutOfStock ? (
+              {/* Primary Action Buttons OR Out of Stock Restock Form */}
+              {isOutOfStock ? (
+                <div className="pt-2 space-y-3">
+                  {/* Out of Stock Inquiry & Notification Card */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-rose-50/80 via-white to-orange-50/40 border border-rose-200/90 shadow-xs space-y-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200/80">
+                          <Bell className="w-4.5 h-4.5 stroke-[2.2]" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                            <span>Get Restock Notification</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                              Out of Stock
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Enter your email or phone to receive an instant alert when units are restocked
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleToggleWishlist}
+                        className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                          isWishlisted
+                            ? 'border-rose-400 bg-rose-50 text-rose-500'
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600'
+                        }`}
+                        title={isWishlisted ? 'Saved to Wishlist' : 'Add to Wishlist'}
+                      >
+                        <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+                      </button>
+                    </div>
+
+                    {oosSuccess ? (
+                      <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1.5 animate-fadeIn">
+                        <div className="w-8 h-8 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-sm font-bold">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <h5 className="text-xs font-bold text-emerald-900">You're on the Restock Waitlist!</h5>
+                        <p className="text-[11px] text-emerald-700 leading-relaxed">
+                          We will notify you via email / SMS the moment this product arrives in our warehouse.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setOosSuccess(false)}
+                          className="text-[11px] font-bold text-emerald-800 underline hover:text-emerald-900 cursor-pointer pt-1"
+                        >
+                          Submit another alert contact
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleRequestAlert} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              Email Address <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                              type="email"
+                              value={oosEmail}
+                              onChange={(e) => setOosEmail(e.target.value)}
+                              placeholder="name@example.com"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              WhatsApp / Mobile (Optional)
+                            </label>
+                            <input
+                              type="tel"
+                              value={oosPhone}
+                              onChange={(e) => setOosPhone(e.target.value)}
+                              placeholder="10-digit mobile number"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={oosSubmitting || (!oosEmail.trim() && !oosPhone.trim())}
+                          className="w-full h-11 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-98"
+                        >
+                          {oosSubmitting ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Bell className="w-4 h-4" />
+                          )}
+                          <span>Notify Me When In Stock</span>
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 pt-2">
                   <button
                     type="button"
-                    disabled
-                    className="flex-1 py-3.5 px-6 bg-slate-100 text-slate-400 text-sm font-bold rounded-xl border border-slate-200 cursor-not-allowed text-center select-none shadow-xs"
+                    onClick={handleBuyNow}
+                    className="flex-1 py-3.5 px-6 bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
                   >
-                    Out of Stock
+                    Buy Now
                   </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleBuyNow}
-                      className="flex-1 py-3.5 px-6 bg-[#0F172A] hover:bg-[#1E293B] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
-                    >
-                      Buy Now
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      className="flex-1 py-3.5 px-6 bg-[#A44101] hover:bg-[#8C3701] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
-                    >
-                      {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={handleToggleWishlist}
-                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
-                    isWishlisted
-                      ? 'border-rose-400 bg-rose-50 text-rose-500'
-                      : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600'
-                  }`}
-                  aria-label="Wishlist"
-                >
-                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    className="flex-1 py-3.5 px-6 bg-[#A44101] hover:bg-[#8C3701] text-white text-sm font-bold rounded-xl transition-all text-center cursor-pointer shadow-sm active:scale-98"
+                  >
+                    {isAddedToCart ? 'Added to Cart!' : 'Add to Cart'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+                      isWishlisted
+                        ? 'border-rose-400 bg-rose-50 text-rose-500'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-400 hover:text-slate-600'
+                    }`}
+                    aria-label="Wishlist"
+                  >
+                    <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-rose-500 text-rose-500' : ''}`} />
+                  </button>
+                </div>
+              )}
 
               {/* Wholesale / Bulk Order Callout */}
               <div className="mt-3 p-3 rounded-xl bg-amber-50/80 border border-amber-200 flex items-center justify-between gap-3 text-xs">
