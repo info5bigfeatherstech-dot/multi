@@ -5,3 +5,4 @@ export * from "./authApi";
 export * from "./types";
 export * from "./influencerApi";
 export * from "./adminDropshipperApi";
+export * from "./giftEnquiriesApi";

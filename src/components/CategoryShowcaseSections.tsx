@@ -22,7 +22,7 @@ import {
 import { ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { apiClient, storefrontProductsApi } from '../api';
-import { isProductActive } from '../utils/productUtils';
+import { isProductActive, getDeterministicRating } from '../utils/productUtils';
 import { sortCategoriesByCanonicalSequence } from '../utils/categorySequence';
 
 export interface CategorySectionDefinition {
@@ -252,8 +252,19 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
 
             const catName = p.category ? (typeof p.category === 'string' ? p.category : p.category.name || p.category.slug || '') : '';
 
-            const ratingVal = typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (p.reviewSummary?.average || 0));
-            const reviewsCount = Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? 0);
+            const rInfo = getDeterministicRating(p._id || p.id || p.title || p.name || '');
+            const rawRating = typeof p.rating?.value === 'number' && p.rating.value > 0 
+              ? p.rating.value 
+              : (typeof p.rating === 'number' && p.rating > 0 
+                  ? p.rating 
+                  : (p.reviewSummary?.average && p.reviewSummary.average > 0 ? p.reviewSummary.average : rInfo.rating));
+            const ratingVal = Number(rawRating.toFixed(1));
+            const reviewsCount = Number(
+              (typeof p.rating?.count === 'number' && p.rating.count > 0 ? p.rating.count : undefined) ??
+              (typeof p.reviews === 'number' && p.reviews > 0 ? p.reviews : undefined) ??
+              (typeof p.reviewSummary?.count === 'number' && p.reviewSummary.count > 0 ? p.reviewSummary.count : undefined) ??
+              rInfo.reviews
+            );
 
             mapped.push({
               id: p._id || p.id,
@@ -676,7 +687,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                           </span>
                           {product.reviews && product.reviews > 0 ? (
                             <div className="flex items-center gap-1 text-navy font-bold">
-                              <Star className="w-3 h-3 fill-[#A44101] text-[#A44101]" />
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
                               <span>{product.rating}</span>
                               <span className="text-slate-400 font-normal">({product.reviews})</span>
                             </div>

@@ -207,6 +207,7 @@ export interface HeaderProps {
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
   onGoToBulkOrders?: () => void;
+  onGoToCustomizeGift?: () => void;
   onGoToBecomeDropshipper?: () => void;
   onGoToInfluencer?: () => void;
   onOpenAuthModal?: () => void;
@@ -283,6 +284,7 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToAdmin,
   onGoToContact,
   onGoToBulkOrders,
+  onGoToCustomizeGift: _onGoToCustomizeGift,
   onGoToBecomeDropshipper,
   onGoToInfluencer,
   onOpenAuthModal,

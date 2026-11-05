@@ -1345,7 +1345,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                 activeTab === 'reviews' ? 'text-navy border-b-2 border-[#A44101]' : 'text-slate-400 hover:text-navy'
               }`}
             >
-              Customer Reviews ({product.reviews})
+              Customer Reviews ({effectiveReviewsCount})
             </button>
           </div>
 

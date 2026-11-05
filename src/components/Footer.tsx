@@ -18,6 +18,7 @@ interface FooterProps {
   onGoToAdmin?: () => void;
   onGoToContact?: () => void;
   onGoToBulkOrders?: () => void;
+  onGoToCustomizeGift?: () => void;
   onGoToBecomeDropshipper?: () => void;
   onGoToInfluencer?: () => void;
 }
@@ -27,6 +28,7 @@ export const Footer: React.FC<FooterProps> = ({
   onGoToAdmin: _onGoToAdmin,
   onGoToContact,
   onGoToBulkOrders,
+  onGoToCustomizeGift,
   onGoToBecomeDropshipper,
   onGoToInfluencer,
 }) => {
@@ -240,6 +242,25 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-[#A44101] transition-colors cursor-pointer"
                 >
                   Bulk Orders &amp; Wholesale
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/customize-gift"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (onGoToCustomizeGift) onGoToCustomizeGift();
+                    else {
+                      window.history.pushState(null, '', '/customize-gift');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                  }}
+                  className="hover:text-[#A44101] transition-colors cursor-pointer flex items-center justify-between"
+                >
+                  <span>Corporate &amp; Custom Gifting</span>
+                  <span className="text-[9px] font-black uppercase tracking-wider bg-amber-600/90 text-white px-1.5 py-0.5 rounded leading-none">
+                    Custom
+                  </span>
                 </a>
               </li>
               <li>

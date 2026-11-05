@@ -15,8 +15,14 @@ import {
   MessageSquare,
   ChevronDown,
   Copy,
-  Check
+  Check,
+  Mail,
+  Upload,
+  Layers,
+  X
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { giftEnquiriesApi } from '../api/giftEnquiriesApi';
 import { mockAdminStore } from '../features/admin/mockAdminStore';
 
 interface BulkOrdersPageProps {
@@ -31,11 +37,15 @@ interface SubmittedInquiry {
   fullName: string;
   businessName: string;
   phone: string;
+  email?: string;
   cityState: string;
+  businessType: string;
+  volumeOrder?: number;
   submittedAt: string;
   estimatedOrderValue?: string;
   categoryInterest?: string;
   notes?: string;
+  alreadyRegistered?: boolean;
 }
 
 export const BulkOrdersPage: React.FC<BulkOrdersPageProps> = ({ onBackToHome, onGoToCategory }) => {
@@ -43,7 +53,11 @@ export const BulkOrdersPage: React.FC<BulkOrdersPageProps> = ({ onBackToHome, on
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [cityState, setCityState] = useState('');
+  const [businessType, setBusinessType] = useState('Retailer / Shopkeeper');
+  const [volumeOrder, setVolumeOrder] = useState<string>('');
+  const [businessCard, setBusinessCard] = useState<File | null>(null);
   const [estimatedValue, setEstimatedValue] = useState('₹3,000 - ₹10,000');
   const [categoryInterest, setCategoryInterest] = useState('Multiple / General Store');
   const [notes, setNotes] = useState('');
@@ -71,17 +85,30 @@ export const BulkOrdersPage: React.FC<BulkOrdersPageProps> = ({ onBackToHome, on
       errs.phone = 'Please enter a valid 10-digit mobile number';
     }
 
-    if (!cityState.trim()) {
-      errs.cityState = 'City & State is required';
-    } else if (cityState.trim().length < 3) {
-      errs.cityState = 'Please enter your city and state';
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errs.email = 'Please enter a valid email address';
+    }
+
+    if (!businessType.trim()) {
+      errs.businessType = 'Business Type is required';
+    }
+
+    if (volumeOrder && (Number(volumeOrder) < 1 || Number(volumeOrder) > 100000)) {
+      errs.volumeOrder = 'Order volume must be between 1 and 100,000 units';
     }
 
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    const isValid = Object.keys(errs).length === 0;
+    if (!isValid) {
+      const firstMsg = Object.values(errs)[0];
+      if (firstMsg) {
+        toast.error(firstMsg);
+      }
+    }
+    return isValid;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validate()) {
@@ -89,55 +116,104 @@ export const BulkOrdersPage: React.FC<BulkOrdersPageProps> = ({ onBackToHome, on
     }
 
     setIsSubmitting(true);
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
 
-    setTimeout(() => {
-      const randomNum = Math.floor(10000 + Math.random() * 90000);
-      const inquiryId = `ABB-BULK-${randomNum}`;
+    try {
+      // Build FormData according to specification:
+      // enquiryType=bulk, name, phone, email?, organizationName?, city?, message?, businessType, volumeOrder?, businessCard (1x file)
+      const formData = new FormData();
+      formData.append('enquiryType', 'bulk');
+      formData.append('name', fullName.trim());
+      formData.append('phone', cleanPhone);
+      if (email.trim()) formData.append('email', email.trim());
+      if (businessName.trim()) formData.append('organizationName', businessName.trim());
+      if (cityState.trim()) formData.append('city', cityState.trim());
+      formData.append('businessType', businessType);
+      if (volumeOrder && Number(volumeOrder) > 0) {
+        formData.append('volumeOrder', String(Number(volumeOrder)));
+      }
+      
+      let fullMessage = notes.trim();
+      if (fullMessage && fullMessage.length < 10) {
+        fullMessage = `Requirement: ${fullMessage} (${categoryInterest})`;
+      } else if (!fullMessage) {
+        fullMessage = `Bulk inquiry for ${categoryInterest}. Estimated budget: ${estimatedValue}.`;
+      }
+      formData.append('message', fullMessage);
+
+      if (businessCard) {
+        formData.append('businessCard', businessCard);
+      }
+
+      // Submit to backend POST /api/gift-enquiries (storefront: ecomm)
+      const response = await giftEnquiriesApi.submitEnquiry(formData, 'ecomm');
+
+      const isAlready = response.alreadyRegistered === true;
+      const inquiryId = response.data?.id || `ABB-BULK-${Math.floor(10000 + Math.random() * 90000)}`;
       const submittedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      if (isAlready) {
+        toast('We already have your bulk enquiry on file. Our team is actively reviewing it!', {
+          icon: 'ℹ️',
+          duration: 4000,
+        });
+      } else {
+        toast.success(response.message || 'Bulk inquiry submitted successfully!');
+      }
 
       const inquiryData: SubmittedInquiry = {
         inquiryId,
         fullName: fullName.trim(),
         businessName: businessName.trim(),
-        phone: phone.trim(),
+        phone: cleanPhone,
+        email: email.trim() || undefined,
         cityState: cityState.trim(),
+        businessType,
+        volumeOrder: volumeOrder ? Number(volumeOrder) : undefined,
         submittedAt,
         estimatedOrderValue: estimatedValue,
         categoryInterest,
         notes: notes.trim(),
+        alreadyRegistered: isAlready,
       };
 
-      // Save to mockAdminStore as a Lead with 'Bulk Inquiry' source so Admin panel can view and follow up
+      // Also register to mockAdminStore for local admin view compatibility
       try {
         mockAdminStore.addLead({
           id: `lead-bulk-${Date.now()}`,
           name: fullName.trim(),
-          phone: phone.trim(),
-          email: `${phone.replace(/\D/g, '')}@wholesale.in`,
-          interestCategory: `Bulk Inquiry: ${categoryInterest} (Value: ${estimatedValue})`,
+          phone: cleanPhone,
+          email: email.trim() || `${cleanPhone}@wholesale.in`,
+          interestCategory: `Bulk: ${businessType} (${categoryInterest})`,
           source: 'Bulk Inquiry',
           businessName: businessName.trim() || undefined,
           location: cityState.trim(),
-          inquiryDetails: notes.trim() || undefined,
+          inquiryDetails: fullMessage,
           status: 'New',
         });
       } catch (err) {
-        console.warn('Could not save bulk inquiry to mockAdminStore', err);
+        console.warn('Could not save to mockAdminStore', err);
       }
 
       setSubmittedInquiry(inquiryData);
-      setIsSubmitting(false);
-
-      // Scroll to top of the page smoothly so customer sees the success confirmation immediately
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 700);
+    } catch (err: any) {
+      console.error('Failed to submit bulk enquiry:', err);
+      toast.error(err.message || 'Failed to submit bulk inquiry. Please try again or WhatsApp us directly.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetForm = () => {
     setFullName('');
     setBusinessName('');
     setPhone('');
+    setEmail('');
     setCityState('');
+    setBusinessType('Retailer / Shopkeeper');
+    setVolumeOrder('');
+    setBusinessCard(null);
     setNotes('');
     setErrors({});
     setSubmittedInquiry(null);
@@ -418,6 +494,34 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
                     </div>
                   </div>
 
+                  {/* Field: Business Entity Type (Required) */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-bold text-navy mb-1.5">
+                      Business Type <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <Layers className="w-4 h-4" />
+                      </div>
+                      <select
+                        value={businessType}
+                        onChange={(e) => {
+                          setBusinessType(e.target.value);
+                          if (errors.businessType) setErrors((prev) => ({ ...prev, businessType: '' }));
+                        }}
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-slate-50 hover:bg-slate-50/80 focus:bg-white text-charcoal text-xs sm:text-sm rounded-xl border border-slate-300 focus:border-[#A44101] transition-all outline-hidden cursor-pointer"
+                      >
+                        <option value="Retailer / Shopkeeper">Retailer / Shopkeeper</option>
+                        <option value="Wholesaler / Trader">Wholesaler / Trader</option>
+                        <option value="Reseller / Online Seller">Reseller / Online Seller</option>
+                        <option value="Corporate / Company">Corporate / Company</option>
+                        <option value="Event / Wedding Planner">Event / Wedding Planner</option>
+                        <option value="Institution / School / NGO">Institution / School / NGO</option>
+                        <option value="Other">Other Business</option>
+                      </select>
+                    </div>
+                  </div>
+
                   {/* Field 3: Mobile / WhatsApp Number* (Phone) */}
                   <div>
                     <label className="block text-xs sm:text-sm font-bold text-navy mb-1.5">
@@ -453,6 +557,60 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
                     )}
                   </div>
 
+                  {/* Email & Volume (Units) Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs sm:text-sm font-bold text-navy">
+                          Email Address
+                        </label>
+                        <span className="text-[11px] text-slate-400 font-medium">Optional</span>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <Mail className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                          }}
+                          placeholder="business@example.com"
+                          className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-slate-50 hover:bg-slate-50/80 focus:bg-white text-charcoal text-xs sm:text-sm rounded-xl border border-slate-300 focus:border-[#A44101] transition-all outline-hidden"
+                        />
+                      </div>
+                      {errors.email && (
+                        <p className="text-rose-600 text-[11px] font-semibold mt-1">{errors.email}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs sm:text-sm font-bold text-navy">
+                          Target Order Volume (Units)
+                        </label>
+                        <span className="text-[11px] text-slate-400 font-medium">Optional</span>
+                      </div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100000}
+                        value={volumeOrder}
+                        onChange={(e) => {
+                          setVolumeOrder(e.target.value);
+                          if (errors.volumeOrder) setErrors((prev) => ({ ...prev, volumeOrder: '' }));
+                        }}
+                        placeholder="e.g. 100 units"
+                        className="w-full px-4 py-2.5 sm:py-3 bg-slate-50 hover:bg-slate-50/80 focus:bg-white text-charcoal text-xs sm:text-sm rounded-xl border border-slate-300 focus:border-[#A44101] transition-all outline-hidden"
+                      />
+                      {errors.volumeOrder && (
+                        <p className="text-rose-600 text-[11px] font-semibold mt-1">{errors.volumeOrder}</p>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Field 4: City & State* (Text) */}
                   <div>
                     <label className="block text-xs sm:text-sm font-bold text-navy mb-1.5">
@@ -480,6 +638,52 @@ ${submittedInquiry.notes ? `Requirements: ${submittedInquiry.notes}` : ''}`;
                       <p className="text-rose-600 text-[11px] font-semibold mt-1 animate-fadeIn">
                         {errors.cityState}
                       </p>
+                    )}
+                  </div>
+
+                  {/* Visiting Card / Business Proof Upload (Optional) */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-xs sm:text-sm font-bold text-navy">
+                        Business Card / Visiting Card
+                      </label>
+                      <span className="text-[11px] text-slate-400 font-medium">Optional (Image/PDF, max 20MB)</span>
+                    </div>
+                    {businessCard ? (
+                      <div className="flex items-center justify-between p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs sm:text-sm text-navy">
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText className="w-4 h-4 text-[#A44101] shrink-0" />
+                          <span className="truncate font-medium">{businessCard.name}</span>
+                          <span className="text-slate-400 text-xs shrink-0">({(businessCard.size / 1024).toFixed(0)} KB)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setBusinessCard(null)}
+                          className="p-1 hover:bg-amber-100 rounded-lg text-slate-500 hover:text-rose-600 transition-colors cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 p-3 bg-slate-50 hover:bg-slate-100/80 border border-dashed border-slate-300 hover:border-[#A44101] rounded-xl cursor-pointer text-xs sm:text-sm text-slate-600 transition-all">
+                        <Upload className="w-4 h-4 text-slate-400" />
+                        <span>Upload Visiting Card / Business Card</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 20 * 1024 * 1024) {
+                                toast.error('File size must be less than 20MB');
+                                return;
+                              }
+                              setBusinessCard(file);
+                            }
+                          }}
+                        />
+                      </label>
                     )}
                   </div>
 

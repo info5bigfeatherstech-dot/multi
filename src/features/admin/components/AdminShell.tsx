@@ -36,7 +36,9 @@ import {
   UserCheck,
   HelpCircle,
   Lightbulb,
-  Zap
+  Zap,
+  Gift,
+  Layers
 } from 'lucide-react';
 import { AdminUser, mockAdminStore } from '../mockAdminStore';
 import {
@@ -101,7 +103,9 @@ export type AdminTab =
   | 'dropshipper-accounts'
   | 'dropshipper-orders'
   | 'dropshipper-pricing'
-  | 'dropshipper-settings';
+  | 'dropshipper-settings'
+  | 'bulk-inquiries'
+  | 'gift-customization';
 
 interface AdminShellProps {
   currentUser: AdminUser;
@@ -909,7 +913,37 @@ export const AdminShell: React.FC<AdminShellProps> = ({
                       icon={Ticket}
                       label="Marketing & Coupons"
                       isActive={currentTab === 'marketing'}
+
                       onClick={() => handleTabClick('marketing')}
+
+                    />
+
+                    <SidebarNavItem
+                      icon={Layers}
+                      label="Bulk Inquiries"
+                      isActive={currentTab === 'bulk-inquiries'}
+                      onClick={() => handleTabClick('bulk-inquiries')}
+                    />
+
+                    <SidebarNavItem
+                      icon={Gift}
+                      label="Gift Customization"
+                      isActive={currentTab === 'gift-customization'}
+                      onClick={() => handleTabClick('gift-customization')}
+                    />
+
+                    <SidebarNavItem
+                      icon={Layers}
+                      label="Bulk Inquiries"
+                      isActive={currentTab === 'bulk-inquiries'}
+                      onClick={() => handleTabClick('bulk-inquiries')}
+                    />
+
+                    <SidebarNavItem
+                      icon={Gift}
+                      label="Gift Customization"
+                      isActive={currentTab === 'gift-customization'}
+                      onClick={() => handleTabClick('gift-customization')}
                     />
                   </div>
                 </div>

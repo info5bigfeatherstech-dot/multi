@@ -210,6 +210,34 @@ export const adminDropshipperApi = {
   },
 
   // 5. Product Dropship Pricing & Visibility
+  getProducts: async (params?: {
+    page?: number;
+    limit?: number;
+    listedOnly?: boolean;
+    q?: string;
+  }) => {
+    try {
+      const res = await apiClient.get("/admin/dropshipper/products", {
+        params,
+        useAdminAuth: true,
+      } as any);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  getProductBySlug: async (slug: string) => {
+    try {
+      const res = await apiClient.get(`/admin/dropshipper/products/${encodeURIComponent(slug)}`, {
+        useAdminAuth: true,
+      } as any);
+      return res.data?.product || res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
   setVariantPrice: async (
     slug: string,
     productCode: string,
@@ -227,11 +255,11 @@ export const adminDropshipperApi = {
     }
   },
 
-  enableVariant: async (slug: string, productCode: string) => {
+  enableVariant: async (slug: string, productCode: string, payload?: { dropshipBase?: number }) => {
     try {
       const res = await apiClient.patch(
         `/admin/dropshipper/products/${encodeURIComponent(slug)}/variants/${encodeURIComponent(productCode)}/enable`,
-        {},
+        payload || {},
         { useAdminAuth: true } as any
       );
       return res.data?.data || res.data;

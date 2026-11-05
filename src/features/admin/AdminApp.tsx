@@ -20,6 +20,7 @@ import { AdminDropshipperAccountsView } from './components/dropshipper/AdminDrop
 import { AdminDropshipperOrdersView } from './components/dropshipper/AdminDropshipperOrdersView';
 import { AdminDropshipperPricingView } from './components/dropshipper/AdminDropshipperPricingView';
 import { AdminDropshipperSettingsView } from './components/dropshipper/AdminDropshipperSettingsView';
+import { AdminGiftEnquiriesView } from './components/enquiries/AdminGiftEnquiriesView';
 
 
 import { refreshAdminAccessToken, clearAdminTokens } from '../../api';
@@ -44,6 +45,8 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       
+      if (path.includes('bulk-inquiries') || path.includes('bulk-inquiry')) return 'bulk-inquiries';
+      if (path.includes('gift-customization') || path.includes('gift-custom') || path.includes('custom-gifts')) return 'gift-customization';
       if (path.includes('dropshipper-requests')) return 'dropshipper-requests';
       if (path.includes('dropshipper-accounts')) return 'dropshipper-accounts';
       if (path.includes('dropshipper-orders')) return 'dropshipper-orders';
@@ -179,6 +182,8 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       else if (path.includes('rto')) setCurrentTab('rto');
       else if (path.includes('outofstock-query') || path.includes('oos-inquiries') || path.includes('stock-query')) setCurrentTab('outofstock-query');
       else if (path.includes('marketing') || path.includes('coupons')) setCurrentTab('marketing');
+      else if (path.includes('bulk-inquiries') || path.includes('bulk-inquiry')) setCurrentTab('bulk-inquiries');
+      else if (path.includes('gift-customization') || path.includes('gift-custom') || path.includes('custom-gifts')) setCurrentTab('gift-customization');
       else if (path.includes('leads')) setCurrentTab('leads');
       else if (path.includes('abandoned') || path.includes('growth')) setCurrentTab('abandoned');
       else if (path.includes('staff')) setCurrentTab('staff');
@@ -318,6 +323,14 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
 
       {currentTab === 'marketing' && (
         <AdminMarketingCouponsView />
+      )}
+
+      {currentTab === 'bulk-inquiries' && (
+        <AdminGiftEnquiriesView enquiryType="bulk" />
+      )}
+
+      {currentTab === 'gift-customization' && (
+        <AdminGiftEnquiriesView enquiryType="custom" />
       )}
 
       

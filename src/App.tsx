@@ -18,6 +18,7 @@ import { ProductItem } from './data/storeData';
 import { AdminApp } from './features/admin/AdminApp';
 import { ContactPage } from './components/ContactPage';
 import { BulkOrdersPage } from './components/BulkOrdersPage';
+import { CustomizeGiftPage } from './components/CustomizeGiftPage';
 import { LoginPage } from './components/LoginPage';
 import { PhonePromptModal } from './components/PhonePromptModal';
 import { DealsPage } from './components/DealsPage';
@@ -29,7 +30,7 @@ import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlu
 import { getPersistedUserPhone } from './utils/authGuard';
 import { ensureCustomerToken } from './api';
 
-type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals' | 'login' | 'influencer' | 'become-dropshipper';
+type ViewType = 'home' | 'product' | 'category' | 'wishlist' | 'profile' | 'checkout' | 'admin' | 'contact' | 'bulk-orders' | 'deals' | 'login' | 'influencer' | 'become-dropshipper' | 'customize-gift';
 
 export const App: React.FC = () => {
   const [postAuthRedirect, setPostAuthRedirect] = useState<ViewType | null>(null);
@@ -68,7 +69,10 @@ export const App: React.FC = () => {
       }
       return 'home';
     }
-    if (path.startsWith('/bulk-orders') || path.startsWith('/wholesale') || path.startsWith('/bulk') || hash === '#bulk-orders' || hash === '#wholesale') {
+    if (path.startsWith('/customize-gift') || path.startsWith('/custom-gift') || path.startsWith('/customize') || hash === '#customize-gift' || hash === '#custom-gift') {
+      return 'customize-gift';
+    }
+    if (path.startsWith('/bulk-orders') || path.startsWith('/wholesale') || path.startsWith('/bulk') || path.startsWith('/bulk-order') || hash === '#bulk-orders' || hash === '#wholesale' || hash === '#bulk') {
       return 'bulk-orders';
     }
     if (path.startsWith('/today-deals') || path.startsWith('/todays-deal') || path.startsWith('/today-arrival') || path.startsWith('/on-sale') || path.startsWith('/sale') || path.toLowerCase().startsWith('/tagproducts/')) {
@@ -191,7 +195,10 @@ export const App: React.FC = () => {
         } else if (rawHash === '#admin' || rawHash.startsWith('#admin')) {
           path = '/admin/dashboard';
           window.history.replaceState(null, '', '/admin/dashboard');
-        } else if (rawHash === '#bulk-orders' || rawHash === '#wholesale' || rawHash === '#bulk') {
+        } else if (rawHash === '#customize-gift' || rawHash === '#custom-gift' || rawHash === '#customize') {
+          path = '/customize-gift';
+          window.history.replaceState(null, '', '/customize-gift');
+        } else if (rawHash === '#bulk-orders' || rawHash === '#wholesale' || rawHash === '#bulk' || rawHash === '#bulk-order') {
           path = '/bulk-orders';
           window.history.replaceState(null, '', '/bulk-orders');
         } else if (rawHash === '#contact' || rawHash === '#support') {
@@ -223,7 +230,11 @@ export const App: React.FC = () => {
         setCurrentView('admin');
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else if (path === '/bulk-orders' || path === '/wholesale' || path === '/bulk') {
+      } else if (path === '/customize-gift' || path === '/custom-gift' || path === '/customize' || path.startsWith('/customize-gift')) {
+        setCurrentView('customize-gift');
+        setSelectedProduct(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (path === '/bulk-orders' || path === '/wholesale' || path === '/bulk' || path === '/bulk-order') {
         setCurrentView('bulk-orders');
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -499,6 +510,13 @@ export const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleGoToCustomizeGift = () => {
+    setCurrentView('customize-gift');
+    setSelectedProduct(null);
+    window.history.pushState(null, '', '/customize-gift');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleGoToBulkOrders = () => {
     setCurrentView('bulk-orders');
     setSelectedProduct(null);
@@ -574,6 +592,7 @@ export const App: React.FC = () => {
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
           onGoToBulkOrders={handleGoToBulkOrders}
+          onGoToCustomizeGift={handleGoToCustomizeGift}
           onGoToInfluencer={handleGoToInfluencer}
           onOpenAuthModal={() => {
             handleGoToLogin();
@@ -587,6 +606,12 @@ export const App: React.FC = () => {
             <BecomeDropshipperPage
               onBackToStore={handleBackToStore}
               onGoToContact={handleGoToContact}
+            />
+          ) : currentView === 'customize-gift' ? (
+            /* Dedicated Corporate & Custom Gifting Page */
+            <CustomizeGiftPage
+              onBackToHome={handleBackToStore}
+              onGoToCategory={handleSelectCategory}
             />
           ) : currentView === 'bulk-orders' ? (
             /* Dedicated Bulk Orders & Wholesale Enquiries Page */
@@ -706,6 +731,7 @@ export const App: React.FC = () => {
           onGoToAdmin={handleGoToAdmin}
           onGoToContact={handleGoToContact}
           onGoToBulkOrders={handleGoToBulkOrders}
+          onGoToCustomizeGift={handleGoToCustomizeGift}
           onGoToInfluencer={handleGoToInfluencer}
         />
 

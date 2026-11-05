@@ -16,6 +16,7 @@ import { useCart } from '../context/CartContext';
 import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { apiClient } from '../api';
 import { toast } from 'react-hot-toast';
+import { getDeterministicRating } from '../utils/productUtils';
 
 interface NewArrivalsSectionProps {
   onProductClick?: (product: ProductItem) => void;
@@ -85,8 +86,19 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
               (originalPrice > currentPrice ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100) : 0)
             );
 
-            const rating = typeof p.rating?.value === 'number' ? p.rating.value : (typeof p.rating === 'number' ? p.rating : (p.reviewSummary?.average || 0));
-            const reviews = Number(p.rating?.count ?? p.reviews ?? p.reviewSummary?.count ?? 0);
+            const rInfo = getDeterministicRating(p._id || p.id || p.title || p.name || '');
+            const rawRating = typeof p.rating?.value === 'number' && p.rating.value > 0 
+              ? p.rating.value 
+              : (typeof p.rating === 'number' && p.rating > 0 
+                  ? p.rating 
+                  : (p.reviewSummary?.average && p.reviewSummary.average > 0 ? p.reviewSummary.average : rInfo.rating));
+            const rating = Number(rawRating.toFixed(1));
+            const reviews = Number(
+              (typeof p.rating?.count === 'number' && p.rating.count > 0 ? p.rating.count : undefined) ??
+              (typeof p.reviews === 'number' && p.reviews > 0 ? p.reviews : undefined) ??
+              (typeof p.reviewSummary?.count === 'number' && p.reviewSummary.count > 0 ? p.reviewSummary.count : undefined) ??
+              rInfo.reviews
+            );
 
             const totalStock = Array.isArray(p.variants) && p.variants.length > 0
               ? p.variants.reduce((sum: number, v: any) => {
@@ -320,13 +332,13 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                   <div>
                     {/* Category & Rating */}
                     <div className="flex items-center justify-between text-[11px] mb-1">
-                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] truncate max-w-[90px]">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider text-[9px] sm:text-[10px] truncate max-w-[85px] sm:max-w-[100px]">
                         {product.category}
                       </span>
                       {product.reviews && product.reviews > 0 ? (
-                        <div className="flex items-center gap-1 text-amber-500 font-bold text-[10px]">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          <span>{product.rating}</span>
+                        <div className="flex items-center gap-1 text-amber-500 font-bold text-[10px] shrink-0">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
+                          <span className="text-navy">{product.rating}</span>
                           <span className="text-slate-400 font-normal">({product.reviews})</span>
                         </div>
                       ) : null}
