@@ -24,6 +24,9 @@ import { PhonePromptModal } from './components/PhonePromptModal';
 import { DealsPage } from './components/DealsPage';
 import { InfluencerPage } from './pages/InfluencerPage';
 import { BecomeDropshipperPage } from './pages/BecomeDropshipperPage';
+import { DIWALI_THEME } from './config/diwaliConfig';
+import { DiwaliAnnouncementBar } from './components/diwali/DiwaliAnnouncementBar';
+import { DiwaliHomePage } from './components/diwali/DiwaliHomePage';
 
 import { Loader2, PackageX } from 'lucide-react';
 import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
@@ -578,7 +581,11 @@ export const App: React.FC = () => {
     <CartProvider>
       <div className="min-h-screen bg-white text-charcoal flex flex-col font-roboto antialiased selection:bg-[#A44101] selection:text-white">
         {/* 1. Announcement Bar (Top) */}
-        <AnnouncementBar />
+        {currentView === 'home' && DIWALI_THEME ? (
+          <DiwaliAnnouncementBar />
+        ) : (
+          <AnnouncementBar />
+        )}
 
         {/* 2. Sticky Header & Navigation */}
         <Header
@@ -701,7 +708,15 @@ export const App: React.FC = () => {
               onGoToCheckout={handleGoToCheckout}
             />
           ) : (
-            /* Home Page View */
+            /* Home Page View - Switched by DIWALI_THEME */
+            DIWALI_THEME ? (
+              <DiwaliHomePage
+                onSelectCategory={handleSelectCategory}
+                onSelectProduct={handleSelectProduct}
+                onExploreAll={() => handleSelectCategory('explore-all')}
+              />
+            ) : (
+              /* Home Page View */
             <>
               {/* 3. Hero Section (Featuring the Deal Banners) */}
               <Hero onSelectCategory={handleSelectCategory} />
@@ -721,6 +736,7 @@ export const App: React.FC = () => {
                 onCategoryClick={handleSelectCategory}
               />
             </>
+            )
           )}
         </main>
 

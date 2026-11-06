@@ -284,7 +284,7 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToAdmin,
   onGoToContact,
   onGoToBulkOrders,
-  onGoToCustomizeGift: _onGoToCustomizeGift,
+  onGoToCustomizeGift,
   onGoToBecomeDropshipper,
   onGoToInfluencer,
   onOpenAuthModal,
@@ -1091,7 +1091,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop Category Nav Bar - Redesigned, Clean, High-Conversion Navigation */}
           <nav
-            className="hidden md:flex items-center justify-between border-t border-stone-300/70 py-2.5 text-xs font-semibold gap-3 relative"
+            className="hidden md:flex items-center justify-between border-t border-stone-300/70 py-1.5 2xl:py-2 text-xs font-semibold gap-1.5 xl:gap-2 relative"
             aria-label="Main Categories Navigation"
           >
             {/* 1. "All Categories" Dropdown Container (Opens on hover and click) */}
@@ -1106,17 +1106,17 @@ export const Header: React.FC<HeaderProps> = ({
                   setIsNavDropdownOpen((prev) => !prev);
                   handleCategorySelect('all');
                 }}
-                className={`h-9 px-4 rounded-lg text-xs font-bold transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer shadow-xs ${isNavDropdownOpen
+                className={`h-8 2xl:h-9 px-2.5 2xl:px-3.5 rounded-lg text-[11px] 2xl:text-xs font-bold transition-all flex items-center gap-1.5 2xl:gap-2 whitespace-nowrap cursor-pointer shadow-xs ${isNavDropdownOpen
                     ? 'bg-navy text-white ring-2 ring-[#A44101]/50 shadow-md'
                     : 'bg-navy hover:bg-[#1a2e45] text-white'
                   }`}
                 aria-expanded={isNavDropdownOpen}
                 aria-haspopup="true"
               >
-                <LayoutGrid className="w-4 h-4 text-[#A44101] shrink-0" />
+                <LayoutGrid className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 text-[#A44101] shrink-0" />
                 <span>All Categories</span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-[#A44101] transition-transform duration-200 shrink-0 ${isNavDropdownOpen ? 'rotate-180' : ''
+                  className={`w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] transition-transform duration-200 shrink-0 ${isNavDropdownOpen ? 'rotate-180' : ''
                     }`}
                 />
               </button>
@@ -1233,7 +1233,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Store Navigation Links with clean modern pill styles */}
-            <div className="flex items-center gap-1 sm:gap-1.5 flex-1 min-w-0 pl-1 overflow-x-auto scrollbar-none py-0.5">
+            <div className="flex items-center gap-1 xl:gap-1.5 flex-1 min-w-0 pl-0.5 overflow-x-auto scrollbar-none py-0.5">
               <button
                 type="button"
                 onClick={() => {
@@ -1243,7 +1243,7 @@ export const Header: React.FC<HeaderProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-navy hover:bg-stone-200/70 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+                className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-bold text-navy hover:bg-stone-200/70 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               >
                 Home
               </button>
@@ -1251,12 +1251,12 @@ export const Header: React.FC<HeaderProps> = ({
                 const isFestive = lbl.badgeText === 'FESTIVE' || lbl.icon === 'sparkles' || (lbl as any).style?.includes('Festive');
 
                 const renderIcon = () => {
-                  if (lbl.icon === 'sparkles' || isFestive) return <Sparkles className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101]/20 shrink-0" />;
-                  if (lbl.icon === 'heart') return <Heart className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />;
-                  if (lbl.icon === 'gift') return <Gift className="w-3.5 h-3.5 text-[#A44101] shrink-0" />;
-                  if (lbl.icon === 'award') return <Award className="w-3.5 h-3.5 text-[#A44101] shrink-0" />;
-                  if (lbl.icon === 'tag') return <Tag className="w-3.5 h-3.5 text-[#A44101] shrink-0" />;
-                  return <Flame className="w-3.5 h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'sparkles' || isFestive) return <Sparkles className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] fill-[#A44101]/20 shrink-0" />;
+                  if (lbl.icon === 'heart') return <Heart className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'gift') return <Gift className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'award') return <Award className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />;
+                  if (lbl.icon === 'tag') return <Tag className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />;
+                  return <Flame className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] fill-[#A44101] shrink-0" />;
                 };
 
                 return (
@@ -1269,12 +1269,12 @@ export const Header: React.FC<HeaderProps> = ({
                       window.dispatchEvent(new PopStateEvent('popstate'));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="group relative px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer bg-[#A44101]/8 hover:bg-[#A44101]/14 border border-[#A44101]/30 hover:border-[#A44101]/50 text-navy shadow-2xs hover:shadow-xs active:scale-98 shrink-0 whitespace-nowrap"
+                    className="group relative px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-full text-[11px] 2xl:text-xs font-bold transition-all duration-200 flex items-center gap-1 2xl:gap-1.5 cursor-pointer bg-[#A44101]/8 hover:bg-[#A44101]/14 border border-[#A44101]/30 hover:border-[#A44101]/50 text-navy shadow-2xs hover:shadow-xs active:scale-98 shrink-0 whitespace-nowrap"
                   >
                     {renderIcon()}
                     <span className="font-bold tracking-tight whitespace-nowrap text-navy">{lbl.name}</span>
                     {lbl.badgeText && (
-                      <span className="text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-[#A44101] shadow-2xs leading-none shrink-0">
+                      <span className="text-white text-[8px] 2xl:text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-[#A44101] shadow-2xs leading-none shrink-0">
                         {lbl.badgeText}
                       </span>
                     )}
@@ -1291,12 +1291,12 @@ export const Header: React.FC<HeaderProps> = ({
                     window.dispatchEvent(new PopStateEvent('popstate'));
                   }
                 }}
-                className="hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer items-center gap-1.5 shrink-0 whitespace-nowrap"
+                className="hidden lg:flex px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer items-center gap-1 2xl:gap-1.5 shrink-0 whitespace-nowrap"
                 title="Become an Official Dropship Partner"
               >
-                <PackageCheck className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+                <PackageCheck className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />
                 <span>Dropship</span>
-                <span className="text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.2 rounded shrink-0">
+                <span className="text-[8px] 2xl:text-[9px] font-black uppercase tracking-wider bg-[#A44101] text-white px-1.5 py-0.2 rounded shrink-0">
                   B2B
                 </span>
               </button>
@@ -1310,11 +1310,27 @@ export const Header: React.FC<HeaderProps> = ({
                     window.dispatchEvent(new PopStateEvent('popstate'));
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1 2xl:gap-1.5 shrink-0 whitespace-nowrap"
                 title="Bulk Orders & Wholesale Enquiries (Min. ₹3,000)"
               >
-                <Building2 className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+                <Building2 className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />
                 <span>Bulk Orders</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onGoToCustomizeGift) onGoToCustomizeGift();
+                  else {
+                    window.history.pushState(null, '', '/customize-gift');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                  }
+                }}
+                className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1 2xl:gap-1.5 shrink-0 whitespace-nowrap"
+                title="Custom Corporate & Personal Gifting"
+              >
+                <Gift className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />
+                <span>Gift Customization</span>
               </button>
 
               <button
@@ -1326,22 +1342,22 @@ export const Header: React.FC<HeaderProps> = ({
                     window.dispatchEvent(new PopStateEvent('popstate'));
                   }
                 }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1 2xl:gap-1.5 shrink-0 whitespace-nowrap"
                 title="24/7 Customer Support & Help Desk"
               >
-                <Headphones className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+                <Headphones className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />
                 <span>Customer Support</span>
               </button>
             </div>
 
             {/* Right Mini Guarantee & Delivery Badges */}
-            <div className="hidden min-[1380px]:flex items-center gap-2 shrink-0">
-              <div className="flex items-center gap-1.5 text-xs text-navy bg-slate-100 border border-slate-200 px-3 py-1 rounded-full font-bold shadow-2xs whitespace-nowrap">
-                <ShieldCheck className="w-3.5 h-3.5 text-navy shrink-0" />
+            <div className="hidden min-[1260px]:flex items-center gap-1.5 2xl:gap-2 shrink-0">
+              <div className="flex items-center gap-1 text-[10px] 2xl:text-xs text-navy bg-slate-100 border border-slate-200 px-2 2xl:px-2.5 py-0.5 2xl:py-1 rounded-full font-bold shadow-2xs whitespace-nowrap">
+                <ShieldCheck className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-navy shrink-0" />
                 <span>Lowest Price Guarantee</span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#A44101] bg-[#A44101]/10 border border-[#A44101]/20 px-3 py-1 rounded-full font-bold shadow-2xs whitespace-nowrap">
-                <PackageCheck className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+              <div className="flex items-center gap-1 text-[10px] 2xl:text-xs text-[#A44101] bg-[#A44101]/10 border border-[#A44101]/20 px-2 2xl:px-2.5 py-0.5 2xl:py-1 rounded-full font-bold shadow-2xs whitespace-nowrap">
+                <PackageCheck className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />
                 <span>Pan-India Delivery</span>
               </div>
             </div>
@@ -1573,6 +1589,23 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <Building2 className="w-4 h-4 text-[#A44101]" />
                       <span>Bulk Orders &amp; Wholesale</span>
+                    </a>
+
+                    <a
+                      href="/customize-gift"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsMobileMenuOpen(false);
+                        if (onGoToCustomizeGift) onGoToCustomizeGift();
+                        else {
+                          window.history.pushState(null, '', '/customize-gift');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                        }
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 text-navy font-semibold cursor-pointer"
+                    >
+                      <Gift className="w-4 h-4 text-[#A44101]" />
+                      <span>Gift Customization</span>
                     </a>
 
                     <a

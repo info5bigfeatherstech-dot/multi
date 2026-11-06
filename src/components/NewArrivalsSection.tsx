@@ -17,15 +17,18 @@ import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
 import { apiClient } from '../api';
 import { toast } from 'react-hot-toast';
 import { getDeterministicRating } from '../utils/productUtils';
+import { DiyaGlow } from './diwali/DiyaGlow';
 
 interface NewArrivalsSectionProps {
   onProductClick?: (product: ProductItem) => void;
   onExploreAll?: () => void;
+  isDiwali?: boolean;
 }
 
 export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
   onProductClick,
   onExploreAll,
+  isDiwali = false,
 }) => {
   const { addToCart } = useCart();
   const shouldReduceMotion = useReducedMotion();
@@ -206,25 +209,34 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#A44101]/10 text-[#A44101] text-[11px] font-black uppercase tracking-wider mb-2">
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-2 ${
+              isDiwali ? 'bg-[#FF8A00]/15 text-[#7A0C1E] border border-[#D4AF37]/50' : 'bg-[#A44101]/10 text-[#A44101]'
+            }`}>
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Just Launched</span>
+              <span>{isDiwali ? 'Diwali Festive Launch' : 'Just Launched'}</span>
             </div>
             
             <div className="flex items-center gap-3">
+              {isDiwali && <DiyaGlow size="sm" />}
               <h2 
                 id="new-arrivals-heading"
-                className="text-2xl sm:text-3xl font-medium text-navy tracking-tight font-roboto"
+                className={`text-2xl sm:text-3xl font-medium tracking-tight ${
+                  isDiwali ? 'text-[#7A0C1E] font-serif font-bold' : 'text-navy font-roboto'
+                }`}
               >
-                New Arrivals
+                {isDiwali ? 'Diwali Special Arrivals' : 'New Arrivals'}
               </h2>
-              <span className="text-xs font-bold text-white bg-[#A44101] px-2.5 py-0.5 rounded-full shadow-2xs">
+              <span className={`text-xs font-bold text-white px-2.5 py-0.5 rounded-full shadow-2xs ${
+                isDiwali ? 'bg-gradient-to-r from-[#FF8A00] to-[#7A0C1E]' : 'bg-[#A44101]'
+              }`}>
                 {products.length} Fresh Picks
               </span>
             </div>
             
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
-              Discover our latest direct-import catalog additions at introductory factory rates.
+              {isDiwali 
+                ? 'Handpicked celebratory additions, pooja essentials & seasonal hampers at introductory festive rates.' 
+                : 'Discover our latest direct-import catalog additions at introductory factory rates.'}
             </p>
           </div>
 
@@ -299,11 +311,15 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                     className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-500"
                   />
 
-                  {/* Badges: NEW & Discount */}
+                  {/* Badges: NEW / DIWALI & Discount */}
                   <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-                    <span className="inline-flex items-center gap-1 bg-gradient-to-r from-[#A44101] to-[#8C3701] text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md shadow-xs tracking-wider">
+                    <span className={`inline-flex items-center gap-1 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-md shadow-xs tracking-wider ${
+                      isDiwali
+                        ? 'bg-gradient-to-r from-[#FF8A00] to-[#7A0C1E] border border-[#D4AF37]/60'
+                        : 'bg-gradient-to-r from-[#A44101] to-[#8C3701]'
+                    }`}>
                       <Zap className="w-2.5 h-2.5 fill-amber-300 text-amber-300" />
-                      NEW
+                      {isDiwali ? 'DIWALI SPECIAL' : 'NEW'}
                     </span>
                     {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
                       <span className="bg-navy/90 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">

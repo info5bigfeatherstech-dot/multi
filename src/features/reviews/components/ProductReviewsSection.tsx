@@ -5,8 +5,7 @@ import {
   X, 
   UploadCloud, 
   MessageSquare, 
-  Loader2, 
-  Sparkles 
+  Loader2 
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { 
@@ -17,7 +16,6 @@ import {
 } from '../hooks';
 import { StarRatingInput } from './StarRatingInput';
 import { isAuthenticated, requireAuth } from '../../../utils/authGuard';
-import { getDeterministicRating } from '../../../utils/productUtils';
 
 interface ProductReviewsSectionProps {
   productId: string;
@@ -48,7 +46,6 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   const [comment, setComment] = useState<string>('');
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
 
   // Lightbox Modal for enlarged photo view
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -57,49 +54,14 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
   const summary = data?.summary;
   const reviews = data?.reviews || [];
 
-  // Curated verified purchase reviews for fresh products
-  const defaultCustomerReviews: any[] = useMemo(() => [
-    {
-      id: `verified-rev-1-${productId}`,
-      author: 'Ananya Gupta',
-      rating: 5,
-      comment: 'Top quality product! Completely satisfied with the purchase. The packaging and delivery were both outstanding.',
-      verifiedPurchase: true,
-      createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-    },
-    {
-      id: `verified-rev-2-${productId}`,
-      author: 'Vikram Joshi',
-      rating: 5,
-      comment: 'Super fast delivery. Works exactly as described, very durable and well made. Worth every rupee!',
-      verifiedPurchase: true,
-      createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-    },
-    {
-      id: `verified-rev-3-${productId}`,
-      author: 'Pooja Sharma',
-      rating: 4,
-      comment: 'Good value for money product. Practical design and easy to use. Recommended!',
-      verifiedPurchase: true,
-      createdAt: new Date(Date.now() - 11 * 86400000).toISOString(),
-    },
-  ], [productId]);
-
-  const displayReviews = useMemo(() => {
-    if (reviews.length > 0) return reviews;
-    return defaultCustomerReviews;
-  }, [reviews, defaultCustomerReviews]);
-
-  // Guaranteed rating (reviews should never show as 0.0 or flat 4.8)
-  const rInfo = getDeterministicRating(productId || _productTitle);
-  const fallbackRating = productRating && productRating > 0 ? productRating : rInfo.rating;
-  const fallbackReviewCount = productReviewsCount && productReviewsCount > 0 ? productReviewsCount : rInfo.reviews;
+  // Display only real reviews from API
+  const displayReviews = reviews;
 
   const totalReviewCount = summary?.count !== undefined && summary.count > 0
     ? summary.count 
     : (summary?.reviewCount !== undefined && summary.reviewCount > 0 
         ? summary.reviewCount 
-        : (reviews.length > 0 ? reviews.length : fallbackReviewCount));
+        : (reviews.length > 0 ? reviews.length : (productReviewsCount && productReviewsCount > 0 ? productReviewsCount : 0)));
 
   const rawAvg = summary?.average !== undefined && summary.average !== null && summary.average > 0
     ? Number(summary.average)
@@ -107,12 +69,11 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
         ? Number(summary.averageRating)
         : (reviews.length > 0
             ? (reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviews.length)
-            : fallbackRating));
+            : (productRating && productRating > 0 ? productRating : 0)));
 
-  // Ensure rating is never 0.0 (always formatted to 1 decimal place like 4.8)
-  const averageRating = (rawAvg > 0 ? rawAvg : fallbackRating).toFixed(1);
+  const averageRating = rawAvg > 0 ? rawAvg.toFixed(1) : (productRating && productRating > 0 ? productRating.toFixed(1) : '0.0');
 
-  // Distribution calculation: uses summary distribution or realistic verified breakdown
+  // Distribution calculation: uses summary distribution or calculates from reviews
   const distribution = useMemo(() => {
     if (summary?.distribution && Object.values(summary.distribution).some((v) => Number(v) > 0)) {
       return {
@@ -126,8 +87,8 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
     if (summary?.starDistribution && Object.values(summary.starDistribution).some((v) => Number(v) > 0)) {
       return { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0, ...summary.starDistribution };
     }
+    const dist: Record<string, number> = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
     if (reviews.length > 0) {
-      const dist: Record<string, number> = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
       reviews.forEach((r) => {
         const star = String(Math.round(r.rating || 0));
         if (dist[star] !== undefined) {
@@ -136,21 +97,8 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
       });
       return dist;
     }
-    // Realistic verified purchases distribution based on totalReviewCount
-    const count = totalReviewCount;
-    const five = Math.round(count * 0.76);
-    const four = Math.round(count * 0.17);
-    const three = Math.round(count * 0.05);
-    const two = Math.round(count * 0.01);
-    const one = Math.max(0, count - five - four - three - two);
-    return {
-      '5': five,
-      '4': four,
-      '3': three,
-      '2': two,
-      '1': one,
-    };
-  }, [summary, reviews, totalReviewCount]);
+    return dist;
+  }, [summary, reviews]);
 
   // Filtered reviews list based on active star filter
   const filteredReviews = useMemo(() => {
@@ -240,7 +188,6 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
       setImages([]);
       imagePreviews.forEach((url) => URL.revokeObjectURL(url));
       setImagePreviews([]);
-      setIsFormOpen(false);
       if (refetch) {
         refetch();
       }
@@ -286,32 +233,11 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real feedback and photos verified from customers who experienced this product.
+            Real feedback and ratings from customers who purchased this item.
           </p>
         </div>
 
-        {!myReview ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (!isAuth) {
-                if (typeof window !== 'undefined') {
-                  sessionStorage.setItem('auth_redirect_url', window.location.href);
-                }
-                requireAuth({ 
-                  message: 'Please log in to write a review',
-                  redirectTo: window.location.pathname + window.location.search,
-                });
-              } else {
-                setIsFormOpen(!isFormOpen);
-              }
-            }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all cursor-pointer active:scale-95 shrink-0"
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>{isFormOpen ? 'Cancel Review' : 'Write a Review'}</span>
-          </button>
-        ) : (
+        {myReview && (
           <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shrink-0">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>Review Submitted</span>
@@ -319,62 +245,42 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
         )}
       </div>
 
-      {/* Main Grid: Summary Card (Left) + Content (Right) */}
+      {/* Main Grid: Summary & Write Review Card (Left) + Content (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* =========================================================================
-            1. SUMMARY CARD & STAR DISTRIBUTION
+            1. CUSTOMER REVIEWS & WRITE A REVIEW CARD (matching user reference)
            ========================================================================= */}
-        <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-slate-200/90 shadow-2xs space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-orange-50 border border-orange-200/80 min-w-[100px]">
-              <span className="text-3xl sm:text-4xl font-black text-navy tracking-tight">
-                {averageRating}
-              </span>
-              <div className="flex items-center text-amber-500 mt-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star 
-                    key={star} 
-                    className={`w-3.5 h-3.5 ${
-                      star <= Math.round(Number(averageRating))
-                        ? 'fill-amber-400 text-amber-400' 
-                        : 'text-slate-300'
-                    }`} 
-                  />
-                ))}
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 mt-1">
-                out of 5
-              </span>
-            </div>
+        <div className="lg:col-span-5 bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-5">
+          {/* Header */}
+          <h3 className="text-base sm:text-lg font-bold text-navy">
+            Customer reviews
+          </h3>
 
-            <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-navy">
-                {totalReviewCount > 0 ? `${totalReviewCount} Customer Ratings` : 'No ratings yet'}
-              </h3>
-              <p className="text-xs text-slate-500">
-                {totalReviewCount > 0 
-                  ? 'Calculated from genuine purchases and verified community ratings.' 
-                  : 'Be the first customer to share your experience with this item!'}
-              </p>
+          {/* Rating Summary Line: 4.6 ★★★★★ 186 ratings */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-navy tracking-tight">
+              {averageRating}
+            </span>
+            <div className="flex items-center text-amber-400">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star 
+                  key={star} 
+                  className={`w-4 h-4 ${
+                    star <= Math.round(Number(averageRating))
+                      ? 'fill-amber-400 text-amber-400' 
+                      : 'text-slate-200'
+                  }`} 
+                />
+              ))}
             </div>
+            <span className="text-xs text-slate-500 font-medium">
+              {totalReviewCount > 0 ? `${totalReviewCount} ratings` : '0 ratings'}
+            </span>
           </div>
 
-          {/* Interactive Star Distribution Progress Bars */}
-          <div className="space-y-2.5 pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-1">
-              <span>Star Breakdown</span>
-              {selectedStarFilter && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedStarFilter(null)}
-                  className="text-[#A44101] hover:underline text-[11px] font-extrabold cursor-pointer"
-                >
-                  Clear Filter (Show All)
-                </button>
-              )}
-            </div>
-
+          {/* Star Breakdown Progress Bars */}
+          <div className="space-y-2 pt-1">
             {[5, 4, 3, 2, 1].map((star) => {
               const count = distribution[String(star)] || 0;
               const pct = totalReviewCount > 0 ? Math.round((count / totalReviewCount) * 100) : 0;
@@ -385,138 +291,103 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
                   key={star}
                   type="button"
                   onClick={() => setSelectedStarFilter(isSelected ? null : star)}
-                  className={`w-full group flex items-center gap-3 p-1.5 rounded-lg text-left transition-all cursor-pointer ${
-                    isSelected 
-                      ? 'bg-orange-50 border border-orange-200 font-black' 
-                      : 'hover:bg-slate-50'
+                  className={`w-full group flex items-center gap-3 py-1 px-1.5 rounded-lg text-left transition-all cursor-pointer ${
+                    isSelected ? 'bg-orange-50/80 font-bold' : 'hover:bg-slate-50'
                   }`}
                   title={`Filter by ${star} star reviews (${count})`}
                 >
-                  <span className="w-10 text-xs font-bold text-slate-700 flex items-center gap-1 shrink-0">
-                    {star} <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                  <span className="w-12 text-xs text-slate-600 font-medium shrink-0">
+                    {star} star
                   </span>
 
-                  <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
                     <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
+                      className={`h-full rounded-full transition-all duration-300 ${
                         isSelected ? 'bg-[#A44101]' : 'bg-amber-400 group-hover:bg-amber-500'
                       }`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
-                  <span className="w-12 text-right text-xs font-semibold text-slate-500 shrink-0">
-                    {pct}% <span className="text-[10px] text-slate-400">({count})</span>
+                  <span className="w-10 text-right text-xs text-slate-500 font-medium shrink-0">
+                    {pct}%
                   </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Trust badges */}
-          <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-center text-[11px] text-slate-600 font-semibold">
-            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>100% Genuine Reviews</span>
-            </div>
-            <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Verified Purchases</span>
-            </div>
-          </div>
-        </div>
+          {/* Divider */}
+          <hr className="border-slate-200" />
 
-        {/* =========================================================================
-            2. RIGHT COLUMN: SUBMISSION FORM + REVIEWS LIST
-           ========================================================================= */}
-        <div className="lg:col-span-7 space-y-6">
-
-          {/* Already Submitted Banner */}
-          {myReview && (
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/90 text-emerald-900 flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-xs sm:text-sm font-bold">
-                  You have already reviewed this product!
-                </p>
-                <p className="text-xs text-emerald-700">
-                  Rated {myReview.rating}★: "{myReview.comment || 'No comment provided'}"
-                  {myReview.isActive === false && ' (Pending moderation approval)'}
-                </p>
+          {/* WRITE A REVIEW INLINE BOX */}
+          {myReview ? (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/90 text-emerald-900 space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>You have already reviewed this product</span>
               </div>
+              <p className="text-xs text-emerald-700">
+                Rated {myReview.rating}★: "{myReview.comment || 'No comment provided'}"
+                {myReview.isActive === false && ' (Pending moderation approval)'}
+              </p>
             </div>
-          )}
-
-          {/* Write Review Box (Collapsible / Toggleable) */}
-          {isFormOpen && !myReview && (
-            <div className="bg-white rounded-2xl p-6 border-2 border-orange-200 shadow-md space-y-5 animate-fadeIn">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#A44101]/10 text-[#A44101] flex items-center justify-center">
-                    <MessageSquare className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-navy">Write Your Review</h3>
-                    <p className="text-[11px] text-slate-500">Share your genuine experience with other buyers</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+          ) : (
+            <div className="bg-slate-50/70 rounded-2xl p-4 sm:p-5 border border-slate-200/80 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  WRITE A REVIEW
+                </span>
+                {!isAuth && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        sessionStorage.setItem('auth_redirect_url', window.location.href);
+                      }
+                      requireAuth({ 
+                        message: 'Please log in to submit a review',
+                        redirectTo: window.location.pathname + window.location.search,
+                      });
+                    }}
+                    className="text-[10px] text-[#A44101] font-bold hover:underline cursor-pointer"
+                  >
+                    Login to post
+                  </button>
+                )}
               </div>
 
-              <form onSubmit={handleSubmitReview} className="space-y-4">
-                {/* 1. Star Rating Picker */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Your Overall Rating <span className="text-[#A44101]">*</span>
-                  </label>
-                  <StarRatingInput value={rating} onChange={setRating} size="lg" />
-                </div>
+              {/* Star Rating Picker */}
+              <div>
+                <StarRatingInput value={rating} onChange={setRating} size="md" />
+              </div>
 
-                {/* 2. Comment Textarea */}
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Your Comments &amp; Feedback
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-semibold">
-                      {comment.length} / 2000
-                    </span>
-                  </div>
-                  <textarea
-                    rows={4}
-                    maxLength={2000}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="What did you love about the fabric, fit, design, or durability? What should others know?"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-hidden focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] transition-all resize-y"
-                  />
-                </div>
+              {/* Textarea Form */}
+              <form onSubmit={handleSubmitReview} className="space-y-3">
+                <textarea
+                  id="write-review-input"
+                  rows={3}
+                  maxLength={2000}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Share your thoughts about this product... (optional)"
+                  className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:border-[#A44101] focus:ring-1 focus:ring-[#A44101] resize-none transition-all placeholder:text-slate-400"
+                />
 
-                {/* 3. Image Uploader */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Attach Real Photos <span className="text-[11px] font-normal text-slate-400">(Optional, max 4 photos)</span>
-                  </label>
-
-                  {/* Previews */}
+                {/* Optional Photo Attachment */}
+                <div className="space-y-2">
                   {imagePreviews.length > 0 && (
-                    <div className="flex flex-wrap gap-2.5 mb-3">
+                    <div className="flex flex-wrap gap-2">
                       {imagePreviews.map((preview, idx) => (
-                        <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 group">
+                        <div key={idx} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 group">
                           <img src={preview} alt="Upload preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeImage(idx)}
-                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                             title="Remove image"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ))}
@@ -524,10 +395,9 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
                   )}
 
                   {images.length < 4 && (
-                    <label className="border-2 border-dashed border-slate-200 hover:border-orange-300 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-slate-50/70 hover:bg-orange-50/40 transition-all">
-                      <UploadCloud className="w-5 h-5 text-[#A44101]" />
-                      <span className="text-xs font-bold text-navy">Click to browse photos</span>
-                      <span className="text-[10px] text-slate-400">PNG, JPG, WEBP up to 5MB</span>
+                    <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#A44101] cursor-pointer">
+                      <UploadCloud className="w-3.5 h-3.5 text-[#A44101]" />
+                      <span>Attach photos (optional, up to 4)</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -539,30 +409,30 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
                   )}
                 </div>
 
-                {/* Submit Button & Moderation Notice */}
-                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <p className="text-[11px] text-slate-500">
-                    ℹ Reviews are inspected by moderators to prevent spam and maintain trust.
-                  </p>
-
-                  <button
-                    type="submit"
-                    disabled={submitMutation.isPending}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all cursor-pointer disabled:opacity-60 active:scale-95 shrink-0"
-                  >
-                    {submitMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Submitting...</span>
-                      </>
-                    ) : (
-                      <span>Submit Review</span>
-                    )}
-                  </button>
-                </div>
+                {/* Submit Review Button */}
+                <button
+                  type="submit"
+                  disabled={submitMutation.isPending}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 active:scale-98"
+                >
+                  {submitMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>SUBMITTING...</span>
+                    </>
+                  ) : (
+                    <span>SUBMIT REVIEW</span>
+                  )}
+                </button>
               </form>
             </div>
           )}
+        </div>
+
+        {/* =========================================================================
+            2. RIGHT COLUMN: REVIEWS FILTER & LIST
+           ========================================================================= */}
+        <div className="lg:col-span-7 space-y-6">
 
           {/* Filter Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
@@ -739,13 +609,13 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!isAuth) {
-                      requireAuth({ message: 'Please log in to write a review' });
-                    } else {
-                      setIsFormOpen(true);
+                    const el = document.getElementById('write-review-input');
+                    if (el) {
+                      el.focus();
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                   }}
-                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#A44101] text-white text-xs font-bold hover:bg-[#8C3701] cursor-pointer shadow-xs"
+                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#A44101] text-white text-xs font-bold hover:bg-[#8C3701] cursor-pointer shadow-xs active:scale-98"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Write the First Review</span>

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUpRight
 } from 'lucide-react';
+import { DiyaGlow } from './diwali/DiyaGlow';
 import { CATEGORY_SUBCATEGORIES } from '../data/storeData';
 import { storefrontProductsApi } from '../api';
 import { sortCategoriesByCanonicalSequence, extractSubcategoriesFromCategory } from '../utils/categorySequence';
@@ -158,10 +159,12 @@ const getInitialCategories = (): CategoryCardData[] => {
 
 interface CategoriesSectionProps {
   onSelectCategory?: (categoryId: string, subcategory?: string) => void;
+  isDiwali?: boolean;
 }
 
 export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   onSelectCategory,
+  isDiwali = false,
 }) => {
   const [displayedCategories, setDisplayedCategories] = useState<CategoryCardData[]>(() => getInitialCategories());
   const shouldReduceMotion = useReducedMotion();
@@ -274,12 +277,29 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
         {/* Section Header: Title on Left, "All categories ->" on Right */}
         <div className="flex flex-row items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h2 
-              id="categories-showcase-heading" 
-              className="text-xl sm:text-2xl lg:text-3xl font-medium text-slate-800 tracking-tight font-roboto capitalize"
-            >
-              Shop By Category
-            </h2>
+            {isDiwali ? (
+              <div className="flex items-center gap-2.5">
+                <DiyaGlow size="sm" />
+                <div>
+                  <h2 
+                    id="categories-showcase-heading" 
+                    className="text-xl sm:text-2xl lg:text-3xl font-black text-[#7A0C1E] tracking-tight font-serif"
+                  >
+                    Festive Catalog By Department
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Explore all 11 curated festive departments at special Diwali wholesale rates
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <h2 
+                id="categories-showcase-heading" 
+                className="text-xl sm:text-2xl lg:text-3xl font-medium text-slate-800 tracking-tight font-roboto capitalize"
+              >
+                Shop By Category
+              </h2>
+            )}
           </div>
 
           <div>

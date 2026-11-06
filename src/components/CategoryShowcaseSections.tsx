@@ -120,11 +120,13 @@ interface CategoryShowcaseSectionsProps {
   onCategoryClick?: (categoryId: string, subcategory?: string) => void;
   insertElement?: React.ReactNode;
   insertAfterIndex?: number;
+  isDiwali?: boolean;
 }
 
 export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> = ({ 
   onProductClick,
   onCategoryClick,
+  isDiwali = false,
 }) => {
   const { addToCart } = useCart();
   const [addedItemIds, setAddedItemIds] = useState<{ [key: string]: boolean }>({});
@@ -393,6 +395,7 @@ export const CategoryShowcaseSections: React.FC<CategoryShowcaseSectionsProps> =
           onAddToCart={handleAddToCart}
           getCategoryIcon={getCategoryIcon}
           shouldReduceMotion={shouldReduceMotion}
+          isDiwali={isDiwali}
         />
       ))}
     </div>
@@ -416,6 +419,7 @@ interface CategoryShowcaseRowProps {
   onAddToCart: (product: ProductItem) => void;
   getCategoryIcon: (id: string) => React.ReactNode;
   shouldReduceMotion: boolean | null;
+  isDiwali?: boolean;
 }
 
 const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
@@ -426,6 +430,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
   onAddToCart,
   getCategoryIcon,
   shouldReduceMotion,
+  isDiwali = false,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [, setCanScrollLeft] = useState(false);
@@ -508,15 +513,21 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
         {/* Category Header Row with Controls */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-navy text-xs font-bold mb-2 border border-slate-200">
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-2 border ${
+              isDiwali 
+                ? 'bg-[#FF8A00]/15 text-[#7A0C1E] border-[#D4AF37]/50'
+                : 'bg-slate-100 text-navy border-slate-200'
+            }`}>
               {getCategoryIcon(section.id)}
-              <span className="uppercase tracking-wider">{section.badge}</span>
+              <span className="uppercase tracking-wider">{isDiwali ? `DIWALI • ${section.badge}` : section.badge}</span>
             </div>
             <h2
               id={`heading-${section.id}`}
-              className="text-2xl sm:text-3xl lg:text-3xl font-medium text-navy tracking-tight font-roboto"
+              className={`text-2xl sm:text-3xl lg:text-3xl font-medium tracking-tight ${
+                isDiwali ? 'font-serif text-[#7A0C1E] font-bold' : 'text-navy font-roboto'
+              }`}
             >
-              {section.name}: <span className="text-blue-800 font-semibold">Products</span>
+              {section.name}: <span className={isDiwali ? 'text-[#FF8A00] font-semibold' : 'text-blue-800 font-semibold'}>Products</span>
             </h2>
             <p className="text-xs sm:text-sm text-mutedGray mt-1 max-w-2xl font-normal">
               {section.tagline}
@@ -526,7 +537,11 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
           <button
             type="button"
             onClick={() => onCategoryClick?.(section.id)}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-300 hover:border-[#A44101] bg-white hover:bg-[#A44101] text-navy hover:text-white text-xs font-extrabold transition-all shadow-2xs hover:shadow-xs cursor-pointer group shrink-0"
+            className={`self-start sm:self-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-full border text-xs font-extrabold transition-all shadow-2xs hover:shadow-xs cursor-pointer group shrink-0 ${
+              isDiwali
+                ? 'border-[#D4AF37] bg-white hover:bg-[#7A0C1E] text-[#7A0C1E] hover:text-[#FFE082]'
+                : 'border-slate-300 hover:border-[#A44101] bg-white hover:bg-[#A44101] text-navy hover:text-white'
+            }`}
           >
             <span>Explore All {section.name} Products</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -654,9 +669,13 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                       
                       {/* Discount Sticker */}
                       {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
-                        <div className="absolute top-2 left-2 z-10 bg-[#A44101] text-white text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                        <div className={`absolute top-2 left-2 z-10 text-white text-[10px] sm:text-[11px] font-black px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex items-center gap-1 ${
+                          isDiwali
+                            ? 'bg-gradient-to-r from-[#FF8A00] to-[#7A0C1E] border border-[#D4AF37]/50'
+                            : 'bg-[#A44101]'
+                        }`}>
                           <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-white text-white" />
-                          <span>{product.discountPercentage}% OFF</span>
+                          <span>{isDiwali ? `DIWALI ${product.discountPercentage}% OFF` : `${product.discountPercentage}% OFF`}</span>
                         </div>
                       )}
 

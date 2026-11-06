@@ -392,9 +392,6 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                   className="w-full h-full object-cover sm:object-fill lg:object-cover"
                   loading="eager"
                 />
-
-                {/* Subtle hover gradient sheen */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               </motion.div>
             </AnimatePresence>
 

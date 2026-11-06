@@ -1,0 +1,205 @@
+/* ==========================================================================
+   DIWALI FESTIVE THEME (HOME PAGE ONLY SCOPED STYLES)
+   All selectors are strictly scoped under .diwali-home or prefixed with .diwali-
+   to guarantee zero leakage to Product, Cart, Checkout, Auth, or Admin routes.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap');
+
+.diwali-home {
+  --diwali-maroon: #7A0C1E;
+  --diwali-maroon-dark: #4A0512;
+  --diwali-orange: #FF8A00;
+  --diwali-yellow: #FFC107;
+  --diwali-gold: #D4AF37;
+  --diwali-gold-light: #F7E7A9;
+  --diwali-cream: #FFF8E7;
+  --diwali-cream-card: #FFFCF5;
+  --diwali-purple: #1B0B2E;
+  --diwali-purple-dark: #10061D;
+  
+  background-color: #FFFDF9;
+  color: #1F2937;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Scoped Display Font for Headings inside Home only */
+.diwali-home h1,
+.diwali-home h2,
+.diwali-home h3,
+.diwali-home .diwali-heading {
+  font-family: 'Playfair Display', 'Cinzel', serif;
+  letter-spacing: -0.01em;
+}
+
+/* Subtle background mandala wallpaper watermark */
+.diwali-home .diwali-mandala-bg {
+  background-image: radial-gradient(circle at center, rgba(212, 175, 55, 0.08) 0%, transparent 70%);
+}
+
+/* Gold Gradient Accents */
+.diwali-gold-gradient {
+  background: linear-gradient(135deg, #FFE29A 0%, #D4AF37 50%, #A67C1E 100%);
+}
+
+.diwali-gold-text {
+  background: linear-gradient(135deg, #FFF3B0 0%, #D4AF37 50%, #E6C265 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.diwali-maroon-gradient {
+  background: linear-gradient(135deg, #7A0C1E 0%, #4A0512 100%);
+}
+
+/* Gold Shimmer Sweep Animation */
+@keyframes diwaliShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.diwali-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 243, 176, 0.45) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: diwaliShimmer 3.5s infinite;
+}
+
+/* Diya Flame Flicker Animation */
+@keyframes diwaliFlameFlicker {
+  0%, 100% {
+    transform: scale(1) rotate(-1deg);
+    opacity: 0.95;
+    filter: drop-shadow(0 0 6px rgba(255, 138, 0, 0.8));
+  }
+  25% {
+    transform: scale(1.08, 0.95) rotate(1.5deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.95));
+  }
+  50% {
+    transform: scale(0.96, 1.05) rotate(-0.5deg);
+    opacity: 0.9;
+    filter: drop-shadow(0 0 7px rgba(255, 138, 0, 0.85));
+  }
+  75% {
+    transform: scale(1.04, 0.98) rotate(1deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 9px rgba(255, 193, 7, 0.9));
+  }
+}
+
+.diwali-flame-animated {
+  transform-origin: bottom center;
+  animation: diwaliFlameFlicker 1.8s ease-in-out infinite;
+}
+
+/* Lantern (Akash Kandil) Sway Animation */
+@keyframes diwaliLanternSway {
+  0%, 100% {
+    transform: rotate(-3.5deg);
+  }
+  50% {
+    transform: rotate(3.5deg);
+  }
+}
+
+.diwali-lantern-sway {
+  transform-origin: top center;
+  animation: diwaliLanternSway 4s ease-in-out infinite;
+}
+
+.diwali-lantern-sway-delayed {
+  transform-origin: top center;
+  animation: diwaliLanternSway 4.5s ease-in-out infinite 0.8s;
+}
+
+/* Fairy Lights Twinkle Animation */
+@keyframes diwaliFairyTwinkle {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+    filter: drop-shadow(0 0 2px rgba(255, 193, 7, 0.3));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.9));
+  }
+}
+
+.diwali-fairy-light-1 {
+  animation: diwaliFairyTwinkle 1.6s ease-in-out infinite;
+}
+.diwali-fairy-light-2 {
+  animation: diwaliFairyTwinkle 2.1s ease-in-out infinite 0.4s;
+}
+.diwali-fairy-light-3 {
+  animation: diwaliFairyTwinkle 1.8s ease-in-out infinite 0.9s;
+}
+.diwali-fairy-light-4 {
+  animation: diwaliFairyTwinkle 2.4s ease-in-out infinite 1.3s;
+}
+
+/* Product Card Festive Glow & Ribbon on Home Page */
+.diwali-home .diwali-card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  background-color: #FFFFFF;
+}
+
+.diwali-home .diwali-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212, 175, 55, 0.85);
+  box-shadow: 0 10px 25px -5px rgba(255, 138, 0, 0.18), 0 0 12px rgba(212, 175, 55, 0.35);
+}
+
+/* Gold Corner Accents */
+.diwali-corner-tl {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 14px;
+  height: 14px;
+  border-top: 2px solid #D4AF37;
+  border-left: 2px solid #D4AF37;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.diwali-corner-br {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2px solid #D4AF37;
+  border-right: 2px solid #D4AF37;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Accessibility: Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .diwali-flame-animated,
+  .diwali-lantern-sway,
+  .diwali-lantern-sway-delayed,
+  .diwali-fairy-light-1,
+  .diwali-fairy-light-2,
+  .diwali-fairy-light-3,
+  .diwali-fairy-light-4,
+  .diwali-shimmer {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
