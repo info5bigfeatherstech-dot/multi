@@ -53,6 +53,9 @@ export interface AdminOrder {
   courierOpsLine2?: string | null;
   awbCode?: string | null;
   shippingProvider?: string | null;
+  providerStatus?: string | null;
+  opsState?: string | null;
+  opsStateLabel?: string | null;
   rawOrder?: any;
   createdAt: string;
   updatedAt: string;

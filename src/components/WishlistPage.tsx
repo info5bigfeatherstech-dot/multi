@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heart, 
@@ -10,12 +10,26 @@ import {
   ArrowRight,
   Truck,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { getAllProducts, ProductItem } from '../data/storeData';
 import { useCart } from '../context/CartContext';
 import { requireAuth, isAuthenticated } from '../utils/authGuard';
-import { getWishlistIds, toggleWishlistItem } from '../utils/wishlistStorage';
+import { 
+  getWishlistIds, 
+  toggleWishlistItem, 
+  syncWishlistStorage, 
+  clearWishlistStorage 
+} from '../utils/wishlistStorage';
+import { storefrontWishlistApi, apiClient } from '../api';
+import { 
+  mapBackendProductToItem, 
+  getCachedProduct, 
+  cacheProduct, 
+  isProductActive 
+} from '../utils/productUtils';
 import { toast } from 'react-hot-toast';
 
 interface WishlistPageProps {
@@ -30,43 +44,155 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
   onGoToCheckout,
 }) => {
   const { addToCart } = useCart();
-  const allProducts = getAllProducts();
   
-  // Load wishlisted products from local storage, or fallback to first 4 store products
+  // Fast initial hydration from local cache
   const [wishlistItems, setWishlistItems] = useState<ProductItem[]>(() => {
     const ids = getWishlistIds();
     if (ids.length > 0) {
-      const all = allProducts.filter((p) => ids.includes(String(p.id)));
-      if (all.length > 0) return all;
+      const allStatic = getAllProducts();
+      const matched = allStatic.filter((p) => ids.includes(String(p.id)));
+      if (matched.length > 0) return matched;
     }
     return [];
   });
+  
+  const [loading, setLoading] = useState<boolean>(true);
   const [addedItems, setAddedItems] = useState<{ [id: string]: boolean }>({});
   const [allMoved, setAllMoved] = useState(false);
   const viewMode = 'list';
 
-  // Listen for external wishlist changes
+  // Comprehensive asynchronous resolver for wishlisted products
+  const loadWishlistItems = useCallback(async () => {
+    setLoading(true);
+    const localIds = getWishlistIds();
+
+    // If no local IDs and not logged in, wishlist is legitimately empty
+    if (localIds.length === 0 && !isAuthenticated()) {
+      setWishlistItems([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const resolvedMap = new Map<string, ProductItem>();
+
+      // 1. If authenticated, fetch server wishlist
+      if (isAuthenticated()) {
+        try {
+          const apiRes = await storefrontWishlistApi.getWishlist();
+          const rawList = apiRes?.items || apiRes?.products || (Array.isArray(apiRes) ? apiRes : []);
+          if (Array.isArray(rawList)) {
+            for (const item of rawList) {
+              const prod = item?.product || item;
+              if (prod && (prod._id || prod.id || prod.title || prod.name)) {
+                if (isProductActive(prod)) {
+                  const mapped = mapBackendProductToItem(prod);
+                  resolvedMap.set(String(mapped.id), mapped);
+                  if (mapped.slug) resolvedMap.set(String(mapped.slug), mapped);
+                }
+              }
+            }
+          }
+        } catch (apiErr) {
+          console.warn('Could not fetch server wishlist:', apiErr);
+        }
+      }
+
+      // 2. Check local/session cache and static catalog for remaining IDs
+      const allStatic = getAllProducts();
+      for (const id of localIds) {
+        if (resolvedMap.has(id)) continue;
+
+        // Check sessionStorage cache
+        const cached = getCachedProduct(id);
+        if (cached && isProductActive(cached)) {
+          resolvedMap.set(String(cached.id), cached);
+          continue;
+        }
+
+        // Check static catalog
+        const staticMatch = allStatic.find((p) => String(p.id) === id || p.slug === id);
+        if (staticMatch && isProductActive(staticMatch)) {
+          resolvedMap.set(String(staticMatch.id), staticMatch);
+        }
+      }
+
+      // 3. For any remaining unresolved IDs (e.g. MongoDB ObjectIDs or slugs), fetch live catalog
+      const stillUnresolved = localIds.filter((id) => !resolvedMap.has(id));
+      if (stillUnresolved.length > 0) {
+        try {
+          const listRes: any = await apiClient.get('/products/all?limit=250');
+          const rawList = listRes.data?.products || listRes.data?.data || (Array.isArray(listRes.data) ? listRes.data : []);
+          if (Array.isArray(rawList) && rawList.length > 0) {
+            for (const rawP of rawList) {
+              if (!isProductActive(rawP)) continue;
+              const pId = String(rawP._id || rawP.id || '');
+              const pSlug = String(rawP.slug || '');
+              if (
+                stillUnresolved.includes(pId) || 
+                stillUnresolved.includes(pSlug) ||
+                stillUnresolved.some((u) => u.toLowerCase() === pId.toLowerCase() || u.toLowerCase() === pSlug.toLowerCase())
+              ) {
+                const mapped = mapBackendProductToItem(rawP);
+                resolvedMap.set(String(mapped.id), mapped);
+                cacheProduct(mapped);
+              }
+            }
+          }
+        } catch (catalogErr) {
+          console.warn('Could not fetch catalog fallback for wishlist:', catalogErr);
+        }
+      }
+
+      // 4. Deduplicate items by ID
+      const finalItems = Array.from(new Set(resolvedMap.values())).filter(isProductActive);
+      setWishlistItems(finalItems);
+
+      // 5. CRITICAL SYNC:
+      // Synchronize valid IDs with localStorage and Header badge.
+      // If finalItems has 0 items (i.e. stored IDs were stale or deleted),
+      // syncWishlistStorage([]) purges them and clears the header badge to 0!
+      const validIds = finalItems.map((p) => String(p.id));
+      syncWishlistStorage(validIds);
+
+    } catch (err) {
+      console.error('Error resolving wishlist items:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadWishlistItems();
+  }, [loadWishlistItems]);
+
+  // Listen for external wishlist changes (e.g. toggles from other tabs or components)
   useEffect(() => {
     const handleWishlistChange = () => {
       const ids = getWishlistIds();
-      const updated = allProducts.filter((p) => ids.includes(String(p.id)));
-      setWishlistItems(updated);
+      // If ids array changed length or became empty, re-resolve
+      if (ids.length === 0) {
+        setWishlistItems([]);
+      }
     };
     window.addEventListener('abb_wishlist_change', handleWishlistChange);
     return () => {
       window.removeEventListener('abb_wishlist_change', handleWishlistChange);
     };
-  }, [allProducts]);
+  }, []);
 
   const handleRemove = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const item = wishlistItems.find((it) => it.id === id);
+    const item = wishlistItems.find((it) => String(it.id) === String(id));
     const slug = item?.slug || item?.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const itemTitle = item?.title && item.title.length > 32 
       ? `${item.title.slice(0, 32)}...` 
       : (item?.title || 'Item');
     toggleWishlistItem(id, slug);
-    setWishlistItems((prev) => prev.filter((it) => it.id !== id));
+    const updated = wishlistItems.filter((it) => String(it.id) !== String(id));
+    setWishlistItems(updated);
+    syncWishlistStorage(updated.map((it) => String(it.id)));
     toast(`${itemTitle} removed from wishlist`, {
       id: `wishlist-remove-${id}`,
       icon: '🤍',
@@ -132,13 +258,17 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
     }
   };
 
-  const handleClearWishlist = () => {
+  const handleClearWishlist = async () => {
     if (window.confirm('Are you sure you want to clear your wishlist?')) {
-      try {
-        localStorage.setItem('abb_storefront_wishlist_ids', JSON.stringify([]));
-        window.dispatchEvent(new CustomEvent('abb_wishlist_change', { detail: { count: 0 } }));
-      } catch {}
+      clearWishlistStorage();
+      const currentList = [...wishlistItems];
       setWishlistItems([]);
+      if (isAuthenticated()) {
+        for (const it of currentList) {
+          const slug = it.slug || it.id;
+          if (slug) await storefrontWishlistApi.remove(slug).catch(() => {});
+        }
+      }
       toast('Wishlist cleared', { icon: '🗑️' });
     }
   };
@@ -185,7 +315,7 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                     My Wishlist
                   </h1>
                   <span className="text-xs font-bold text-[#A44101] bg-[#A44101]/10 px-2.5 py-0.5 rounded-full border border-[#A44101]/20">
-                    {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'}
+                    {loading ? '...' : `${wishlistItems.length} ${wishlistItems.length === 1 ? 'item' : 'items'}`}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -194,31 +324,50 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
               </div>
             </div>
 
-            {wishlistItems.length > 0 && (
-              <div className="flex items-center gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleClearWishlist}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#A44101] hover:bg-slate-50 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear Wishlist</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleMoveAllToCart}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#A44101] hover:bg-[#8C3701] text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer active:scale-98"
-                >
-                  {allMoved ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
-                  <span>{allMoved ? 'All Added!' : 'Move All to Cart'}</span>
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => loadWishlistItems()}
+                disabled={loading}
+                className="p-2 rounded-xl text-slate-500 hover:text-navy hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+                title="Refresh wishlist"
+                aria-label="Refresh wishlist"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+
+              {wishlistItems.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleClearWishlist}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#A44101] hover:bg-slate-50 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Wishlist</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMoveAllToCart}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#A44101] hover:bg-[#8C3701] text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer active:scale-98"
+                  >
+                    {allMoved ? <Check className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
+                    <span>{allMoved ? 'All Added!' : 'Move All to Cart'}</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Wishlist Main Content */}
-        {wishlistItems.length === 0 ? (
+        {loading ? (
+          /* Sleek Loading State */
+          <div className="py-20 flex flex-col items-center justify-center space-y-3 bg-slate-50/50 rounded-2xl border border-slate-100">
+            <Loader2 className="w-8 h-8 text-[#A44101] animate-spin" />
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">Loading your wishlist items...</p>
+          </div>
+        ) : wishlistItems.length === 0 ? (
           /* Clean Empty State */
           <div className="text-center py-16 px-4 bg-slate-50/70 rounded-2xl border border-slate-200 max-w-lg mx-auto">
             <div className="w-16 h-16 rounded-full bg-[#A44101]/10 border border-[#A44101]/20 flex items-center justify-center mx-auto mb-4 text-[#A44101]">
@@ -276,9 +425,11 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               loading="lazy"
                             />
-                            <span className="absolute top-1.5 left-1.5 bg-[#A44101] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
-                              {product.discountPercentage}% OFF
-                            </span>
+                            {product.discountPercentage > 0 && (
+                              <span className="absolute top-1.5 left-1.5 bg-[#A44101] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
+                                {product.discountPercentage}% OFF
+                              </span>
+                            )}
                           </div>
 
                           {/* Middle Details */}
@@ -314,9 +465,13 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                             <div className="sm:hidden flex items-baseline justify-between pt-2 border-t border-slate-100 mt-2">
                               <div>
                                 <span className="text-base font-bold text-navy">₹{product.currentPrice}</span>
-                                <span className="text-xs text-slate-400 line-through ml-1.5">₹{product.originalPrice}</span>
+                                {product.originalPrice > product.currentPrice && (
+                                  <span className="text-xs text-slate-400 line-through ml-1.5">₹{product.originalPrice}</span>
+                                )}
                               </div>
-                              <span className="text-xs font-bold text-[#A44101]">Save ₹{product.originalPrice - product.currentPrice}</span>
+                              {product.originalPrice > product.currentPrice && (
+                                <span className="text-xs font-bold text-[#A44101]">Save ₹{product.originalPrice - product.currentPrice}</span>
+                              )}
                             </div>
                           </div>
 
@@ -327,12 +482,14 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                               <div className="text-lg font-black text-navy">
                                 ₹{product.currentPrice}
                               </div>
-                              <div className="flex items-center justify-end gap-1.5 text-xs text-slate-400 mt-0.5">
-                                <span className="line-through">₹{product.originalPrice}</span>
-                                <span className="font-bold text-[#A44101] text-[10px] bg-[#A44101]/10 px-1 py-0.2 rounded">
-                                  Save ₹{product.originalPrice - product.currentPrice}
-                                </span>
-                              </div>
+                              {product.originalPrice > product.currentPrice && (
+                                <div className="flex items-center justify-end gap-1.5 text-xs text-slate-400 mt-0.5">
+                                  <span className="line-through">₹{product.originalPrice}</span>
+                                  <span className="font-bold text-[#A44101] text-[10px] bg-[#A44101]/10 px-1 py-0.2 rounded">
+                                    Save ₹{product.originalPrice - product.currentPrice}
+                                  </span>
+                                </div>
+                              )}
                             </div>
 
                             <div className="w-full space-y-2 mt-auto">
@@ -423,9 +580,11 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               loading="lazy"
                             />
-                            <span className="absolute top-2 left-2 bg-[#A44101] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
-                              {product.discountPercentage}% OFF
-                            </span>
+                            {product.discountPercentage > 0 && (
+                              <span className="absolute top-2 left-2 bg-[#A44101] text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs">
+                                {product.discountPercentage}% OFF
+                              </span>
+                            )}
 
                             <button
                               type="button"
@@ -464,13 +623,17 @@ export const WishlistPage: React.FC<WishlistPageProps> = ({
                                   <span className="text-base font-bold text-navy">
                                     ₹{product.currentPrice}
                                   </span>
-                                  <span className="text-xs text-slate-400 line-through">
-                                    ₹{product.originalPrice}
-                                  </span>
+                                  {product.originalPrice > product.currentPrice && (
+                                    <span className="text-xs text-slate-400 line-through">
+                                      ₹{product.originalPrice}
+                                    </span>
+                                  )}
                                 </div>
-                                <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1 py-0.2 rounded">
-                                  Save ₹{product.originalPrice - product.currentPrice}
-                                </span>
+                                {product.originalPrice > product.currentPrice && (
+                                  <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1 py-0.2 rounded">
+                                    Save ₹{product.originalPrice - product.currentPrice}
+                                  </span>
+                                )}
                               </div>
 
                               <div className="grid grid-cols-2 gap-2">

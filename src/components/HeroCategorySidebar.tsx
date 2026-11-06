@@ -279,7 +279,7 @@ export const HeroCategorySidebar: React.FC<HeroCategorySidebarProps> = ({
 
   return (
     <aside
-      className="w-full bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between select-none h-full relative"
+      className="w-full bg-white rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between h-full relative"
       aria-label="Shop By Category Menu"
       onMouseLeave={() => setHoveredCat(null)}
     >

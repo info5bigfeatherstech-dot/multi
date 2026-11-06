@@ -1,6 +1,5 @@
 import React from 'react';
 import { 
-  Phone, 
   Mail, 
   MapPin, 
   Truck, 
@@ -84,7 +83,7 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
             <div>
               <h4 className="text-sm font-bold text-white group-hover:text-[#A44101] transition-colors"> Dedicated Support</h4>
-              <p className="text-xs text-slate-400 mt-0.5">Direct WhatsApp &amp; phone assistance</p>
+              <p className="text-xs text-slate-400 mt-0.5">Official email &amp; helpdesk assistance</p>
             </div>
           </button>
         </div>
@@ -107,17 +106,6 @@ export const Footer: React.FC<FooterProps> = ({
             </p>
 
             <div className="space-y-2.5 pt-2 text-xs sm:text-[13px]">
-              <a 
-                href={`tel:${ANNOUNCEMENT_DATA.phone.replace(/\s+/g, '')}`}
-                className="flex items-center gap-2.5 text-slate-300 hover:text-[#A44101] transition-colors"
-              >
-                <Phone className="w-4 h-4 text-[#A44101] shrink-0" />
-                <span className="font-bold">{ANNOUNCEMENT_DATA.phone}</span>
-                <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.2 rounded border border-slate-700">
-                  WhatsApp Available
-                </span>
-              </a>
-
               <a 
                 href={`mailto:${ANNOUNCEMENT_DATA.email}`}
                 className="flex items-center gap-2.5 text-slate-300 hover:text-[#A44101] transition-colors"

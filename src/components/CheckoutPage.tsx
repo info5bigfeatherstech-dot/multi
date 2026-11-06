@@ -17,7 +17,7 @@ import {
   Pencil,
   ArrowLeft,
   ArrowRight,
-  Zap
+  Receipt,
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
@@ -66,11 +66,8 @@ function mapSavedAddress(a: any): CheckoutSavedAddress {
   };
 }
 import {
-  CheckoutShippingSpeedCards,
-  DEFAULT_SAME_DAY_OPTION,
   SameDayOption,
   ShippingSpeed,
-  normalizeShippingSpeed,
 } from '../features/sameDayDelivery';
 
 interface CheckoutPageProps {
@@ -102,7 +99,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       setIsAddressModalOpen(true);
       return;
     }
-    const isBlockedByDelivery = serverQuote?.isDeliverable === false && (shippingSpeed === 'same_day' || !/same day/i.test(serverQuote?.message || ''));
+    const isBlockedByDelivery = serverQuote?.isDeliverable === false && !/same day/i.test(serverQuote?.message || '');
     if (isBlockedByDelivery) {
       return;
     }
@@ -198,7 +195,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
   const [shippingSpeed, setShippingSpeed] = useState<ShippingSpeed>('standard');
   const [standardDeliveryCharges, setStandardDeliveryCharges] = useState<number | null>(null);
-  const sameDayOption = serverQuote?.sameDayOption || DEFAULT_SAME_DAY_OPTION;
 
   // --------------------------------------------------------------------------
   // Order Placement & Post-Order Lifecycle State
@@ -212,21 +208,151 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [isPayingBalance, setIsPayingBalance] = useState(false);
 
   // --------------------------------------------------------------------------
-  // Synchronous Calculations (Local Fallbacks)
+  // Synchronous Calculations & Authoritative Price Breakdown
   // --------------------------------------------------------------------------
+  const totalItemCount = cartItems.reduce((acc, item) => acc + item.qty, 0);
+  const totalMRP = cartItems.reduce((acc, item) => {
+    const orig = item.originalPrice && item.originalPrice > item.price ? item.originalPrice : item.price;
+    return acc + orig * item.qty;
+  }, 0);
   const subtotalCurrent = cartItems.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const sameDayFee = Number(sameDayOption?.deliveryCharges ?? 99);
-  const standardFee = Number(standardDeliveryCharges ?? 0);
-  const deliveryFee = shippingSpeed === 'same_day' ? sameDayFee : standardFee;
-  const fallbackFinalTotal = Math.max(0, subtotalCurrent - couponDiscount + deliveryFee);
+  const retailDiscount = Math.max(0, totalMRP - subtotalCurrent);
 
-  // Active Authoritative Values (Server Quote overrides with local fallback)
-  const displayTotalPayable = serverQuote?.amountPayable ?? fallbackFinalTotal;
+  // Authoritative API quote values (or local fallbacks before quote is generated)
+  const apiPromotionDiscount = serverQuote?.promotionDiscount != null 
+    ? Number(serverQuote.promotionDiscount) 
+    : couponDiscount;
+  const apiDeliveryCharges = serverQuote?.deliveryCharges != null 
+    ? Number(serverQuote.deliveryCharges) 
+    : (standardDeliveryCharges != null ? Number(standardDeliveryCharges) : null);
+  const apiTaxes = serverQuote?.taxes != null && Number(serverQuote.taxes) > 0 
+    ? Number(serverQuote.taxes) 
+    : null;
 
-  // Partial Payment breakdown
+  // Helper for 2-decimal rounded money computation matching backend roundMoney2
+  const roundMoney = (n: number) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+  // Format currency with standard 2 decimal places if paise exist, or integer if whole rupees
+  const formatCurrency = (val: number) => {
+    const num = Number(val) || 0;
+    const hasDecimals = num % 1 !== 0;
+    return num.toLocaleString('en-IN', {
+      minimumFractionDigits: hasDecimals ? 2 : 0,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  // Total payable: strictly from serverQuote when available, else local sum
+  const fallbackFinalTotal = Math.max(0, subtotalCurrent - apiPromotionDiscount + (apiDeliveryCharges ?? 0) + (apiTaxes ?? 0));
+  const displayTotalPayable = roundMoney(
+    serverQuote?.amountPayable != null 
+      ? Number(serverQuote.amountPayable) 
+      : fallbackFinalTotal
+  );
+
+  // Total savings across retail discount and promotional coupon
+  const totalSavingsOverall = retailDiscount + apiPromotionDiscount;
+
+  // Partial Payment breakdown (matches backend order.controller.js computation)
   const advancePercent = checkoutSettings.partialPaymentPercent || 25;
-  const advancePayableNow = Math.round(displayTotalPayable * (advancePercent / 100));
-  const balancePayableOnDelivery = displayTotalPayable - advancePayableNow;
+  const balancePercent = Math.max(0, 100 - advancePercent);
+  const rawAdvance = roundMoney((displayTotalPayable * advancePercent) / 100);
+  const advancePayableNow = Math.max(1, Math.min(roundMoney(displayTotalPayable - 0.01), rawAdvance));
+  const balancePayableOnDelivery = roundMoney(displayTotalPayable - advancePayableNow);
+
+  // Reusable Transparent Product Price Calculation Block
+  const renderPriceCalculation = () => (
+    <div className="pt-4 border-t border-slate-200 space-y-3">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+        <h3 className="text-xs sm:text-sm font-bold text-navy flex items-center gap-2">
+          <Receipt className="w-4 h-4 text-[#A44101]" />
+          <span>Price Details ({totalItemCount} {totalItemCount === 1 ? 'item' : 'items'})</span>
+        </h3>
+        {totalSavingsOverall > 0 && (
+          <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+            You Save ₹{totalSavingsOverall.toLocaleString()}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2 text-xs">
+        {/* Total MRP Value */}
+        <div className="flex justify-between text-slate-500">
+          <span>Total MRP</span>
+          <span>₹{totalMRP.toLocaleString()}</span>
+        </div>
+
+        {/* Product / Retail Discount */}
+        {retailDiscount > 0 && (
+          <div className="flex justify-between text-emerald-700 font-medium">
+            <span>Product Discount</span>
+            <span>- ₹{retailDiscount.toLocaleString()}</span>
+          </div>
+        )}
+
+        {/* Selling Subtotal */}
+        <div className="flex justify-between text-slate-700 font-semibold pt-1 border-t border-slate-100">
+          <span>Items Subtotal</span>
+          <span className="text-navy">₹{subtotalCurrent.toLocaleString()}</span>
+        </div>
+
+        {/* Coupon Discount */}
+        {apiPromotionDiscount > 0 && (
+          <div className="flex justify-between text-emerald-700 font-bold">
+            <span>Coupon Discount {appliedCoupon ? `(${appliedCoupon})` : ''}</span>
+            <span>- ₹{apiPromotionDiscount.toLocaleString()}</span>
+          </div>
+        )}
+
+        {/* Delivery Charges: ONLY shown if returned by API */}
+        {apiDeliveryCharges !== null && (
+          <div className="flex justify-between items-center text-slate-700 pt-1 border-t border-slate-100">
+            <span>Delivery Fee</span>
+            <span className={apiDeliveryCharges === 0 ? "font-bold text-emerald-700" : "font-bold text-navy"}>
+              {apiDeliveryCharges === 0 ? "FREE" : `₹${apiDeliveryCharges.toLocaleString()}`}
+            </span>
+          </div>
+        )}
+
+        {/* Taxes: ONLY shown if returned by API */}
+        {apiTaxes !== null && apiTaxes > 0 && (
+          <div className="flex justify-between text-slate-500">
+            <span>Taxes &amp; Fees</span>
+            <span>₹{apiTaxes.toLocaleString()}</span>
+          </div>
+        )}
+
+        {/* Final Total Payable */}
+        <div className="pt-2.5 border-t border-slate-200 flex justify-between items-baseline">
+          <div>
+            <span className="text-sm font-bold text-navy block">Total Amount Payable</span>
+            <span className="text-[10px] text-slate-400">
+              {apiDeliveryCharges !== null 
+                ? 'Includes applicable taxes & delivery' 
+                : 'Delivery calculated after address selection'}
+            </span>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-[#A44101]">
+            ₹{formatCurrency(displayTotalPayable)}
+          </span>
+        </div>
+
+        {/* Partial Advance Split Breakdown when advance mode is selected */}
+        {paymentMode === 'advance' && (
+          <div className="p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/70 space-y-1.5 text-xs">
+            <div className="flex justify-between items-center text-[#A44101] font-bold">
+              <span>Pay Now ({advancePercent}% Advance)</span>
+              <span>₹{formatCurrency(advancePayableNow)}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-600 font-medium">
+              <span>Balance on Delivery ({balancePercent}% COD)</span>
+              <span>₹{formatCurrency(balancePayableOnDelivery)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   // --------------------------------------------------------------------------
   // Mount: Auth guard — redirect to home if not logged in
@@ -318,24 +444,20 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           if (result && result.isDeliverable !== false) {
             setDeliveryInfo({
               isDeliverable: true,
-              estimatedDays: result.estimatedDays || '3-4',
-              courierName: result.courierName || 'Blue Dart / Shiprocket Express',
-              message: result.message || 'Express delivery serviceable',
+              estimatedDays: result.estimatedDays ? String(result.estimatedDays) : undefined,
+              courierName: result.courierName ? String(result.courierName) : undefined,
+              message: result.message || 'Delivery serviceable',
             });
           } else {
             setDeliveryInfo({
               isDeliverable: false,
-              message: result?.message || 'Standard delivery serviceable',
+              message: result?.message || 'Delivery unavailable for this pincode',
             });
           }
         })
         .catch(() => {
-          setDeliveryInfo({
-            isDeliverable: true,
-            estimatedDays: '3-4',
-            courierName: 'Express Courier',
-            message: 'Free Express Delivery serviceable',
-          });
+          // Do not fabricate fake estimates if API fails
+          setDeliveryInfo(null);
         })
         .finally(() => {
           setIsDeliveryChecking(false);
@@ -433,19 +555,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined || qRes.isDeliverable === false)) {
         const standardOn = qRes.standardDeliveryEnabled !== false;
-        const resolvedSpeed = normalizeShippingSpeed(qRes.shippingSpeed);
-        if (standardOn && resolvedSpeed === 'standard' && qRes.deliveryCharges != null) {
+        if (standardOn && qRes.deliveryCharges != null) {
           setStandardDeliveryCharges(Number(qRes.deliveryCharges));
         }
-        if (!standardOn) {
-          if (qRes.sameDayOption?.available === true && shippingSpeed !== 'same_day') {
-            setShippingSpeed('same_day');
-          }
-        } else if (qRes.sameDayOption?.available !== true && shippingSpeed === 'same_day') {
-          setShippingSpeed('standard');
-        } else if (resolvedSpeed !== shippingSpeed && qRes.sameDayOption?.available === true) {
-          setShippingSpeed(resolvedSpeed);
-        }
+        setShippingSpeed('standard');
         setServerQuote(qRes);
         setCheckoutSettings((prev) => ({
           ...prev,
@@ -469,6 +582,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   useEffect(() => {
     fetchAuthoritativeQuote();
   }, [selectedAddressId, paymentMode, appliedCoupon, cartItems.length, shippingSpeed]);
+
+  // Fallback to online payment if COD is disabled by backend policy
+  useEffect(() => {
+    if (!checkoutSettings.codEnabled && paymentMode === 'cod') {
+      setPaymentMode('online');
+    }
+  }, [checkoutSettings.codEnabled, paymentMode]);
 
   // --------------------------------------------------------------------------
   // Address Handler
@@ -688,7 +808,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
             balanceCollection,
             couponCode: appliedCoupon || undefined,
-            shippingSpeed,
+            shippingSpeed: 'standard',
           });
           if (activeQuote?.quoteId || activeQuote?.isDeliverable === false) {
             setServerQuote(activeQuote);
@@ -698,7 +818,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         }
       }
 
-      const isBlocked = activeQuote?.isDeliverable === false && (shippingSpeed === 'same_day' || !/same day/i.test(activeQuote?.message || ''));
+      const isBlocked = activeQuote?.isDeliverable === false && !/same day/i.test(activeQuote?.message || '');
       if (isBlocked) {
         alert(activeQuote?.message || 'Delivery is not available for this address.');
         setIsPlacingOrder(false);
@@ -764,7 +884,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
           status: 'Confirmed (COD)',
           statusColor: 'text-amber-700 bg-amber-50 border-amber-200',
-          eta: deliveryInfo?.estimatedDays ? `Delivery in ${deliveryInfo.estimatedDays} Days` : 'Delivery Expected: in 3-4 days',
+          eta: deliveryInfo?.estimatedDays ? `Delivery in ${deliveryInfo.estimatedDays} Days` : undefined,
           total: activeQuote?.amountPayable ?? displayTotalPayable,
           balanceDue: activeQuote?.amountPayable ?? displayTotalPayable,
           itemCount: cartItems.length,
@@ -791,8 +911,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       // Scenario 2: Online Payment via Razorpay Modal & Verification
       // ----------------------------------------------------------------------
       const amountToPayInRupees = plan === 'advance'
-        ? (razorpayOrder?.amount ? Math.round(razorpayOrder.amount / 100) : advancePayableNow)
-        : (activeQuote?.amountPayable ?? displayTotalPayable);
+        ? (razorpayOrder?.amount ? roundMoney(Number(razorpayOrder.amount) / 100) : advancePayableNow)
+        : (activeQuote?.amountPayable != null ? roundMoney(Number(activeQuote.amountPayable)) : displayTotalPayable);
 
       await storefrontCheckoutApi.processRazorpayPayment({
         orderId: createdOrderId,
@@ -812,14 +932,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
             status: plan === 'advance' ? 'Partial Advance Paid' : 'Confirmed & Paid',
             statusColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-            eta: deliveryInfo?.estimatedDays ? `Delivery in ${deliveryInfo.estimatedDays} Days` : 'Delivery Expected: in 3-4 days',
+            eta: deliveryInfo?.estimatedDays ? `Delivery in ${deliveryInfo.estimatedDays} Days` : undefined,
             total: activeQuote?.amountPayable ?? displayTotalPayable,
             advancePaid: amountToPayInRupees,
             balanceDue: plan === 'advance' ? balancePayableOnDelivery : 0,
             itemCount: cartItems.length,
             trackingStep: 1,
             paymentMethod: plan === 'advance'
-              ? `Advance Paid (${advancePercent}% via Razorpay, ₹${balancePayableOnDelivery} COD Balance)`
+              ? `Advance Paid (${advancePercent}% via Razorpay, ₹${formatCurrency(balancePayableOnDelivery)} COD Balance)`
               : 'Razorpay Online (UPI / Card / Netbanking Verified)',
             items: cartItems.map((item) => ({
               title: item.title,
@@ -1030,10 +1150,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
             {/* Breakdown card */}
             <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 text-left space-y-2.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Estimated Delivery:</span>
-                <span className="font-bold text-navy">{placedOrderSummary?.eta || 'Within 3-4 Business Days'}</span>
-              </div>
+              {placedOrderSummary?.eta && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Estimated Delivery:</span>
+                  <span className="font-bold text-navy">{placedOrderSummary.eta}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Payment Status:</span>
                 <span className="font-bold text-[#A44101]">
@@ -1300,128 +1422,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         )}
                       </form>
 
-                      {/* Delivery Option Selector (Standard Delivery vs Same Day Delivery) */}
-                      <div className="pt-5 border-t border-slate-100 space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                          <div className="flex items-center gap-2">
-                            <Truck className="w-4 h-4 text-[#A44101]" />
-                            <h3 className="text-xs sm:text-sm font-bold text-navy">
-                              Select Delivery Option
-                            </h3>
-                          </div>
-                          <span className="text-[11px] font-semibold text-slate-500">
-                            Choose how fast you want your order delivered
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {/* Standard Delivery */}
-                          <div
-                            onClick={() => setShippingSpeed('standard')}
-                            className={`relative p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                              shippingSpeed === 'standard'
-                                ? 'border-[#A44101] bg-orange-50/40 shadow-xs ring-2 ring-[#A44101]/20'
-                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                  shippingSpeed === 'standard' ? 'bg-[#A44101] text-white shadow-xs' : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  <Truck className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs sm:text-sm font-bold text-navy">Standard Delivery</span>
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wider">
-                                      FREE
-                                    </span>
-                                  </div>
-                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5 capitalize">
-                                    Estimated delivery in 3–5 business days
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 ${
-                                shippingSpeed === 'standard' ? 'border-[#A44101] bg-[#A44101]' : 'border-slate-300 bg-white'
-                              }`}>
-                                {shippingSpeed === 'standard' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px]">
-                              <span className="text-slate-500">Pan-India Courier Service</span>
-                              <span className="font-extrabold text-emerald-700">₹0 (Free)</span>
-                            </div>
-                          </div>
-
-                          {/* Same Day Delivery */}
-                          <div
-                            onClick={() => setShippingSpeed('same_day')}
-                            className={`relative p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                              shippingSpeed === 'same_day'
-                                ? 'border-[#A44101] bg-orange-50/40 shadow-xs ring-2 ring-[#A44101]/20'
-                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2.5">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                  shippingSpeed === 'same_day' ? 'bg-[#A44101] text-white shadow-xs' : 'bg-amber-100 text-[#A44101]'
-                                }`}>
-                                  <Zap className="w-4 h-4 fill-current" />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs sm:text-sm font-bold text-navy">Same Day Delivery</span>
-                                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-[#A44101] uppercase flex items-center gap-0.5 tracking-wider">
-                                      <Zap className="w-2.5 h-2.5 fill-current" /> EXPRESS
-                                    </span>
-                                  </div>
-                                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">
-                                    {sameDayOption?.etaLabel || 'Guaranteed delivery by tonight'}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-1 ${
-                                shippingSpeed === 'same_day' ? 'border-[#A44101] bg-[#A44101]' : 'border-slate-300 bg-white'
-                              }`}>
-                                {shippingSpeed === 'same_day' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px]">
-                              <span className="text-slate-500">Dedicated Doorstep Rider</span>
-                              <span className="font-extrabold text-[#A44101]">
-                                ₹{sameDayOption?.deliveryCharges != null ? Math.round(Number(sameDayOption.deliveryCharges)) : 99}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Quick Summary Strip */}
-                        <div className="bg-slate-50 p-3 sm:p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600 text-[11px] sm:text-xs">
-                            <span>Items ({cartItems.reduce((s, i) => s + i.qty, 0)}): <strong className="text-navy">₹{subtotalCurrent}</strong></span>
-                            {couponDiscount > 0 && (
-                              <span className="text-emerald-700">Coupon Discount: <strong>-₹{couponDiscount}</strong></span>
-                            )}
-                            <span>
-                              Delivery ({shippingSpeed === 'same_day' ? 'Same Day' : 'Standard'}):{' '}
-                              <strong className={shippingSpeed === 'same_day' ? 'text-[#A44101]' : 'text-emerald-700'}>
-                                {shippingSpeed === 'same_day' ? `₹${sameDayOption?.deliveryCharges != null ? Math.round(Number(sameDayOption.deliveryCharges)) : 99}` : 'FREE'}
-                              </strong>
-                            </span>
-                          </div>
-                          <div className="flex items-baseline gap-2 sm:justify-end border-t sm:border-t-0 pt-1.5 sm:pt-0 border-slate-200">
-                            <span className="text-slate-500 font-bold text-xs">Total Payable:</span>
-                            <span className="text-sm sm:text-base font-black text-navy">₹{displayTotalPayable}</span>
-                          </div>
-                        </div>
-                      </div>
+                      {/* Proper Product Price Calculation & Authoritative Breakdown */}
+                      {renderPriceCalculation()}
 
                     </div>
 
@@ -1510,52 +1512,72 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         </button>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {(() => {
-                          const defaultAddr = addresses.find((a) => a.isDefault) || addresses.find((a) => a.id === selectedAddressId) || addresses[0];
-                          if (!defaultAddr) return null;
+                      <div className="space-y-2.5 w-full">
+                        {addresses.map((addr) => {
+                          const isSelected = addr.id === (selectedAddressId || addresses[0]?.id);
 
                           return (
                             <div
-                              key={defaultAddr.id}
-                              onClick={() => setSelectedAddressId(defaultAddr.id)}
-                              className="p-4 rounded-xl border-2 border-[#A44101] bg-orange-50/20 shadow-xs transition-all cursor-pointer relative"
+                              key={addr.id}
+                              onClick={() => setSelectedAddressId(addr.id)}
+                              className={`w-full px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl border-2 transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 relative group ${
+                                isSelected
+                                  ? 'border-[#A44101] bg-orange-50/25 shadow-xs ring-1 ring-[#A44101]/20'
+                                  : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                              }`}
                             >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-stone-100 text-navy">
-                                    {defaultAddr.type}
-                                  </span>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                                    Default
-                                  </span>
+                              {/* Left Side: Radio Selector + Name, Badges & Compact Address */}
+                              <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 transition-colors ${
+                                  isSelected ? 'border-[#A44101] bg-[#A44101]' : 'border-slate-300 bg-white group-hover:border-slate-400'
+                                }`}>
+                                  {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                                 </div>
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingAddress(defaultAddr);
-                                      setIsAddressModalOpen(true);
-                                    }}
-                                    className="p-1 rounded text-slate-400 hover:text-navy hover:bg-stone-100 transition-colors cursor-pointer"
-                                    title="Edit Address"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <CheckCircle2 className="w-4 h-4 text-[#A44101] fill-white" />
+
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-xs sm:text-sm font-bold text-navy truncate">
+                                      {addr.name}
+                                    </span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-stone-100 text-slate-700">
+                                      {addr.type || 'Home'}
+                                    </span>
+                                    {addr.isDefault && (
+                                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                                        Default
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <p className="text-xs text-slate-600 mt-0.5 line-clamp-1 sm:line-clamp-2 leading-snug">
+                                    {addr.address}, {addr.city} - <strong className="text-navy font-semibold">{addr.pincode}</strong>
+                                  </p>
                                 </div>
                               </div>
-                              <h4 className="text-xs font-bold text-navy">{defaultAddr.name}</h4>
-                              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
-                                {defaultAddr.address}, {defaultAddr.city} - <span className="font-bold">{defaultAddr.pincode}</span>
-                              </p>
-                              <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
-                                Phone: {defaultAddr.phone}
-                              </p>
+
+                              {/* Right Side: Phone & Edit Button */}
+                              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                                <div className="text-[11px] sm:text-xs text-slate-500 font-medium">
+                                  <span>Phone: <strong className="text-slate-800">{addr.phone}</strong></span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingAddress(addr);
+                                    setIsAddressModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-[#A44101] hover:bg-orange-50 border border-slate-200 transition-colors cursor-pointer"
+                                  title="Edit Address"
+                                  aria-label="Edit Address"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           );
-                        })()}
+                        })}
                       </div>
                     )}
 
@@ -1570,7 +1592,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         <div className="flex items-center gap-2.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span>
-                            {deliveryInfo.message} • {deliveryInfo.courierName || 'Blue Dart Express'} ({deliveryInfo.estimatedDays || '3-4'} business days)
+                            {deliveryInfo.message || 'Delivery Serviceable'}
+                            {deliveryInfo.courierName ? ` • ${deliveryInfo.courierName}` : ''}
+                            {deliveryInfo.estimatedDays ? ` (${deliveryInfo.estimatedDays} business days)` : ''}
                           </span>
                         </div>
                         <span className="text-[10px] bg-emerald-200/60 text-emerald-900 px-2.5 py-0.5 rounded-full uppercase font-bold">
@@ -1579,15 +1603,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       </div>
                     )}
 
-                    <CheckoutShippingSpeedCards
-                      selected={shippingSpeed}
-                      standardCharges={standardDeliveryCharges ?? serverQuote?.deliveryCharges}
-                      sameDayOption={sameDayOption}
-                      standardEnabled={true}
-                      unavailableMessage={shippingSpeed === 'same_day' ? serverQuote?.message : null}
-                      disabled={isQuoteLoading}
-                      onSelect={setShippingSpeed}
-                    />
+                    {/* Proper Product Price Calculation & Authoritative Breakdown */}
+                    {renderPriceCalculation()}
 
                     {/* Step 2 Footer Navigation */}
                     <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -1604,7 +1621,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       <button
                         type="button"
                         onClick={handleProceedToStep3}
-                        disabled={isQuoteLoading || (serverQuote?.isDeliverable === false && (shippingSpeed === 'same_day' || !/same day/i.test(serverQuote?.message || '')))}
+                        disabled={isQuoteLoading || (serverQuote?.isDeliverable === false && !/same day/i.test(serverQuote?.message || ''))}
                         className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 disabled:pointer-events-none"
                       >
                         <span>Proceed to Payment Method</span>
@@ -1728,13 +1745,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                             <div className="pl-6 pt-1 text-xs space-y-2">
                               <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-white border border-slate-200">
                                 <div>
-                                  <span className="text-[10px] text-slate-500 block">Pay Now via Razorpay:</span>
-                                  <span className="font-extrabold text-[#A44101] text-sm">₹{advancePayableNow}</span>
+                                  <span className="text-[10px] text-slate-500 block">Pay Now via Razorpay ({advancePercent}%):</span>
+                                  <span className="font-extrabold text-[#A44101] text-sm">₹{formatCurrency(advancePayableNow)}</span>
                                 </div>
                                 <div>
-                                  <span className="text-[10px] text-slate-500 block">Balance Due on Delivery:</span>
-                                  <span className="font-extrabold text-navy text-sm">₹{balancePayableOnDelivery}</span>
+                                  <span className="text-[10px] text-slate-500 block">Balance Due on Delivery ({balancePercent}%):</span>
+                                  <span className="font-extrabold text-navy text-sm">₹{formatCurrency(balancePayableOnDelivery)}</span>
                                 </div>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 bg-stone-50 px-2.5 py-1.5 rounded border border-stone-200/60 font-medium">
+                                <span>Calculation: ₹{formatCurrency(advancePayableNow)} + ₹{formatCurrency(balancePayableOnDelivery)}</span>
+                                <span className="font-bold text-navy">= ₹{formatCurrency(displayTotalPayable)} Total</span>
                               </div>
                               <p className="text-[11px] text-slate-500">
                                 Locks your order and inventory immediately. Balance collected at delivery.
@@ -1744,30 +1765,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         </label>
                       )}
 
-                      {/* OPTION 3: Full Cash on Delivery (COD) */}
-                      <label className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${paymentMode === 'cod' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
-                        } ${!checkoutSettings.codEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="radio"
-                            name="paymentMode"
-                            disabled={!checkoutSettings.codEnabled}
-                            checked={paymentMode === 'cod'}
-                            onChange={() => setPaymentMode('cod')}
-                            className="text-[#A44101] focus:ring-[#A44101] accent-[#A44101]"
-                          />
-                          <div className="flex items-center gap-2">
-                            <Truck className="w-5 h-5 text-[#A44101]" />
-                            <div>
-                              <span className="text-xs font-bold text-navy block">Cash on Delivery (Full COD)</span>
-                              <span className="text-[10px] text-slate-500">Pay 100% cash when order arrives at doorstep</span>
+                      {/* OPTION 3: Full Cash on Delivery (COD) - Only rendered if enabled by store policy */}
+                      {checkoutSettings.codEnabled && (
+                        <label className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${paymentMode === 'cod' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
+                          }`}>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="paymentMode"
+                              checked={paymentMode === 'cod'}
+                              onChange={() => setPaymentMode('cod')}
+                              className="text-[#A44101] focus:ring-[#A44101] accent-[#A44101]"
+                            />
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-5 h-5 text-[#A44101]" />
+                              <div>
+                                <span className="text-xs font-bold text-navy block">Cash on Delivery (Full COD)</span>
+                                <span className="text-[10px] text-slate-500">Pay 100% cash when order arrives at doorstep</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-500">
-                          {checkoutSettings.codEnabled ? '₹0 Extra Fee' : 'COD Disabled'}
-                        </span>
-                      </label>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            ₹0 Extra Fee
+                          </span>
+                        </label>
+                      )}
                     </div>
 
                     {/* Gift Intent Feature */}
@@ -1777,7 +1799,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           <Gift className="w-4 h-4 text-[#A44101]" />
                           <div>
                             <span className="text-xs font-bold text-navy block">Send as a Gift?</span>
-                            <span className="text-[11px] text-slate-500">Add personal greeting message &amp; gift note</span>
+                            <span className="text-[11px] text-slate-500 capitalize">Add personal greeting message &amp; gift note</span>
                           </div>
                         </div>
                         <input
@@ -1830,6 +1852,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       )}
                     </div>
 
+                    {/* Proper Product Price Calculation & Authoritative Breakdown */}
+                    {renderPriceCalculation()}
+
                     {/* Step 3 Footer Navigation & Order Placement */}
                     <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
                       <button
@@ -1857,17 +1882,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         ) : paymentMode === 'cod' ? (
                           <>
                             <ShieldCheck className="w-4 h-4 text-white" />
-                            <span>Place Order (Cash on Delivery) • ₹{displayTotalPayable}</span>
+                            <span>Place Order (Cash on Delivery) • ₹{formatCurrency(displayTotalPayable)}</span>
                           </>
                         ) : paymentMode === 'advance' ? (
                           <>
                             <CreditCard className="w-4 h-4 text-white" />
-                            <span>Pay Advance via Razorpay • ₹{advancePayableNow}</span>
+                            <span>Pay Advance via Razorpay • ₹{formatCurrency(advancePayableNow)}</span>
                           </>
                         ) : (
                           <>
                             <CreditCard className="w-4 h-4 text-white" />
-                            <span>Pay with Razorpay • ₹{displayTotalPayable}</span>
+                            <span>Pay with Razorpay • ₹{formatCurrency(displayTotalPayable)}</span>
                           </>
                         )}
                       </button>

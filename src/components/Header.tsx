@@ -1540,7 +1540,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="flex items-center gap-3 px-3 py-2 rounded-theme hover:bg-stone-200/60 cursor-pointer"
                     >
                       <Heart className="w-4 h-4 text-slate-500" />
-                      <span>Wishlist (4 items)</span>
+                      <span>Wishlist ({wishlistCount} {wishlistCount === 1 ? 'item' : 'items'})</span>
                     </a>
                     <button
                       type="button"
@@ -1675,7 +1675,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs text-charcoal">
                 <p className="font-bold text-navy mb-1">Direct WhatsApp / Call:</p>
                 <p className="text-[#A44101] font-black">+91 93200 01717</p>
-                <p className="text-slate-600 mt-1">support.MehtaMartMHM@gmail.com</p>
+                <p className="text-slate-600 mt-1">support.mehtamartmhm@gmail.com</p>
               </div>
             </motion.div>
           </>

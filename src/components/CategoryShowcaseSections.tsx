@@ -644,7 +644,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
             <div
               ref={scrollRef}
               onScroll={checkScroll}
-              className="w-full flex overflow-x-auto scroll-smooth gap-3 sm:gap-4 py-1 px-1 scrollbar-none select-none"
+              className="w-full flex overflow-x-auto scroll-smooth gap-3 sm:gap-4 py-1 px-1 scrollbar-none"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {section.products.map((product: ProductItem) => {

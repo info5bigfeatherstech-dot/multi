@@ -4,7 +4,7 @@ import { isAuthenticated } from './authGuard';
 /**
  * Wishlist Storage Utility
  * Manages wishlisted product IDs in localStorage for storefront shopping.
- * Backend wishlist APIs are ONLY hit when the user explicitly clicks the heart/wishlist button!
+ * Synchronizes with backend for authenticated customers, and keeps header count in sync.
  */
 
 const STORAGE_KEY = 'abb_storefront_wishlist_ids';
@@ -38,8 +38,41 @@ export const isItemInWishlist = (id: string | number): boolean => {
 };
 
 /**
+ * Synchronize wishlist IDs in localStorage and dispatch the global event to update Header badge
+ */
+export const syncWishlistStorage = (validIds: string[]) => {
+  if (typeof window === 'undefined') return;
+  const unique = Array.from(new Set(validIds.map(String).filter(Boolean)));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(unique));
+  } catch (e) {
+    console.warn('Could not save wishlist to localStorage', e);
+  }
+  window.dispatchEvent(
+    new CustomEvent('abb_wishlist_change', {
+      detail: { count: unique.length, ids: unique },
+    })
+  );
+};
+
+/**
+ * Clear all wishlist items from localStorage and update badge
+ */
+export const clearWishlistStorage = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+  } catch {}
+  window.dispatchEvent(
+    new CustomEvent('abb_wishlist_change', {
+      detail: { count: 0, ids: [] },
+    })
+  );
+};
+
+/**
  * Toggle a product ID in wishlist. Returns true if now wishlisted, false if removed.
- * ONLY hits the backend API when explicitly called by user action, NEVER on page load or on admin!
+ * ONLY hits the backend API when explicitly called by user action, NEVER on admin!
  */
 export const toggleWishlistItem = (id: string | number, slug?: string): boolean => {
   const sId = String(id);
@@ -47,20 +80,7 @@ export const toggleWishlistItem = (id: string | number, slug?: string): boolean 
   const exists = current.includes(sId);
   const updated = exists ? current.filter((x) => x !== sId) : [...current, sId];
   
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.warn('Could not save wishlist to localStorage', e);
-  }
-
-  // Dispatch custom event so any mounted component updates immediately
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(
-      new CustomEvent('abb_wishlist_change', {
-        detail: { id: sId, isWishlisted: !exists, count: updated.length },
-      })
-    );
-  }
+  syncWishlistStorage(updated);
 
   // Sync change with backend ONLY when explicitly toggled by an authenticated storefront customer (never on admin)
   if (isAuthenticated() && !isAdminRoute()) {
@@ -87,7 +107,6 @@ export const getWishlistCount = (): number => {
 
 /**
  * Refresh wishlist IDs from backend for logged in storefront user (read-only query)
- * Never auto-spams POST /wishlist/add!
  */
 export const refreshWishlistFromBackend = async () => {
   if (!isAuthenticated() || isAdminRoute()) return;
@@ -97,28 +116,22 @@ export const refreshWishlistFromBackend = async () => {
     if (Array.isArray(backendItems)) {
       const backendIds: string[] = [];
       backendItems.forEach((p: any) => {
-        const id = String(p.productId?._id || p.productId || p._id || p.id || '');
+        const prod = p?.product || p;
+        const id = String(prod?._id || prod?.id || p?.productId?._id || p?.productId || prod?.slug || '');
         if (id) backendIds.push(id);
       });
-      const localIds = getWishlistIds();
-      const mergedIds = Array.from(new Set([...localIds, ...backendIds]));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedIds));
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('abb_wishlist_change', {
-            detail: { count: mergedIds.length },
-          })
-        );
-      }
+      syncWishlistStorage(backendIds);
     }
   } catch {
     // Non-blocking
   }
 };
 
-// DO NOT auto-sync or blast POST /wishlist/add on initial page load or import!
-// Only refresh count on explicit customer auth change
+// Sync on module load if user is already authenticated
 if (typeof window !== 'undefined') {
+  if (isAuthenticated() && !isAdminRoute()) {
+    refreshWishlistFromBackend();
+  }
   window.addEventListener('abb_auth_change', () => {
     if (isAuthenticated() && !isAdminRoute()) {
       refreshWishlistFromBackend();

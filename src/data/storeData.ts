@@ -133,11 +133,11 @@ export interface CategorySectionInfo {
 
 export const ANNOUNCEMENT_DATA: AnnouncementInfo = {
   phone: "+91 93200 01717",
-  email: "support.MehtaMartMHM@gmail.com",
+  email: "support.mehtamartmhm@gmail.com",
   rightHighlights: "Pan India Delivery • 24/7 Support",
   mobileMessages: [
     "📞 +91 93200 01717",
-    "✉️ support.MehtaMartMHM@gmail.com",
+    "✉️ support.mehtamartmhm@gmail.com",
     "🚚 Pan India Delivery • Think Shopping, Think Us",
   ],
 };

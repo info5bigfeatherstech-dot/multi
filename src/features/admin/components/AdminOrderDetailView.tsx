@@ -494,7 +494,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
         shipping: {
           oldDelivery: oldDel,
           customerDelivery: newDel,
-          courierName: order?.shippingSnapshot?.courierName || 'Xpressbees Surface',
+          courierName: order?.courier || order?.shipmentInfo?.courier || order?.shippingSnapshot?.courierName || '',
         },
         after: {
           totalAmount: newTot,
@@ -883,7 +883,9 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
                 <span className="font-semibold text-slate-900">
                   ₹{Number(previewModalData.before?.deliveryCharges ?? currentDelivery).toFixed(2)} → ₹{Number(previewModalData.after?.deliveryCharges ?? currentDelivery).toFixed(2)}
                 </span>
-                <span className="text-slate-500"> · {order?.shippingSnapshot?.courierName || 'Xpressbees Surface'}</span>
+                <span className="text-slate-500">
+                  {(order?.courier || order?.shipmentInfo?.courier || order?.shippingSnapshot?.courierName) ? ` · ${order?.courier || order?.shipmentInfo?.courier || order?.shippingSnapshot?.courierName}` : ''}
+                </span>
               </div>
               <div>
                 <span className="font-medium text-slate-600">New total: </span>
@@ -1137,7 +1139,9 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
                         <span className="font-semibold text-slate-900">
                           ₹{Number(addressPreviewData.shipping.oldDelivery ?? addressPreviewData.before?.deliveryCharges ?? currentDelivery).toFixed(2)} → ₹{Number(addressPreviewData.shipping.customerDelivery ?? addressPreviewData.shipping.quotedDelivery ?? addressPreviewData.after?.deliveryCharges ?? 0).toFixed(2)}
                         </span>
-                        <span className="text-slate-600"> · {addressPreviewData.shipping.courierName || 'Xpressbees Surface'}</span>
+                        {addressPreviewData.shipping.courierName ? (
+                          <span className="text-slate-600"> · {addressPreviewData.shipping.courierName}</span>
+                        ) : null}
                       </div>
                     ) : null}
                     <div>
@@ -1188,7 +1192,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
             <div>
               <div className="text-[10px] font-bold text-slate-400 uppercase">COURIER</div>
               <div className="font-semibold text-slate-900 mt-1">
-                {order?.shippingSnapshot?.courierName || 'Xpressbees Surface'}
+                {order?.courier || order?.shipmentInfo?.courier || order?.shippingSnapshot?.courierName || 'Unassigned'}
               </div>
             </div>
             <div>

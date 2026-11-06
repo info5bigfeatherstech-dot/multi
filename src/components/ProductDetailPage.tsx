@@ -805,7 +805,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   if (isInactiveProduct || !isProductActive(product) || (backendDetail && !isProductActive(backendDetail))) {
     return (
-      <div className="bg-[#F8FAFC] min-h-[70vh] py-16 sm:py-24 flex items-center justify-center font-sans animate-fadeIn select-none px-4">
+      <div className="bg-[#F8FAFC] min-h-[70vh] py-16 sm:py-24 flex items-center justify-center font-sans animate-fadeIn px-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 sm:p-10 border border-slate-200/90 shadow-sm text-center flex flex-col items-center">
           <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 border border-amber-100 shadow-xs">
             <Tag className="w-8 h-8 text-amber-600" />
@@ -835,7 +835,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   }
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen py-5 sm:py-8 font-sans animate-fadeIn select-none">
+    <div className="bg-[#F8FAFC] min-h-screen py-5 sm:py-8 font-sans animate-fadeIn">
       <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
         {/* Top Navigation & Back Button */}

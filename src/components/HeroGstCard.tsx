@@ -20,7 +20,7 @@ export const HeroGstCard: React.FC = () => {
   return (
     <>
       <div 
-        className="w-full h-full flex flex-col justify-between gap-3 select-none"
+        className="w-full h-full flex flex-col justify-between gap-3"
         aria-label="Store Guarantees and Perks"
       >
         {/* Card 1: Lowest Prices */}

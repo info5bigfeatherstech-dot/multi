@@ -89,7 +89,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onGoToCheckout }) => {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'tween', duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
-              className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between select-none"
+              className="w-screen max-w-md bg-white shadow-2xl flex flex-col justify-between"
             >
               {/* 1. Drawer Header */}
               <div className="p-4 sm:p-5 bg-white border-b border-slate-200 flex items-center justify-between">

@@ -17,7 +17,6 @@ import {
   Package,
   RotateCcw,
   MessageSquare,
-  Headphones,
 } from 'lucide-react';
 import { storefrontCheckoutApi } from '../../api';
 import { ReturnRequestModal } from './ReturnRequestModal';
@@ -41,6 +40,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
 }) => {
   const [order, setOrder] = useState<any>(initialOrder || null);
   const [trackingInfo, setTrackingInfo] = useState<any>(null);
+  const [pincodeEstimate, setPincodeEstimate] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(!initialOrder);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
@@ -62,15 +62,38 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
         storefrontCheckoutApi.trackOrder(effectiveOrderId),
       ]);
 
+      let fetchedOrder: any = null;
       if (orderRes.status === 'fulfilled' && orderRes.value) {
         const data = orderRes.value?.order || orderRes.value?.data || orderRes.value;
         if (data && typeof data === 'object') {
+          fetchedOrder = data;
           setOrder((prev: any) => ({ ...(prev || {}), ...data }));
         }
       }
 
+      let fetchedTrack: any = null;
       if (trackRes.status === 'fulfilled' && trackRes.value) {
+        fetchedTrack = trackRes.value;
         setTrackingInfo(trackRes.value);
+      }
+
+      // Check if order destination pincode can provide real estimated delivery if not already in order/tracking
+      const currentTrack = fetchedTrack?.tracking || fetchedTrack;
+      const currentSi = fetchedOrder?.shipmentInfo || initialOrder?.shipmentInfo;
+      const currentSnap = fetchedOrder?.shippingSnapshot || initialOrder?.shippingSnapshot;
+      if (!currentTrack?.estimatedDelivery && !currentSi?.estimatedDelivery && !currentSnap?.estimatedDays) {
+        const addrObj = fetchedOrder?.shippingAddress || fetchedOrder?.address || initialOrder?.shippingAddress || initialOrder?.address;
+        const pin = addrObj?.pincode || addrObj?.postalCode;
+        if (pin && /^\d{6}$/.test(String(pin))) {
+          try {
+            const checkRes = await storefrontCheckoutApi.checkDelivery(String(pin));
+            if (checkRes && checkRes.estimatedDays) {
+              setPincodeEstimate(checkRes);
+            }
+          } catch {
+            // ignore silently
+          }
+        }
       }
     } catch (err) {
       console.warn('Could not sync live order details from API:', err);
@@ -78,7 +101,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [effectiveOrderId]);
+  }, [effectiveOrderId, initialOrder]);
 
   useEffect(() => {
     fetchOrderDetails();
@@ -147,12 +170,14 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
     statusBadgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
   }
 
-  // Returns eligibility
+  // Returns eligibility: Only permitted after the order is delivered and no return is active
+  const isDelivered = statusLower.includes('deliver');
   const returnInfo = order?.returnInfo;
   const hasReturn = Boolean(
     (returnInfo && returnInfo.status && returnInfo.status !== 'closed') ||
     statusLower.includes('return')
   );
+  const canRaiseReturn = isDelivered && !hasReturn;
 
   // Items extraction from API
   const rawItems = order?.items || order?.orderItems || order?.products || [];
@@ -223,10 +248,105 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
   const fullAddress = addr.fullAddress || addr.addressLine || addr.street || addr.address || [addr.houseNumber, addr.addressLine1, addr.area, addr.city, addr.state, addr.pincode || addr.postalCode].filter(Boolean).join(', ') || 'Registered Delivery Address';
   const addressType = addr.type || 'Home';
 
-  // Shipping & Tracking
-  const carrier = trackingInfo?.carrier || order?.shipping?.carrier || order?.carrier || 'Delhivery Express Logistics';
-  const trackingNumber = trackingInfo?.trackingNumber || order?.shipping?.trackingNumber || order?.trackingNumber || order?.awbNumber || `DL-${String(orderId).slice(-8).toUpperCase()}`;
-  const currentLocation = trackingInfo?.currentLocation || (trackingStep >= 3 ? 'Out with delivery executive' : trackingStep === 2 ? 'In transit via regional hub' : 'Seller warehouse');
+  // Shipping & Tracking — Authoritative Live Tracking Payload
+  const liveTracking = trackingInfo?.tracking || trackingInfo || {};
+
+  const carrier =
+    liveTracking?.courier ||
+    liveTracking?.carrier ||
+    order?.shipmentInfo?.courier ||
+    order?.shipping?.carrier ||
+    order?.carrier ||
+    order?.shippingSnapshot?.courierName ||
+    pincodeEstimate?.courierName ||
+    null;
+
+  const currentLocation =
+    liveTracking?.currentLocation ||
+    order?.shipmentInfo?.currentLocation ||
+    (liveTracking?.timeline && Array.isArray(liveTracking.timeline) && liveTracking.timeline.find((t: any) => t?.location)?.location) ||
+    (liveTracking?.courierTimeline && Array.isArray(liveTracking.courierTimeline) && liveTracking.courierTimeline.find((t: any) => t?.location)?.location) ||
+    (trackingStep >= 4
+      ? 'Delivered to Customer'
+      : trackingStep >= 3
+        ? 'Out for Delivery'
+        : trackingStep === 2
+          ? 'In Transit via Courier Hub'
+          : 'Processing at Fulfillment Center');
+
+  // Real API Estimated Delivery Resolution
+  const rawApiEstDelivery =
+    liveTracking?.estimatedDelivery ||
+    order?.shipmentInfo?.estimatedDelivery ||
+    order?.estimatedDelivery ||
+    order?.shipping?.estimatedDelivery ||
+    order?.shippingSnapshot?.estimatedDelivery;
+
+  const apiEtaLabel = order?.shippingSnapshot?.etaLabel || liveTracking?.etaLabel || null;
+
+  const apiEstimatedDays = Number(
+    order?.shippingSnapshot?.estimatedDays ??
+    liveTracking?.estimatedDays ??
+    pincodeEstimate?.estimatedDays ??
+    order?.estimatedDays
+  );
+
+  let estimatedDeliveryHeading = '';
+  let estimatedDeliveryShort = '';
+
+  if (currentStatus === 'Delivered') {
+    estimatedDeliveryHeading = 'Package Delivered Successfully';
+    estimatedDeliveryShort = 'Delivered';
+  } else if (statusLower.includes('cancel')) {
+    estimatedDeliveryHeading = 'Order Cancelled';
+    estimatedDeliveryShort = 'Cancelled';
+  } else if (statusLower.includes('return') || statusLower.includes('rto')) {
+    estimatedDeliveryHeading = 'Returned to Origin';
+    estimatedDeliveryShort = 'Returned';
+  } else if (rawApiEstDelivery) {
+    const parsed = new Date(rawApiEstDelivery);
+    if (!isNaN(parsed.getTime())) {
+      const fullDate = parsed.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      estimatedDeliveryHeading = `Estimated Delivery by ${fullDate}`;
+      estimatedDeliveryShort = parsed.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+      });
+    } else {
+      estimatedDeliveryHeading = `Estimated Delivery: ${rawApiEstDelivery}`;
+      estimatedDeliveryShort = String(rawApiEstDelivery);
+    }
+  } else if (apiEtaLabel) {
+    estimatedDeliveryHeading = `Estimated Delivery: ${apiEtaLabel}`;
+    estimatedDeliveryShort = apiEtaLabel;
+  } else if (apiEstimatedDays && !isNaN(apiEstimatedDays) && apiEstimatedDays > 0) {
+    const baseDate = order?.createdAt ? new Date(order.createdAt) : new Date();
+    if (!isNaN(baseDate.getTime())) {
+      const targetDate = new Date(baseDate.getTime() + apiEstimatedDays * 24 * 60 * 60 * 1000);
+      const fullDate = targetDate.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      estimatedDeliveryHeading = `Estimated Delivery in ${apiEstimatedDays} Days (${fullDate})`;
+      estimatedDeliveryShort = targetDate.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+      });
+    } else {
+      estimatedDeliveryHeading = `Estimated Delivery in ${apiEstimatedDays} Days`;
+      estimatedDeliveryShort = `${apiEstimatedDays} Days`;
+    }
+  } else {
+    estimatedDeliveryHeading = liveTracking?.statusSummary?.headline || 'Estimated Delivery: Awaiting Courier Dispatch';
+    estimatedDeliveryShort = 'Awaiting Dispatch';
+  }
 
   // Payment
   const paymentMethod = order?.paymentMethod || order?.paymentMode || order?.payment?.method || 'UPI / Online Payment';
@@ -244,7 +364,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
     {
       step: 2,
       title: 'Packed & Dispatched',
-      desc: `Manifested with ${carrier}`,
+      desc: carrier ? `Manifested with ${carrier}` : 'Packaging & courier handoff in progress',
       time: trackingStep >= 2 ? 'Dispatched' : 'Pending packaging',
       isCompleted: trackingStep >= 2,
     },
@@ -259,7 +379,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
       step: 4,
       title: 'Delivered',
       desc: 'Package handed over to recipient with signature/OTP verification',
-      time: trackingStep >= 4 ? 'Successfully Delivered' : 'Estimated in 2-4 business days',
+      time: trackingStep >= 4 ? 'Successfully Delivered' : (estimatedDeliveryShort ? `Expected by ${estimatedDeliveryShort}` : 'Pending Dispatch'),
       isCompleted: trackingStep >= 4,
     },
   ];
@@ -351,7 +471,7 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               </button>
             )}
 
-            {!hasReturn && (
+            {canRaiseReturn && (
               <button
                 type="button"
                 onClick={() => setIsReturnModalOpen(true)}
@@ -408,34 +528,12 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
                 Courier Tracking Journey
               </span>
               <h2 className="text-base sm:text-lg font-black text-navy mt-1 capitalize">
-                {currentStatus === 'Delivered' ? 'Package Delivered Successfully' : 'Estimated Delivery in 2-4 Business Days'}
+                {estimatedDeliveryHeading}
               </h2>
               <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-slate-400" />
                 <span>Current Location: <strong className="text-slate-700">{currentLocation}</strong></span>
               </p>
-            </div>
-          </div>
-
-          {/* Courier Details Pill */}
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1.5 text-xs">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-slate-500 font-medium">Courier Partner:</span>
-              <span className="font-bold text-navy">{carrier}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-slate-500 font-medium">AWB Tracking No:</span>
-              <div className="flex items-center gap-1 font-mono font-bold text-slate-800">
-                <span>{trackingNumber}</span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(trackingNumber, 'awb-no')}
-                  className="p-1 hover:text-[#A44101] cursor-pointer"
-                  title="Copy Tracking Number"
-                >
-                  {copiedKey === 'awb-no' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -659,47 +757,6 @@ export const OrderDetailTrackingView: React.FC<OrderDetailTrackingViewProps> = (
               </div>
             </div>
 
-
-          </div>
-
-          {/* Need Help / Support Accordion */}
-          <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Headphones className="w-4 h-4 text-[#A44101]" />
-                <h3 className="text-xs sm:text-sm font-bold text-navy">Need Order Assistance?</h3>
-              </div>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Admin Support Online
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed capitalize">
-              Have questions about your delivery status, received a damaged item, or need to raise an issue directly with the store team?
-            </p>
-
-            <div className="flex flex-col gap-2.5 pt-1">
-              {hasReturn ? (
-                <button
-                  type="button"
-                  onClick={() => setIsChatOpen(true)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Open Return Support Chat</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsReturnModalOpen(true)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Raise Return / Issue Claim</span>
-                </button>
-              )}
-            </div>
           </div>
 
         </div>

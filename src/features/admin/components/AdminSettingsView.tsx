@@ -478,7 +478,7 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
     support: {
       showCustomerSupport: true,
       mobile: '+91 93200 01717',
-      email: 'support.MehtaMartMHM@gmail.com',
+      email: 'support.mehtamartmhm@gmail.com',
     },
     delivery: {
       showPaymentMode: true,
@@ -3888,7 +3888,7 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
               </div>
             </div>
             <div className="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200/70 space-y-2">
-              <div><strong>Technical Support Email:</strong> support.MehtaMartMHM@gmail.com</div>
+              <div><strong>Technical Support Email:</strong> support.mehtamartmhm@gmail.com</div>
               <div><strong>Courier Escalations:</strong> +91 93200 01717</div>
             </div>
           </div>

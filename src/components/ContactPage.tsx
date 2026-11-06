@@ -24,7 +24,7 @@ interface ContactPageProps {
   onGoToOrders?: () => void;
 }
 
-const TARGET_SUPPORT_EMAIL = 'support.MehtaMartMHM@gmail.com';
+const TARGET_SUPPORT_EMAIL = 'mehtamartmhm@gmail.com';
 
 interface SupportTicket {
   ticketId: string;
@@ -63,80 +63,97 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || !message.trim()) return;
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const randomTicketNum = Math.floor(10000 + Math.random() * 90000);
-      const ticketId = `MHM-TK-${randomTicketNum}`;
-      const submittedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const randomTicketNum = Math.floor(10000 + Math.random() * 90000);
+    const ticketId = `MHM-TK-${randomTicketNum}`;
+    const submittedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-      const emailSubject = `[Support Ticket #${ticketId}] ${category} - ${name.trim()}`;
-      const emailBody = [
-        `Dear MehtaMart Support Team,`,
-        ``,
-        `A customer inquiry has been submitted via the contact form:`,
-        `--------------------------------------------------`,
-        `Ticket ID       : ${ticketId}`,
-        `Customer Name   : ${name.trim()}`,
-        `WhatsApp/Phone  : ${phone.trim()}`,
-        `Customer Email  : ${email.trim() || 'Not specified'}`,
-        `Order Number    : ${orderNumber.trim() || 'N/A'}`,
-        `Inquiry Category: ${category}`,
-        `Submission Time : ${submittedAt}`,
-        `--------------------------------------------------`,
-        `Customer Message:`,
-        `${message.trim()}`,
-        `--------------------------------------------------`,
-        `Target Support Desk: ${TARGET_SUPPORT_EMAIL}`
-      ].join('\n');
+    const emailSubject = `[Support Ticket #${ticketId}] ${category} - ${name.trim()}`;
+    const emailBody = [
+      `Dear MehtaMart Support Team,`,
+      ``,
+      `A customer inquiry has been submitted via the contact form:`,
+      `--------------------------------------------------`,
+      `Ticket ID       : ${ticketId}`,
+      `Customer Name   : ${name.trim()}`,
+      `WhatsApp/Phone  : ${phone.trim()}`,
+      `Customer Email  : ${email.trim() || 'Not specified'}`,
+      `Order Number    : ${orderNumber.trim() || 'N/A'}`,
+      `Inquiry Category: ${category}`,
+      `Submission Time : ${submittedAt}`,
+      `--------------------------------------------------`,
+      `Customer Message:`,
+      `${message.trim()}`,
+      `--------------------------------------------------`,
+      `Target Support Desk: ${TARGET_SUPPORT_EMAIL}`
+    ].join('\n');
 
-      const mailtoUrl = `mailto:${TARGET_SUPPORT_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    const mailtoUrl = `mailto:${TARGET_SUPPORT_EMAIL}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
 
-      const ticket: SupportTicket = {
-        ticketId,
-        name: name.trim(),
-        phone: phone.trim(),
-        email: email.trim() || 'N/A',
-        orderNumber: orderNumber.trim() || 'N/A',
-        category,
-        message: message.trim(),
-        submittedAt,
-        targetEmail: TARGET_SUPPORT_EMAIL,
-        mailtoUrl,
-      };
+    const ticket: SupportTicket = {
+      ticketId,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim() || 'N/A',
+      orderNumber: orderNumber.trim() || 'N/A',
+      category,
+      message: message.trim(),
+      submittedAt,
+      targetEmail: TARGET_SUPPORT_EMAIL,
+      mailtoUrl,
+    };
 
-      setSubmittedTicket(ticket);
-      setIsSubmitting(false);
-
-      // Save to localStorage as a customer lead/ticket so admin panel can track it
-      try {
-        const storedLeads = mockAdminStore.getLeads();
-        storedLeads.unshift({
-          id: `lead-${Date.now()}`,
+    // Dispatch directly to backend email sender (server SMTP to mehtamartmhm@gmail.com)
+    try {
+      await fetch('/api/support-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId,
           name: name.trim(),
           phone: phone.trim(),
-          email: email.trim() || `${phone.replace(/\D/g, '')}@customer.in`,
-          interestCategory: `${category} (Desk: ${TARGET_SUPPORT_EMAIL})`,
-          source: 'Support Form',
-          createdAt: new Date().toISOString(),
-          status: 'New'
-        });
-        localStorage.setItem('abb_admin_leads_v1', JSON.stringify(storedLeads));
-      } catch (err) {
-        console.warn('Could not save lead to mockAdminStore', err);
-      }
+          email: email.trim() || null,
+          orderNumber: orderNumber.trim() || null,
+          category,
+          message: message.trim(),
+        }),
+      });
+    } catch (err) {
+      console.warn('Backend email ticket dispatch note:', err);
+    }
 
-      // Automatically trigger email dispatch to support.MehtaMartMHM@gmail.com
-      try {
-        window.location.href = mailtoUrl;
-      } catch (err) {
-        console.warn('Mailto link navigation error', err);
-      }
-    }, 600);
+    setSubmittedTicket(ticket);
+    setIsSubmitting(false);
+
+    // Save to localStorage as a customer lead/ticket so admin panel can track it
+    try {
+      const storedLeads = mockAdminStore.getLeads();
+      storedLeads.unshift({
+        id: `lead-${Date.now()}`,
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim() || `${phone.replace(/\D/g, '')}@customer.in`,
+        interestCategory: `${category} (Desk: ${TARGET_SUPPORT_EMAIL})`,
+        source: 'Support Form',
+        createdAt: new Date().toISOString(),
+        status: 'New'
+      });
+      localStorage.setItem('abb_admin_leads_v1', JSON.stringify(storedLeads));
+    } catch (err) {
+      console.warn('Could not save lead to mockAdminStore', err);
+    }
+
+    // Automatically trigger email dispatch to mehtamartmhm@gmail.com
+    try {
+      window.location.href = mailtoUrl;
+    } catch (err) {
+      console.warn('Mailto link navigation error', err);
+    }
   };
 
   const faqs = [

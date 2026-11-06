@@ -37,116 +37,181 @@ interface DiwaliSlide {
   ctaText: string;
   categoryId: string;
   image: string;
+  discountOffer: string;
+  priceStarting: string;
+  mrpStrike: string;
+  dealBadge: string;
+  perks: string[];
 }
 
 const DIWALI_SLIDES: DiwaliSlide[] = [
   {
     id: 1,
-    badge: 'DIWALI FESTIVE SPECIAL',
+    badge: 'DIWALI MEGA SALE',
     headline: 'Home & Kitchen',
-    subtext: 'Premium unbranded cookware, brass dining accents, and modern kitchenware to celebrate delicious Diwali feasts.',
-    ctaText: 'Explore Home & Kitchen',
+    discountOffer: 'FLAT 70% OFF',
+    priceStarting: '₹149',
+    mrpStrike: '₹499',
+    dealBadge: '🔥 Festive Bestseller',
+    subtext: 'Direct factory cookware, brass dining accents & airtight storage at wholesale prices.',
+    ctaText: 'Shop Kitchen Deals',
     categoryId: 'home-kitchen',
     image: '/banners/hero_home_kitchen.jpg',
+    perks: ['⚡ 24h Factory Dispatch', '🏷️ Direct Factory Rates', '📦 Minimum Order ₹0'],
   },
   {
     id: 2,
-    badge: 'FESTIVE TECH DEALS',
+    badge: 'TECH DHAMAKA FEST',
     headline: 'Smart Life Gadgets',
-    subtext: 'Minimalist smart wearables, sleek wireless audio, and modern charging utilities with warm festive illumination.',
-    ctaText: 'Explore Smart Gadgets',
+    discountOffer: 'UP TO 75% OFF',
+    priceStarting: '₹199',
+    mrpStrike: '₹799',
+    dealBadge: '⚡ Trending Electronics',
+    subtext: 'High-speed wireless chargers, smart wearables & audio accessories with warranty.',
+    ctaText: 'Claim Gadget Deals',
     categoryId: 'smart-gadgets',
     image: '/banners/hero_smart_gadgets.jpg',
+    perks: ['🔋 Fast Charging', '🛡️ Quality Tested', '🚚 Pan-India Shipping'],
   },
   {
     id: 3,
-    badge: 'GENTLE FESTIVE CARE',
-    headline: 'Baby Items',
-    subtext: 'Soft pastel cotton garments, handcrafted wooden rattles, and gentle feeding essentials for little celebrations.',
-    ctaText: 'Explore Baby Items',
+    badge: 'GENTLE CARE DEALS',
+    headline: 'Baby Items & Care',
+    discountOffer: 'FLAT 60% OFF',
+    priceStarting: '₹99',
+    mrpStrike: '₹299',
+    dealBadge: '👶 Mommy Choice',
+    subtext: '100% organic cotton essentials, safe feeding utilities & certified infant developmental toys.',
+    ctaText: 'Explore Baby Offers',
     categoryId: 'baby-items',
     image: '/banners/hero_baby_items.jpg',
+    perks: ['🌿 Certified Safe', '📦 Bulk Value Packs', '⚡ Priority Dispatch'],
   },
   {
     id: 4,
-    badge: 'CREATIVE ESSENTIALS',
-    headline: 'Stationery',
-    subtext: 'Handcrafted leather-bound journals, brass fountain pens, and aesthetic desk organizers with subtle diya bokeh.',
-    ctaText: 'Explore Stationery',
+    badge: 'WHOLESALE STATIONERY',
+    headline: 'Stationery & Office',
+    discountOffer: 'UP TO 65% OFF',
+    priceStarting: '₹49',
+    mrpStrike: '₹199',
+    dealBadge: '📚 Bulk School & Desk',
+    subtext: 'Artisan notebooks, metallic pens, desk tidy organizers & school stationery bundles.',
+    ctaText: 'Grab Stationery Deals',
     categoryId: 'stationery',
     image: '/banners/hero_stationery.jpg',
+    perks: ['🏷️ Wholesale Pricing', '📦 Bulk Packs', '🚚 Safe Transit'],
   },
   {
     id: 5,
     badge: 'DIWALI KI TAIYARI',
     headline: 'Cleaning & Housekeeping',
-    subtext: 'Eco-friendly bamboo scrubbers, natural cleaning solutions, and microfiber sets for a spotless festive home.',
-    ctaText: 'Explore Cleaning Hacks',
+    discountOffer: 'FLAT 65% OFF',
+    priceStarting: '₹79',
+    mrpStrike: '₹249',
+    dealBadge: '✨ Festive Essential',
+    subtext: 'Heavy-duty microfiber mops, bamboo brushes & storage racks for an effortless clean.',
+    ctaText: 'Shop Cleaning Hacks',
     categoryId: 'cleaning-housekeeping',
     image: '/banners/hero_cleaning.jpg',
+    perks: ['🧼 High Durability', '⚡ 24h Dispatch', '🏷️ Factory Direct'],
   },
   {
     id: 6,
-    badge: 'HEALTH & VITALITY',
+    badge: 'FITNESS DHAMAKA',
     headline: 'Sports & Fitness',
-    subtext: 'High-grade matte dumbbells, non-slip yoga mats, and hydration bottles to keep your fitness glowing this Diwali.',
+    discountOffer: 'UP TO 70% OFF',
+    priceStarting: '₹129',
+    mrpStrike: '₹499',
+    dealBadge: '💪 High Performance',
+    subtext: 'Anti-slip textured yoga mats, resistance bands & sports shakers to stay active.',
     ctaText: 'Explore Fitness Gear',
     categoryId: 'sports-fitness',
     image: '/banners/hero_sports_fitness.jpg',
+    perks: ['🏋️ Heavy-Duty Grip', '📦 Bulk Gym Packs', '⚡ Fast Delivery'],
   },
   {
     id: 7,
-    badge: 'FESTIVE HOMECOMING',
+    badge: 'HOLIDAY TRAVEL SALE',
     headline: 'Tours & Travels',
-    subtext: 'Durable spinner luggage, leather travel wallets, and packing organizers for seamless holiday journeys.',
-    ctaText: 'Explore Travel Gear',
+    discountOffer: 'FLAT 60% OFF',
+    priceStarting: '₹149',
+    mrpStrike: '₹499',
+    dealBadge: '✈️ Travel Ready',
+    subtext: 'Lightweight spinner luggage, document organizers & memory foam travel pillows.',
+    ctaText: 'Explore Travel Deals',
     categoryId: 'tours-travels',
     image: '/banners/hero_tours_travels.jpg',
+    perks: ['🧳 Factory Direct', '🔒 Heavy Duty Locks', '⚡ Quick Delivery'],
   },
   {
     id: 8,
-    badge: 'ETHNIC & CONTEMPORARY',
+    badge: 'FESTIVE ETHNIC SALE',
     headline: 'Fashion World',
-    subtext: 'Zari silk scarves, handcrafted leather belts, blank-dial luxury watches, and golden clutch accessories.',
-    ctaText: 'Explore Festive Fashion',
+    discountOffer: 'UP TO 75% OFF',
+    priceStarting: '₹199',
+    mrpStrike: '₹799',
+    dealBadge: '👗 Festive Trending',
+    subtext: 'Zari-bordered stoles, luxury designer clutches, classic watches & festive accessories.',
+    ctaText: 'Claim Fashion Deals',
     categoryId: 'fashion-world',
     image: '/banners/hero_fashion_world.jpg',
+    perks: ['✨ Handcrafted Finish', '🚚 Free Delivery', '🏷️ Wholesale Rates'],
   },
   {
     id: 9,
-    badge: 'TRADITIONAL CELEBRATIONS',
+    badge: 'CORPORATE & GIFTING',
     headline: 'Gifts & Hampers',
-    subtext: 'Embossed golden gift boxes, brass pooja accessories, and luxury corporate dry fruit platters at wholesale rates.',
-    ctaText: 'Explore Diwali Gifts',
+    discountOffer: 'FLAT 70% OFF',
+    priceStarting: '₹199',
+    mrpStrike: '₹699',
+    dealBadge: '🎁 Festive Gifting',
+    subtext: 'Luxury dry fruit boxes, brass pooja platters & custom branded corporate gift sets.',
+    ctaText: 'Explore Gift Hampers',
     categoryId: 'gifts',
     image: '/banners/hero_gifts.jpg',
+    perks: ['💼 Corporate GST Invoicing', '🏷️ Volume Tiers', '🚚 Pan-India Shipping'],
   },
   {
     id: 10,
-    badge: 'FESTIVE SELF-CARE',
+    badge: 'NATURAL GLOW FEST',
     headline: 'Beauty & Personal Care',
-    subtext: 'Jade facial rollers, herbal grooming kits, and pure amber botanical oils to bring out your natural festive glow.',
-    ctaText: 'Explore Personal Care',
+    discountOffer: 'UP TO 65% OFF',
+    priceStarting: '₹99',
+    mrpStrike: '₹349',
+    dealBadge: '🌸 Customer Favorite',
+    subtext: 'Pure jade facial rollers, herbal grooming kits & botanical oils for radiant skin.',
+    ctaText: 'Shop Beauty Deals',
     categoryId: 'beauty-personal-care',
     image: '/banners/hero_beauty.jpg',
+    perks: ['🌿 100% Certified', '⚡ 24h Dispatch', '🏷️ Direct Wholesale'],
   },
   {
     id: 11,
-    badge: 'DIY & CRAFTSMANSHIP',
+    badge: 'DIY & TOOLS EXPO',
     headline: 'Home Improvement',
-    subtext: 'Precision cordless tools, brass measuring gear, and smart home maintenance kits for all your festive upgrades.',
-    ctaText: 'Explore Home Improvement',
+    discountOffer: 'FLAT 60% OFF',
+    priceStarting: '₹149',
+    mrpStrike: '₹499',
+    dealBadge: '🛠️ Pro Hardware',
+    subtext: 'Cordless electric screwdrivers, precision toolkit sets & smart household repair gear.',
+    ctaText: 'Shop Tool Deals',
     categoryId: 'home-improvement',
     image: '/banners/hero_home_improvement.jpg',
+    perks: ['⚡ High Torque', '🛡️ Quality Guaranteed', '📦 Factory Direct'],
   },
   {
     id: 12,
-    badge: 'AUTO CARE & TRAVEL',
+    badge: 'AUTO CARE DHAMAKA',
     headline: 'Car Accessories',
-    subtext: 'Magnetic 360° cockpit mounts, high-power mini vacuums, and interior ambient lighting for safe festive drives.',
-    ctaText: 'Explore Car Accessories',
+    discountOffer: 'UP TO 70% OFF',
+    priceStarting: '₹129',
+    mrpStrike: '₹449',
+    dealBadge: '🚗 Driver Pick',
+    subtext: '360° magnetic cockpit mounts, high-power mini car vacuums & interior ambient lighting.',
+    ctaText: 'Grab Auto Deals',
     categoryId: 'car-accessories',
     image: '/banners/hero_car_accessories.jpg',
+    perks: ['⚡ Same Day Dispatch', '🔌 High Power Suction', '🏷️ Wholesale Rates'],
   },
 ];
 
@@ -312,11 +377,12 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
           
           {/* 1. LEFT OF HERO: Category Navigation Sidebar with Diwali Accents */}
           <aside
-            className="hidden lg:flex flex-col bg-white rounded-2xl border border-[#D4AF37]/40 shadow-sm overflow-visible select-none h-full relative"
+            className="hidden lg:flex flex-col bg-white rounded-2xl border border-[#D4AF37]/40 shadow-sm overflow-visible h-full relative"
             aria-label="Diwali Category Menu"
+            onMouseLeave={() => setHoveredCatIdx(null)}
           >
             {/* Header with Diya */}
-            <div className="p-3.5 bg-gradient-to-r from-[#7A0C1E] to-[#4A0512] rounded-t-2xl flex items-center justify-between border-b border-[#D4AF37]/50">
+            <div className="p-3.5 bg-gradient-to-r from-[#7A0C1E] to-[#4A0512] rounded-t-2xl flex items-center justify-between border-b border-[#D4AF37]/50 shrink-0">
               <div className="flex items-center gap-2">
                 <DiyaGlow size="sm" />
                 <span className="text-xs font-black text-[#FFF8E7] tracking-wider uppercase font-serif">
@@ -328,59 +394,108 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
               </span>
             </div>
 
-            {/* Category list */}
-            <nav className="flex-1 overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin">
+            {/* Category list - Fitted to height without inner scrollbars */}
+            <nav className="flex-1 min-h-0 flex flex-col justify-between p-1.5">
               {sidebarCategories.map((cat, idx) => {
                 const IconComponent = cat.icon;
                 const isHovered = hoveredCatIdx === idx;
+                const hasSubcategories = Boolean(cat.subcategories && cat.subcategories.length > 0);
 
                 return (
                   <div
                     key={cat.id}
-                    className="relative"
+                    className="flex-1 min-h-0 flex items-center relative"
                     onMouseEnter={() => setHoveredCatIdx(idx)}
-                    onMouseLeave={() => setHoveredCatIdx(null)}
                   >
                     <button
                       type="button"
-                      onClick={() => onSelectCategory?.(cat.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                      onClick={() => {
+                        setHoveredCatIdx(null);
+                        onSelectCategory?.(cat.id);
+                      }}
+                      className={`w-full h-full flex items-center justify-between px-3 py-1 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
                         isHovered
                           ? 'bg-[#FFF8E7] text-[#7A0C1E] font-bold border border-[#D4AF37]/60 shadow-2xs'
                           : 'text-slate-700 hover:bg-stone-50'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 truncate">
-                        <IconComponent className={`w-4 h-4 shrink-0 transition-colors ${isHovered ? 'text-[#FF8A00]' : 'text-slate-400'}`} />
+                        <IconComponent className={`w-3.5 h-3.5 shrink-0 transition-colors ${isHovered ? 'text-[#FF8A00]' : 'text-slate-400'}`} />
                         <span className="truncate">{cat.name}</span>
                       </div>
-                      <ArrowRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${isHovered ? 'translate-x-1 text-[#FF8A00]' : 'text-slate-300'}`} />
+                      {hasSubcategories ? (
+                        <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${isHovered ? 'translate-x-0.5 text-[#FF8A00]' : 'text-slate-300'}`} />
+                      ) : (
+                        <ArrowRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${isHovered ? 'translate-x-0.5 text-[#FF8A00]' : 'text-slate-300'}`} />
+                      )}
                     </button>
-
-                    {/* Subcategories Flyout */}
-                    {isHovered && cat.subcategories && cat.subcategories.length > 0 && (
-                      <div className="absolute left-full top-0 ml-1.5 w-64 bg-white rounded-xl shadow-xl border border-[#D4AF37]/40 p-3 z-50">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-[#7A0C1E] block mb-2 font-serif">
-                          {cat.name} Specials
-                        </span>
-                        <div className="space-y-1 max-h-64 overflow-y-auto">
-                          {cat.subcategories.map((sub, sIdx) => (
-                            <button
-                              key={sIdx}
-                              type="button"
-                              onClick={() => onSelectCategory?.(cat.id, sub)}
-                              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:text-[#7A0C1E] hover:bg-[#FFF8E7] transition-colors truncate block cursor-pointer"
-                            >
-                              {sub}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </nav>
+
+            {/* 3. Subcategories Dropdown / Flyout on the Right */}
+            {hoveredCatIdx !== null && sidebarCategories[hoveredCatIdx]?.subcategories && sidebarCategories[hoveredCatIdx].subcategories!.length > 0 && (() => {
+              const activeCat = sidebarCategories[hoveredCatIdx];
+              const isLowerHalf = hoveredCatIdx >= 5;
+
+              return (
+                <div
+                  className={`absolute left-full ${
+                    isLowerHalf ? 'bottom-0' : 'top-0'
+                  } ml-2 w-72 bg-white rounded-2xl shadow-2xl border border-[#D4AF37]/60 p-4 z-50 flex flex-col justify-between animate-fadeIn before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:content-['']`}
+                  onMouseEnter={() => setHoveredCatIdx(hoveredCatIdx)}
+                  onMouseLeave={() => setHoveredCatIdx(null)}
+                >
+                  <div>
+                    {/* Header with Diya and Subcategories badge */}
+                    <div className="flex items-center justify-between border-b border-[#D4AF37]/30 pb-2.5 mb-2.5">
+                      <div className="flex items-center gap-2 truncate">
+                        <DiyaGlow size="sm" />
+                        <span className="text-xs font-black text-[#7A0C1E] uppercase tracking-wider font-serif truncate">
+                          {activeCat.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-[#FF8A00]/15 text-[#FF8A00] px-2 py-0.5 rounded-full shrink-0">
+                        Subcategories
+                      </span>
+                    </div>
+
+                    {/* Subcategories clickable list */}
+                    <div className="space-y-1 max-h-[340px] overflow-y-auto pr-1">
+                      {activeCat.subcategories!.map((sub, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={() => {
+                            setHoveredCatIdx(null);
+                            onSelectCategory?.(activeCat.id, sub);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#7A0C1E] hover:bg-[#FFF8E7] transition-all flex items-center justify-between group cursor-pointer"
+                        >
+                          <span className="truncate">{sub}</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-[#D4AF37] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Footer: Explore All */}
+                  <div className="pt-2.5 border-t border-[#D4AF37]/30 mt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHoveredCatIdx(null);
+                        onSelectCategory?.(activeCat.id);
+                      }}
+                      className="w-full text-center text-xs font-bold text-[#7A0C1E] hover:text-[#FF8A00] transition-colors cursor-pointer py-1 block font-serif"
+                    >
+                      Explore All in {activeCat.name} →
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </aside>
 
           {/* 2. CENTER: The 12 Templated Banner Slides */}
@@ -402,39 +517,83 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
                   className="w-full h-full object-cover object-center"
                 />
 
-                {/* Subtle Neutral Left Gradient for Crisp Text Legibility (No red cover tint) */}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/25 to-transparent pointer-events-none" />
+                {/* Subtle Neutral Left Gradient for Crisp Commercial Billboard Text Legibility */}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-transparent sm:w-3/4 pointer-events-none" />
 
-                {/* Slide Text Content with Staggered Framer Motion Animation */}
-                <div className="absolute inset-0 p-6 sm:p-8 md:p-12 flex flex-col justify-center items-start max-w-2xl text-left z-20">
+                {/* 1. Floating Commercial Retail Sale Burst Badge (Top-Right) */}
+                <div className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-30 pointer-events-none select-none hidden xs:block">
+                  <div className="bg-gradient-to-br from-red-600 via-[#B91C1C] to-amber-500 text-white rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-2xl border-2 border-amber-300/60 flex flex-col items-center text-center backdrop-blur-xs">
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-amber-200 block">
+                      FESTIVE DHAMAKA
+                    </span>
+                    <span className="text-xs sm:text-base font-black tracking-tight leading-none text-white drop-shadow-sm mt-0.5">
+                      {currentSlide.discountOffer}
+                    </span>
+                    <span className="text-[8px] sm:text-[9px] font-bold text-amber-100 uppercase tracking-wider block mt-0.5">
+                      LIMITED TIME DEAL
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Slide Commercial Selling Text Content */}
+                <div className="absolute inset-0 p-5 sm:p-8 md:p-10 flex flex-col justify-center items-start max-w-2xl text-left z-20">
                   
-                  {/* Badge */}
+                  {/* Category & Sale Tag Header */}
                   <motion.div
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.1 }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4AF37] text-[#1B0B2E] text-[10px] sm:text-xs font-black uppercase tracking-widest shadow-md mb-3"
+                    className="inline-flex items-center gap-2 mb-2 sm:mb-2.5"
                   >
-                    <Sparkles className="w-3.5 h-3.5 fill-[#1B0B2E]" />
-                    <span>{currentSlide.badge}</span>
+                    <span className="px-3 py-1 rounded-full bg-[#D4AF37] text-[#1B0B2E] text-[10px] sm:text-xs font-black uppercase tracking-widest shadow-md inline-flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 fill-[#1B0B2E]" />
+                      <span>{currentSlide.badge}</span>
+                    </span>
                   </motion.div>
 
-                  {/* Headline in Elegant Display Serif */}
+                  {/* Headline in Elegant Commercial Display Serif */}
                   <motion.h1
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, delay: 0.2 }}
-                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-serif tracking-tight leading-tight mb-2 sm:mb-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-white font-serif tracking-tight leading-tight mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
                   >
                     {currentSlide.headline}
                   </motion.h1>
+
+                  {/* Commercial Price & Savings Row (Vibe of Selling) */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, delay: 0.25 }}
+                    className="flex items-center gap-2 sm:gap-2.5 flex-wrap my-2 sm:my-2.5"
+                  >
+                    {/* Big Discount Pill */}
+                    <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-red-600 to-amber-600 text-white font-black text-[11px] sm:text-xs tracking-wide shadow-md border border-white/20">
+                      <Tag className="w-3 h-3" />
+                      <span>{currentSlide.discountOffer}</span>
+                    </div>
+
+                    {/* Starting Price with Strike-through */}
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/20 text-white shadow-xs">
+                      <span className="text-[10px] sm:text-[11px] text-slate-300">Starts @</span>
+                      <span className="text-xs sm:text-sm font-black text-[#FFD54F]">{currentSlide.priceStarting}</span>
+                      <span className="text-[10px] sm:text-[11px] text-slate-400 line-through">{currentSlide.mrpStrike}</span>
+                    </div>
+
+                    {/* Deal of the Day Urgency Pill */}
+                    <div className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[10px] sm:text-[11px] font-bold">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>{currentSlide.dealBadge}</span>
+                    </div>
+                  </motion.div>
 
                   {/* Subtext */}
                   <motion.p
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, delay: 0.3 }}
-                    className="text-xs sm:text-sm md:text-base text-white/95 max-w-lg mb-5 sm:mb-7 leading-relaxed font-sans drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)]"
+                    className="text-xs sm:text-sm text-white/90 max-w-lg mb-4 sm:mb-5 leading-relaxed font-sans drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)]"
                   >
                     {currentSlide.subtext}
                   </motion.p>
@@ -443,7 +602,7 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
                   <motion.button
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: 0.4 }}
+                    transition={{ duration: 0.4, delay: 0.35 }}
                     type="button"
                     onClick={(e) => handleCtaClick(e, currentSlide.categoryId)}
                     className="group relative inline-flex items-center gap-2.5 px-6 sm:px-8 py-3 rounded-xl bg-gradient-to-r from-[#FF8A00] via-[#FFC107] to-[#D4AF37] hover:from-[#FFA000] hover:to-[#FFD54F] text-[#1B0B2E] text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg hover:shadow-xl transition-all cursor-pointer active:scale-95"
@@ -451,6 +610,23 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
                     <span>{currentSlide.ctaText}</span>
                     <ArrowRight className="w-4 h-4 text-[#1B0B2E] group-hover:translate-x-1.5 transition-transform" />
                   </motion.button>
+
+                  {/* Retail Urgency & Trust Perks Strip */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.45, delay: 0.4 }}
+                    className="hidden sm:flex items-center gap-2 flex-wrap mt-3.5"
+                  >
+                    {currentSlide.perks.map((perk, pIdx) => (
+                      <span
+                        key={pIdx}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/45 backdrop-blur-xs text-white/95 text-[10px] sm:text-[11px] font-semibold border border-white/10"
+                      >
+                        <span>{perk}</span>
+                      </span>
+                    ))}
+                  </motion.div>
                 </div>
               </motion.div>
             </AnimatePresence>
@@ -492,7 +668,7 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
           </div>
 
           {/* 3. RIGHT OF HERO: Festive Value Proposition Cards (Desktop) */}
-          <aside className="hidden lg:flex flex-col gap-3 h-full select-none justify-between">
+          <aside className="hidden lg:flex flex-col gap-3 h-full justify-between">
             {/* Card 1: Festive Guarantee */}
             <div className="flex-1 bg-gradient-to-br from-[#FFF8E7] to-white rounded-2xl p-4 border border-[#D4AF37]/40 shadow-xs flex flex-col justify-center items-start text-left relative overflow-hidden">
               <div className="w-9 h-9 rounded-xl bg-[#7A0C1E]/10 flex items-center justify-center text-[#7A0C1E] mb-2.5">

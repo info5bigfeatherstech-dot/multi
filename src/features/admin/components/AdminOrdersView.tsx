@@ -1,12 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Eye,
   Search, 
   ShoppingBag, 
   RefreshCw,
   ExternalLink,
   Truck,
-  PackageCheck,
   CheckCircle2,
   Clock
 } from 'lucide-react';
@@ -64,7 +62,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
             id: ord.orderId || ord._id || String(Math.random()),
             orderNumber: ord.orderIdDisplay || ord.orderId || '#RTO-LIVE',
             customerName: ord.shippingAddress?.fullName || ord.customerName || (ord.contactPhone ? `Customer (${ord.contactPhone})` : 'Shopper'),
-            customerPhone: ord.contactPhone || ord.shippingAddress?.phone || '+91 98XXX XXXXX',
+            customerPhone: ord.contactPhone || ord.shippingAddress?.phone || (ord.shippingAddress && typeof ord.shippingAddress === 'object' ? ord.shippingAddress.phone : '') || '—',
             customerEmail: ord.customerEmail || 'customer@store.com',
             items: (ord.items || []).map((it: any, idx: number) => ({
               id: it.productId || `item-${idx}`,
@@ -85,6 +83,15 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
             shippingAddress: typeof ord.shippingAddress === 'string' ? ord.shippingAddress : (
               ord.shippingAddress?.addressLine1 ? `${ord.shippingAddress.addressLine1}, ${ord.shippingAddress.city || ''}` : 'India'
             ),
+            courier: ord.courier || ord.shippingSnapshot?.courierName || ord.shipmentInfo?.courier || null,
+            courierOpsLine1: ord.courierOpsLine1 || ord.shipmentOps?.courierOpsLine1 || null,
+            courierOpsLine2: ord.courierOpsLine2 || ord.shipmentOps?.courierOpsLine2 || null,
+            awbCode: ord.awbCode || ord.shipmentInfo?.awbCode || ord.shipmentInfo?.trackingNumber || ord.tracking?.awb || null,
+            shippingProvider: ord.shippingProvider || ord.shippingSnapshot?.provider || null,
+            providerStatus: ord.providerStatus || ord.shipmentInfo?.providerStatus || null,
+            opsState: ord.opsState || ord.shipmentOps?.opsState || null,
+            opsStateLabel: ord.opsStateLabel || ord.shipmentOps?.opsStateLabel || null,
+            rawOrder: ord,
             createdAt: ord.createdAt || new Date().toISOString(),
             updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
           }));
@@ -108,7 +115,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
           id: ord.orderId || ord._id || String(Math.random()),
           orderNumber: ord.orderIdDisplay || ord.orderId || '#ORD-LIVE',
           customerName: ord.shippingAddress?.fullName || ord.customerName || (ord.contactPhone ? `Customer (${ord.contactPhone})` : 'Indian Shopper'),
-          customerPhone: ord.contactPhone || ord.shippingAddress?.phone || '+91 98XXX XXXXX',
+          customerPhone: ord.contactPhone || ord.shippingAddress?.phone || (ord.shippingAddress && typeof ord.shippingAddress === 'object' ? ord.shippingAddress.phone : '') || '—',
           customerEmail: ord.customerEmail || 'customer@store.com',
           items: (ord.items || []).map((it: any, idx: number) => ({
             id: it.productId || `item-${idx}`,
@@ -168,6 +175,9 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
           courierOpsLine2: ord.courierOpsLine2 || ord.shipmentOps?.courierOpsLine2 || null,
           awbCode: ord.awbCode || ord.shipmentInfo?.awbCode || ord.shipmentInfo?.trackingNumber || ord.tracking?.awb || null,
           shippingProvider: ord.shippingProvider || ord.shippingSnapshot?.provider || null,
+          providerStatus: ord.providerStatus || ord.shipmentInfo?.providerStatus || null,
+          opsState: ord.opsState || ord.shipmentOps?.opsState || null,
+          opsStateLabel: ord.opsStateLabel || ord.shipmentOps?.opsStateLabel || null,
           rawOrder: ord,
           createdAt: ord.createdAt || new Date().toISOString(),
           updatedAt: ord.updatedAt || ord.createdAt || new Date().toISOString(),
@@ -317,7 +327,7 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
               <thead className="bg-slate-50/80 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200/80">
                 <tr>
                   <th className="py-3.5 px-4">Order #</th>
-                  <th className="py-3.5 px-4">Customer</th>
+                  <th className="py-3.5 px-4">Number</th>
                   <th className="py-3.5 px-4">Total</th>
                   <th className="py-3.5 px-4">Payment</th>
                   <th className="py-3.5 px-4">Status</th>
@@ -349,10 +359,9 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
                       </div>
                     </td>
 
-                    {/* Customer Info */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-navy">{order.customerName}</div>
-                      <div className="text-[11px] text-slate-500">{order.customerPhone}</div>
+                    {/* Phone Number */}
+                    <td className="py-3.5 px-4 font-mono font-bold text-navy text-xs">
+                      {order.customerPhone || order.rawOrder?.contactPhone || order.rawOrder?.shippingAddress?.phone || '—'}
                     </td>
 
                     {/* Total Amount */}
@@ -390,65 +399,132 @@ export const AdminOrdersView: React.FC<AdminOrdersViewProps> = ({
 
                     {/* Courier & Ops */}
                     <td className="py-3.5 px-4">
-                      {order.status === 'Pending' ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrderId(order.orderNumber || order.id);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-[#A44101] text-amber-900 hover:text-white border border-amber-300 hover:border-[#A44101] font-bold text-xs shadow-2xs transition-all cursor-pointer group/btn"
-                          title="View order details"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-amber-700 group-hover/btn:text-white" />
-                          <span>View All</span>
-                        </button>
-                      ) : order.status === 'Cancelled' ? (
-                        <span className="text-[11px] text-slate-400 font-medium">Order Cancelled</span>
-                      ) : order.awbCode ? (
-                        <div>
-                          <div className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                            <Truck className="w-3 h-3 shrink-0" />
-                            <span>{order.awbCode}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">
-                            {order.courier || 'Assigned Courier'}
-                          </div>
-                        </div>
-                      ) : (order.status === 'Confirmed' || order.status === 'Ready to Ship' || order.status === 'Processing') ? (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
-                            <PackageCheck className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span>Ready to Ship</span>
+                      {(() => {
+                        const courier =
+                          order.courier ||
+                          order.rawOrder?.courier ||
+                          order.rawOrder?.shipmentInfo?.courier ||
+                          order.rawOrder?.shippingSnapshot?.courierName ||
+                          null;
+                        const awb =
+                          order.awbCode ||
+                          order.rawOrder?.awbCode ||
+                          order.rawOrder?.shipmentInfo?.awbCode ||
+                          order.rawOrder?.shipmentInfo?.trackingNumber ||
+                          null;
+                        const providerStatus =
+                          order.providerStatus ||
+                          order.rawOrder?.providerStatus ||
+                          order.rawOrder?.shipmentInfo?.providerStatus ||
+                          null;
+                        const opsLine1 =
+                          order.courierOpsLine1 ||
+                          order.rawOrder?.courierOpsLine1 ||
+                          order.rawOrder?.shipmentOps?.courierOpsLine1 ||
+                          null;
+                        const opsLine2 =
+                          order.courierOpsLine2 ||
+                          order.rawOrder?.courierOpsLine2 ||
+                          order.rawOrder?.shipmentOps?.courierOpsLine2 ||
+                          null;
+
+                        // Case 1: Cancelled Order
+                        if (order.status === 'Cancelled') {
+                          return <span className="text-[11px] text-slate-400 font-medium">Order Cancelled</span>;
+                        }
+
+                        // Case 2: Live AWB assigned by API
+                        if (awb) {
+                          return (
+                            <div>
+                              <div className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                                <Truck className="w-3 h-3 shrink-0" />
+                                <span>{awb}</span>
+                              </div>
+                              {(courier || providerStatus) && (
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
+                                  {courier && <span>{courier}</span>}
+                                  {courier && providerStatus && <span>·</span>}
+                                  {providerStatus && <span className="text-slate-400">{providerStatus}</span>}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Case 3: Courier assigned by API (without AWB yet)
+                        if (courier) {
+                          return (
+                            <div>
+                              <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-800">
+                                <Truck className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
+                                <span>{courier}</span>
+                              </div>
+                              {(providerStatus || opsLine1) && (
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  {providerStatus || opsLine1}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Case 4: Real Provider Status or Ops Status from API
+                        if (providerStatus || (opsLine1 && opsLine1 !== '—')) {
+                          const displayStatus = providerStatus || opsLine1;
+                          const isDelivered = /delivered/i.test(displayStatus);
+                          const isInTransit = /transit|shipped|dispatched|out for/i.test(displayStatus);
+                          const isPickup = /pickup|scheduled/i.test(displayStatus);
+                          const isRtoOrIssue = /rto|exception|failed|issue/i.test(displayStatus);
+
+                          return (
+                            <div>
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                  isDelivered
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : isInTransit
+                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                    : isPickup
+                                    ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                    : isRtoOrIssue
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                {isDelivered ? (
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-slate-500" />
+                                )}
+                                <span>{displayStatus}</span>
+                              </span>
+                              {opsLine2 && (
+                                <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[150px]">
+                                  {opsLine2}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Case 5: Delivered status according to order
+                        if (order.status === 'Delivered') {
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Delivered</span>
+                            </span>
+                          );
+                        }
+
+                        // Case 6: No courier or ops assigned from API
+                        return (
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            Unassigned
                           </span>
-                          <div className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
-                            <Truck className="w-3 h-3 text-slate-400" />
-                            <span>{order.courier || 'Shiprocket Ready'}</span>
-                          </div>
-                        </div>
-                      ) : order.status === 'Shipped' ? (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                            <Truck className="w-3 h-3" />
-                            <span>In Transit</span>
-                          </span>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{order.courier || 'Dispatched'}</div>
-                        </div>
-                      ) : order.status === 'Delivered' ? (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>Delivered</span>
-                          </span>
-                        </div>
-                      ) : (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200">
-                            <Clock className="w-3 h-3" />
-                            <span>{order.courierOpsLine1 || 'Awaiting Action'}</span>
-                          </span>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </td>
 
                     {/* Details Action */}

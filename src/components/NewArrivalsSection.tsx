@@ -233,7 +233,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
               </span>
             </div>
             
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl capitalize">
               {isDiwali 
                 ? 'Handpicked celebratory additions, pooja essentials & seasonal hampers at introductory festive rates.' 
                 : 'Discover our latest direct-import catalog additions at introductory factory rates.'}

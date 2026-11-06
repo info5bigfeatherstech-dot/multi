@@ -1,44 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  Package, 
-  MapPin, 
-  Coins, 
-  Check, 
-  ArrowLeft, 
-  Truck, 
-  Plus, 
-  Trash2, 
-  Gift, 
-  ChevronRight, 
-  Phone, 
-  Loader2, 
-  LogOut, 
-  ShoppingBag, 
-  Home, 
-  Briefcase, 
-  Building, 
-  CheckCircle2, 
-  Pencil, 
+import React, { useState, useEffect } from "react";
+import {
+  User,
+  Package,
+  MapPin,
+  Coins,
+  Check,
+  ArrowLeft,
+  Truck,
+  Plus,
+  Trash2,
+  Gift,
+  ChevronRight,
+  Phone,
+  Loader2,
+  LogOut,
+  ShoppingBag,
+  Home,
+  Briefcase,
+  Building,
+  CheckCircle2,
+  Pencil,
   Copy,
   Heart,
   Minus,
   ExternalLink,
-  AlertCircle
-} from 'lucide-react';
-import { fetchPincodeDetailsFromApi } from '../utils/pincodeApi';
-import { 
-  storefrontAuthApi, 
-  storefrontAddressApi, 
+  AlertCircle,
+  Lock,
+} from "lucide-react";
+import { fetchPincodeDetailsFromApi } from "../utils/pincodeApi";
+import {
+  storefrontAuthApi,
+  storefrontAddressApi,
   storefrontCheckoutApi,
-  storefrontWishlistApi
-} from '../api';
-import { OrderDetailTrackingView } from './profile/OrderDetailTrackingView';
-import { persistUserPhone, getPersistedUserPhone, isAuthenticated, requireAuth } from '../utils/authGuard';
-import { useCart } from '../context/CartContext';
-import { getWishlistIds, getWishlistCount, toggleWishlistItem } from '../utils/wishlistStorage';
-import { getAllProducts, ProductItem } from '../data/storeData';
-import toast from 'react-hot-toast';
+  storefrontWishlistApi,
+} from "../api";
+import { OrderDetailTrackingView } from "./profile/OrderDetailTrackingView";
+import {
+  persistUserPhone,
+  getPersistedUserPhone,
+  isAuthenticated,
+  requireAuth,
+} from "../utils/authGuard";
+import { useCart } from "../context/CartContext";
+import {
+  getWishlistIds,
+  getWishlistCount,
+  toggleWishlistItem,
+} from "../utils/wishlistStorage";
+import { getAllProducts, ProductItem } from "../data/storeData";
+import toast from "react-hot-toast";
 
 interface ProfilePageProps {
   onBackToHome?: () => void;
@@ -47,33 +57,50 @@ interface ProfilePageProps {
   onRequireAuth?: () => void;
 }
 
-type TabKey = 'profile' | 'orders' | 'addresses' | 'wallet' | 'settings' | 'wishlist' | 'cart';
+type TabKey =
+  | "profile"
+  | "orders"
+  | "addresses"
+  | "wallet"
+  | "settings"
+  | "wishlist"
+  | "cart";
 
 const getTabFromLocation = (): TabKey => {
-  if (typeof window === 'undefined') return 'profile';
+  if (typeof window === "undefined") return "profile";
   const path = window.location.pathname.toLowerCase();
-  if (path === '/order' || path === '/orders' || path.startsWith('/order/') || path.startsWith('/orders/')) {
-    return 'orders';
+  if (
+    path === "/order" ||
+    path === "/orders" ||
+    path.startsWith("/order/") ||
+    path.startsWith("/orders/")
+  ) {
+    return "orders";
   }
-  if (path === '/address' || path === '/addresses' || path.startsWith('/address/') || path.startsWith('/addresses/')) {
-    return 'addresses';
+  if (
+    path === "/address" ||
+    path === "/addresses" ||
+    path.startsWith("/address/") ||
+    path.startsWith("/addresses/")
+  ) {
+    return "addresses";
   }
-  if (path === '/wishlist' || path.startsWith('/wishlist/')) {
-    return 'wishlist';
+  if (path === "/wishlist" || path.startsWith("/wishlist/")) {
+    return "wishlist";
   }
-  if (path === '/cart') {
-    return 'cart';
+  if (path === "/cart") {
+    return "cart";
   }
-  if (path === '/profile') {
-    return 'profile';
+  if (path === "/profile") {
+    return "profile";
   }
   const hash = window.location.hash.toLowerCase();
-  if (hash === '#orders' || hash === '#order') return 'orders';
-  if (hash === '#addresses' || hash === '#address') return 'addresses';
-  if (hash === '#wishlist') return 'wishlist';
-  if (hash === '#cart') return 'cart';
-  if (hash === '#profile') return 'profile';
-  return 'profile';
+  if (hash === "#orders" || hash === "#order") return "orders";
+  if (hash === "#addresses" || hash === "#address") return "addresses";
+  if (hash === "#wishlist") return "wishlist";
+  if (hash === "#cart") return "cart";
+  if (hash === "#profile") return "profile";
+  return "profile";
 };
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -88,7 +115,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       if (onRequireAuth) {
         onRequireAuth();
       } else {
-        requireAuth({ message: 'Please log in or register to access your profile and orders' });
+        requireAuth({
+          message:
+            "Please log in or register to access your profile and orders",
+        });
         onBackToHome?.();
       }
     }
@@ -97,15 +127,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [activeTab, setActiveTab] = useState<TabKey>(getTabFromLocation);
 
   // Cart Context Integration
-  const { 
-    cartItems, 
-    totalCount, 
-    subtotal, 
-    totalSavings, 
-    updateQty, 
-    removeFromCart, 
-    addToCart, 
-    openCart 
+  const {
+    cartItems,
+    totalCount,
+    subtotal,
+    totalSavings,
+    updateQty,
+    removeFromCart,
+    addToCart,
+    openCart,
   } = useCart();
 
   // Wishlist State & Live API Sync
@@ -115,7 +145,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     return allProducts.filter((p) => ids.includes(String(p.id)));
   });
   const [isLoadingWishlist, setIsLoadingWishlist] = useState<boolean>(false);
-  const [wishlistCount, setWishlistCount] = useState<number>(() => getWishlistCount());
+  const [wishlistCount, setWishlistCount] = useState<number>(() =>
+    getWishlistCount(),
+  );
 
   // Load wishlist from API and fallback to local
   const loadWishlistData = async () => {
@@ -125,35 +157,64 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
     try {
       const apiRes = await storefrontWishlistApi.getWishlist();
-      const rawList = apiRes?.items || apiRes?.products || (Array.isArray(apiRes) ? apiRes : []);
+      const rawList =
+        apiRes?.items ||
+        apiRes?.products ||
+        (Array.isArray(apiRes) ? apiRes : []);
 
       if (Array.isArray(rawList) && rawList.length > 0) {
         const mappedFromApi: ProductItem[] = rawList.map((item: any) => {
           const prod = item?.product || item;
-          const currPrice = Number(prod.currentPrice || prod.price || prod.salePrice || 0);
-          const origPrice = Number(prod.originalPrice || prod.regularPrice || currPrice || 0);
-          const discount = origPrice > currPrice ? Math.round(((origPrice - currPrice) / origPrice) * 100) : 0;
-          const totalStock = Array.isArray(prod.variants) && prod.variants.length > 0
-            ? prod.variants.reduce((sum: number, v: any) => {
-                const q = v.inventory?.quantity ?? v.stock ?? v.availability?.ecomm?.quantity;
-                return typeof q === 'number' ? sum + q : (v.inStock === false ? sum : sum + (typeof prod.stock === 'number' ? prod.stock : 1));
-              }, 0)
-            : (typeof prod.stock === 'number' ? prod.stock : undefined);
-          const isOutOfStockItem = prod.inStock === false || (typeof totalStock === 'number' && totalStock <= 0) || prod.availability?.ecomm?.inStock === false || prod.status === 'out_of_stock' || prod.status === 'OutOfStock';
+          const currPrice = Number(
+            prod.currentPrice || prod.price || prod.salePrice || 0,
+          );
+          const origPrice = Number(
+            prod.originalPrice || prod.regularPrice || currPrice || 0,
+          );
+          const discount =
+            origPrice > currPrice
+              ? Math.round(((origPrice - currPrice) / origPrice) * 100)
+              : 0;
+          const totalStock =
+            Array.isArray(prod.variants) && prod.variants.length > 0
+              ? prod.variants.reduce((sum: number, v: any) => {
+                  const q =
+                    v.inventory?.quantity ??
+                    v.stock ??
+                    v.availability?.ecomm?.quantity;
+                  return typeof q === "number"
+                    ? sum + q
+                    : v.inStock === false
+                      ? sum
+                      : sum + (typeof prod.stock === "number" ? prod.stock : 1);
+                }, 0)
+              : typeof prod.stock === "number"
+                ? prod.stock
+                : undefined;
+          const isOutOfStockItem =
+            prod.inStock === false ||
+            (typeof totalStock === "number" && totalStock <= 0) ||
+            prod.availability?.ecomm?.inStock === false ||
+            prod.status === "out_of_stock" ||
+            prod.status === "OutOfStock";
 
           return {
             id: String(prod._id || prod.id || item.productId),
             slug: prod.slug,
-            title: prod.title || prod.name || 'Wishlisted Product',
+            title: prod.title || prod.name || "Wishlisted Product",
             currentPrice: currPrice,
             originalPrice: origPrice,
             discountPercentage: discount,
-            image: prod.image?.url || prod.images?.[0]?.url || (typeof prod.image === 'string' ? prod.image : '') || '',
-            category: prod.category?.name || prod.category || 'General',
+            image:
+              prod.image?.url ||
+              prod.images?.[0]?.url ||
+              (typeof prod.image === "string" ? prod.image : "") ||
+              "",
+            category: prod.category?.name || prod.category || "General",
             rating: prod.rating || 4.5,
             reviews: prod.reviews || prod.reviewsCount || 10,
             inStock: !isOutOfStockItem,
-            stock: typeof prod.stock === 'number' ? prod.stock : totalStock,
+            stock: typeof prod.stock === "number" ? prod.stock : totalStock,
           };
         });
 
@@ -171,11 +232,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         return;
       }
     } catch (err) {
-      console.warn('Wishlist API notice:', err);
+      console.warn("Wishlist API notice:", err);
     }
 
     if (localIds.length > 0) {
-      const matched = allProducts.filter((p) => localIds.includes(String(p.id)));
+      const matched = allProducts.filter((p) =>
+        localIds.includes(String(p.id)),
+      );
       setWishlistItems(matched);
       setWishlistCount(matched.length);
     } else {
@@ -192,25 +255,34 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       setWishlistCount(getWishlistCount());
       const allProducts = getAllProducts();
       const localIds = getWishlistIds();
-      const matched = allProducts.filter((p) => localIds.includes(String(p.id)));
+      const matched = allProducts.filter((p) =>
+        localIds.includes(String(p.id)),
+      );
       setWishlistItems(matched);
     };
 
-    window.addEventListener('abb_wishlist_change', handleWishlistChange);
-    return () => window.removeEventListener('abb_wishlist_change', handleWishlistChange);
+    window.addEventListener("abb_wishlist_change", handleWishlistChange);
+    return () =>
+      window.removeEventListener("abb_wishlist_change", handleWishlistChange);
   }, []);
 
   const handleRemoveFromWishlist = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const item = wishlistItems.find((it) => it.id === id);
-    const slug = item?.slug || item?.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || id;
+    const slug =
+      item?.slug ||
+      item?.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") ||
+      id;
     toggleWishlistItem(id, slug);
     setWishlistItems((prev) => prev.filter((it) => it.id !== id));
     setWishlistCount(getWishlistCount());
-    toast.success('Item removed from wishlist');
+    toast.success("Item removed from wishlist");
   };
 
-  const handleMoveWishlistToCart = (item: ProductItem, e?: React.MouseEvent) => {
+  const handleMoveWishlistToCart = (
+    item: ProductItem,
+    e?: React.MouseEvent,
+  ) => {
     e?.stopPropagation();
     addToCart({
       id: item.id,
@@ -220,11 +292,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       image: item.image,
       category: item.category,
     });
-    const slug = item.slug || item.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || item.id;
+    const slug =
+      item.slug ||
+      item.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") ||
+      item.id;
     toggleWishlistItem(item.id, slug);
     setWishlistItems((prev) => prev.filter((it) => it.id !== item.id));
     setWishlistCount(getWishlistCount());
-    toast.success('Moved to cart!');
+    toast.success("Moved to cart!");
   };
 
   const handleMoveAllWishlistToCart = () => {
@@ -241,9 +316,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           category: item.category,
         },
         1,
-        { silent: true }
+        { silent: true },
       );
-      const slug = item.slug || item.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || item.id;
+      const slug =
+        item.slug ||
+        item.title?.toLowerCase().replace(/[^a-z0-9]+/g, "-") ||
+        item.id;
       toggleWishlistItem(item.id, slug);
     });
     setWishlistItems([]);
@@ -254,80 +332,111 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // User Profile Form State
   const [userName, setUserName] = useState(() => {
     try {
-      const saved = localStorage.getItem('abb_user_profile_name');
-      if (saved && saved !== 'Google User') return saved;
-      return 'Rahul Sharma';
+      const saved = localStorage.getItem("abb_user_profile_name");
+      if (saved && saved !== "Google User" && saved !== "Rahul Sharma")
+        return saved;
+      return "";
     } catch {
-      return 'Rahul Sharma';
+      return "";
     }
   });
   const [userEmail, setUserEmail] = useState(() => {
     try {
-      const saved = localStorage.getItem('abb_user_profile_email');
-      if (saved && saved !== 'user@gmail.com') return saved;
-      return 'rahul.sharma@example.com';
+      const saved = localStorage.getItem("abb_user_profile_email");
+      if (
+        saved &&
+        saved !== "user@gmail.com" &&
+        saved !== "rahul.sharma@example.com"
+      )
+        return saved;
+      return "";
     } catch {
-      return 'rahul.sharma@example.com';
+      return "";
     }
   });
+  // Track whether email was already added so it cannot be edited once set
+  const [isEmailInitiallyAdded, setIsEmailInitiallyAdded] = useState(() => {
+    try {
+      const saved = localStorage.getItem("abb_user_profile_email");
+      return Boolean(
+        saved &&
+        saved.trim().length > 0 &&
+        saved !== "user@gmail.com" &&
+        saved !== "rahul.sharma@example.com",
+      );
+    } catch {
+      return false;
+    }
+  });
+  const isEmailLocked = Boolean(
+    isEmailInitiallyAdded || (userEmail && userEmail.trim().length > 0),
+  );
   const [userPhone, setUserPhone] = useState(() => {
     try {
-      const email = localStorage.getItem('abb_user_profile_email') || '';
-      return getPersistedUserPhone(email) || localStorage.getItem('abb_user_profile_phone') || '';
+      const email = localStorage.getItem("abb_user_profile_email") || "";
+      return (
+        getPersistedUserPhone(email) ||
+        localStorage.getItem("abb_user_profile_phone") ||
+        ""
+      );
     } catch {
-      return '';
+      return "";
     }
   });
   const [isSavedNotice, setIsSavedNotice] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Addresses State strictly loaded from API (no localStorage fallback)
-  const [addresses, setAddresses] = useState<Array<{
-    id: string;
-    type: string;
-    name: string;
-    phone: string;
-    addressLine: string;
-    city: string;
-    state?: string;
-    pincode: string;
-    isDefault?: boolean;
-    houseNumber?: string;
-    area?: string;
-    addressLine1?: string;
-    landmark?: string;
-  }>>([]);
+  const [addresses, setAddresses] = useState<
+    Array<{
+      id: string;
+      type: string;
+      name: string;
+      phone: string;
+      addressLine: string;
+      city: string;
+      state?: string;
+      pincode: string;
+      isDefault?: boolean;
+      houseNumber?: string;
+      area?: string;
+      addressLine1?: string;
+      landmark?: string;
+    }>
+  >([]);
 
   // Clear any legacy mock/cached addresses from localStorage
   useEffect(() => {
     try {
-      localStorage.removeItem('abb_saved_addresses_v1');
+      localStorage.removeItem("abb_saved_addresses_v1");
     } catch {}
   }, []);
 
   // Inline Address Form State (No Modal Popup)
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
-  const [addrFullName, setAddrFullName] = useState(() => userName || '');
-  const [addrPhone, setAddrPhone] = useState(() => userPhone.replace('+91 ', '') || '');
-  const [addrPincode, setAddrPincode] = useState('');
-  const [addrHouseNumber, setAddrHouseNumber] = useState('');
-  const [addrBuilding, setAddrBuilding] = useState('');
-  const [addrFloor, setAddrFloor] = useState('');
-  const [addrArea, setAddrArea] = useState('');
-  const [addrAddressLine1, setAddrAddressLine1] = useState('');
-  const [addrAddressLine2, setAddrAddressLine2] = useState('');
-  const [addrLandmark, setAddrLandmark] = useState('');
-  const [addrCity, setAddrCity] = useState('');
-  const [addrState, setAddrState] = useState('');
-  const [addrType, setAddrType] = useState<'Home' | 'Work' | 'Other'>('Home');
+  const [addrFullName, setAddrFullName] = useState(() => userName || "");
+  const [addrPhone, setAddrPhone] = useState(
+    () => userPhone.replace("+91 ", "") || "",
+  );
+  const [addrPincode, setAddrPincode] = useState("");
+  const [addrHouseNumber, setAddrHouseNumber] = useState("");
+  const [addrBuilding, setAddrBuilding] = useState("");
+  const [addrFloor, setAddrFloor] = useState("");
+  const [addrArea, setAddrArea] = useState("");
+  const [addrAddressLine1, setAddrAddressLine1] = useState("");
+  const [addrAddressLine2, setAddrAddressLine2] = useState("");
+  const [addrLandmark, setAddrLandmark] = useState("");
+  const [addrCity, setAddrCity] = useState("");
+  const [addrState, setAddrState] = useState("");
+  const [addrType, setAddrType] = useState<"Home" | "Work" | "Other">("Home");
   const [addrIsDefault, setAddrIsDefault] = useState(false);
 
   const [isSavingAddress, setIsSavingAddress] = useState(false);
-  const [addressSuccessMsg, setAddressSuccessMsg] = useState('');
-  const [addressFormError, setAddressFormError] = useState('');
+  const [addressSuccessMsg, setAddressSuccessMsg] = useState("");
+  const [addressFormError, setAddressFormError] = useState("");
   const [isFetchingPincode, setIsFetchingPincode] = useState(false);
-  const [pincodeHint, setPincodeHint] = useState('');
+  const [pincodeHint, setPincodeHint] = useState("");
 
   // Orders State strictly fetched from live API - NO DUMMY ORDERS
   const [orders, setOrders] = useState<any[]>([]);
@@ -337,21 +446,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Dedicated inside order details page view state
-  const [selectedOrderIdForInsideView, setSelectedOrderIdForInsideView] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const oParam = params.get('order');
-      if (oParam) return oParam;
-      const hash = window.location.hash;
-      if (hash.startsWith('#order-')) return hash.replace('#order-', '');
-    }
-    return null;
-  });
+  const [selectedOrderIdForInsideView, setSelectedOrderIdForInsideView] =
+    useState<string | null>(() => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const oParam = params.get("order");
+        if (oParam) return oParam;
+        const hash = window.location.hash;
+        if (hash.startsWith("#order-")) return hash.replace("#order-", "");
+      }
+      return null;
+    });
 
   const handleOpenInsideOrder = (orderId: string) => {
     setSelectedOrderIdForInsideView(orderId);
-    if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', `/order?order=${encodeURIComponent(orderId)}`);
+    if (typeof window !== "undefined") {
+      window.history.pushState(
+        null,
+        "",
+        `/order?order=${encodeURIComponent(orderId)}`,
+      );
     }
   };
 
@@ -360,24 +474,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       const tab = getTabFromLocation();
       setActiveTab(tab);
       const params = new URLSearchParams(window.location.search);
-      const oParam = params.get('order');
+      const oParam = params.get("order");
       setSelectedOrderIdForInsideView(oParam || null);
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   // Auto-resolve MongoDB ObjectId (e.g. 6ad59f5a740cc5d773dae434) to public orderId (OWB-ECOMM-...)
   useEffect(() => {
     if (selectedOrderIdForInsideView && orders.length > 0) {
       const matched = orders.find(
-        (o) => o._id === selectedOrderIdForInsideView || o.id === selectedOrderIdForInsideView || o.orderId === selectedOrderIdForInsideView
+        (o) =>
+          o._id === selectedOrderIdForInsideView ||
+          o.id === selectedOrderIdForInsideView ||
+          o.orderId === selectedOrderIdForInsideView,
       );
       const publicId = matched?.orderId || matched?.id;
       if (publicId && publicId !== selectedOrderIdForInsideView) {
         setSelectedOrderIdForInsideView(publicId);
-        if (typeof window !== 'undefined') {
-          window.history.replaceState(null, '', `/order?order=${encodeURIComponent(publicId)}`);
+        if (typeof window !== "undefined") {
+          window.history.replaceState(
+            null,
+            "",
+            `/order?order=${encodeURIComponent(publicId)}`,
+          );
         }
       }
     }
@@ -385,7 +506,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Sync profile, addresses and orders from backend storefrontApi
   useEffect(() => {
-    const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
+    const token =
+      localStorage.getItem("user_access_token") ||
+      localStorage.getItem("user_refresh_token");
     if (!token) {
       if (onRequireAuth) {
         onRequireAuth();
@@ -396,13 +519,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
 
     // 1. Fetch Profile
-    storefrontAuthApi.getProfile()
+    storefrontAuthApi
+      .getProfile()
       .then((profile) => {
         if (profile) {
           if (profile.name) setUserName(profile.name);
           if (profile.email) {
             setUserEmail(profile.email);
-            localStorage.setItem('abb_user_profile_email', profile.email);
+            setIsEmailInitiallyAdded(true);
+            localStorage.setItem("abb_user_profile_email", profile.email);
           }
           if (profile.phone) {
             setUserPhone(profile.phone);
@@ -413,7 +538,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             if (persisted) {
               setUserPhone(persisted);
             } else {
-              setUserPhone('');
+              setUserPhone("");
             }
           }
         }
@@ -421,23 +546,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       .catch(() => {});
 
     // 2. Fetch Addresses strictly from API
-    storefrontAddressApi.list()
+    storefrontAddressApi
+      .list()
       .then((list) => {
         if (Array.isArray(list)) {
           const apiAddrs = list.map((a: any) => ({
             id: a.id || a._id,
-            name: a.fullName || a.name || '',
-            type: a.type || a.addressType || 'Home',
-            phone: a.phone || '',
-            addressLine: a.street || a.addressLine || a.address || '',
-            city: a.city || '',
-            state: a.state || 'Delhi',
-            pincode: a.pincode || a.postalCode || '',
+            name: a.fullName || a.name || "",
+            type: a.type || a.addressType || "Home",
+            phone: a.phone || "",
+            addressLine: a.street || a.addressLine || a.address || "",
+            city: a.city || "",
+            state: a.state || "Delhi",
+            pincode: a.pincode || a.postalCode || "",
             isDefault: a.isDefault || false,
-            houseNumber: a.houseNumber || '',
-            area: a.area || '',
-            addressLine1: a.addressLine1 || '',
-            landmark: a.landmark || a.addressLine2 || '',
+            houseNumber: a.houseNumber || "",
+            area: a.area || "",
+            addressLine1: a.addressLine1 || "",
+            landmark: a.landmark || a.addressLine2 || "",
           }));
           setAddresses(apiAddrs);
         } else {
@@ -445,18 +571,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         }
       })
       .catch((err) => {
-        console.warn('Addresses API error:', err);
+        console.warn("Addresses API error:", err);
         setAddresses([]);
       });
 
     // 3. Clean out legacy dummy mock orders from storage
     try {
-      const saved = localStorage.getItem('abb_user_orders_v1');
+      const saved = localStorage.getItem("abb_user_orders_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((p: any) => p.id !== 'OFB-92841' && p.id !== 'OFB-84912');
-          localStorage.setItem('abb_user_orders_v1', JSON.stringify(cleaned));
+          const cleaned = parsed.filter(
+            (p: any) => p.id !== "OFB-92841" && p.id !== "OFB-84912",
+          );
+          localStorage.setItem("abb_user_orders_v1", JSON.stringify(cleaned));
         }
       }
     } catch {}
@@ -464,16 +592,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     // 4. Fetch Live Orders from Backend API
     setIsLoadingOrders(true);
     setOrdersError(null);
-    storefrontCheckoutApi.getMyOrders()
+    storefrontCheckoutApi
+      .getMyOrders()
       .then((ordersRes) => {
-        const orderList = Array.isArray(ordersRes) 
-          ? ordersRes 
+        const orderList = Array.isArray(ordersRes)
+          ? ordersRes
           : ordersRes?.orders || ordersRes?.items || ordersRes?.data || [];
 
         // Check local storage for session orders to enrich data if backend items are minimal
         let localOrdersMap: Record<string, any> = {};
         try {
-          const saved = localStorage.getItem('abb_user_orders_v1');
+          const saved = localStorage.getItem("abb_user_orders_v1");
           if (saved) {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed)) {
@@ -487,84 +616,184 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         if (Array.isArray(orderList) && orderList.length > 0) {
           const mapped = orderList.map((o: any) => {
             const orderId = o.orderId || o.orderNumber || o.id || o._id;
-            const local = localOrdersMap[orderId] || (o._id ? localOrdersMap[o._id] : {}) || {};
+            const local =
+              localOrdersMap[orderId] ||
+              (o._id ? localOrdersMap[o._id] : {}) ||
+              {};
 
-            const status = o.orderStatus || o.status || local.status || 'Confirmed';
-            let statusColor = 'text-[#A44101] bg-[#A44101]/10 border-[#A44101]/25';
+            const status =
+              o.orderStatus || o.status || local.status || "Confirmed";
+            let statusColor =
+              "text-[#A44101] bg-[#A44101]/10 border-[#A44101]/25";
             let trackingStep = 1;
 
             let displayStatus = status;
             const s = String(status).toLowerCase();
-            if (s.includes('return') || o.returnInfo?.status) {
-              const rStatus = o.returnInfo?.status ? String(o.returnInfo.status).replace('_', ' ') : 'Return Requested';
+            if (s.includes("return") || o.returnInfo?.status) {
+              const rStatus = o.returnInfo?.status
+                ? String(o.returnInfo.status).replace("_", " ")
+                : "Return Requested";
               displayStatus = `Return: ${rStatus}`;
-              statusColor = 'text-amber-800 bg-amber-50 border-amber-300';
+              statusColor = "text-amber-800 bg-amber-50 border-amber-300";
               trackingStep = 4;
-            } else if (s.includes('deliver')) {
-              statusColor = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+            } else if (s.includes("deliver")) {
+              statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
               trackingStep = 4;
-            } else if (s.includes('out for delivery')) {
-              statusColor = 'text-blue-700 bg-blue-50 border-blue-200';
+            } else if (s.includes("out for delivery")) {
+              statusColor = "text-blue-700 bg-blue-50 border-blue-200";
               trackingStep = 3;
-            } else if (s.includes('ship')) {
-              statusColor = 'text-sky-700 bg-sky-50 border-sky-200';
+            } else if (s.includes("ship")) {
+              statusColor = "text-sky-700 bg-sky-50 border-sky-200";
               trackingStep = 2;
-            } else if (s.includes('cancel')) {
-              statusColor = 'text-rose-700 bg-rose-50 border-rose-200';
+            } else if (s.includes("cancel")) {
+              statusColor = "text-rose-700 bg-rose-50 border-rose-200";
               trackingStep = 1;
             }
 
             // Extract pricing details
-            const total = o.pricing?.finalTotal ?? o.pricing?.total ?? o.pricing?.amountPayable ?? o.total ?? o.totalAmount ?? o.amount ?? o.amountPayable ?? local.total ?? 0;
-            const subtotal = o.pricing?.itemsSubtotal ?? o.pricing?.subtotal ?? o.subtotal ?? o.itemsTotal ?? local.subtotal ?? total;
-            const deliveryCharges = o.pricing?.deliveryCharges ?? o.deliveryCharges ?? local.deliveryCharges ?? 0;
-            const discount = o.pricing?.promotionDiscount ?? o.pricing?.discount ?? o.discount ?? local.discount ?? 0;
+            const total =
+              o.pricing?.finalTotal ??
+              o.pricing?.total ??
+              o.pricing?.amountPayable ??
+              o.total ??
+              o.totalAmount ??
+              o.amount ??
+              o.amountPayable ??
+              local.total ??
+              0;
+            const subtotal =
+              o.pricing?.itemsSubtotal ??
+              o.pricing?.subtotal ??
+              o.subtotal ??
+              o.itemsTotal ??
+              local.subtotal ??
+              total;
+            const deliveryCharges =
+              o.pricing?.deliveryCharges ??
+              o.deliveryCharges ??
+              local.deliveryCharges ??
+              0;
+            const discount =
+              o.pricing?.promotionDiscount ??
+              o.pricing?.discount ??
+              o.discount ??
+              local.discount ??
+              0;
 
             // Extract shipping address
-            const addrObj = o.shippingAddress || o.shipping?.address || o.deliveryAddress || o.address || local.shippingAddress || {};
-            const recipientName = addrObj.fullName || addrObj.name || o.customer?.name || o.orderIntent?.recipientName || local.recipientName || 'Customer';
-            const recipientPhone = addrObj.phone || o.customer?.phone || o.orderIntent?.recipientPhone || local.recipientPhone || '';
-            const fullAddress = addrObj.fullAddress || addrObj.addressLine || addrObj.street || addrObj.address || [addrObj.houseNumber, addrObj.addressLine1, addrObj.area, addrObj.city, addrObj.state, addrObj.pincode || addrObj.postalCode].filter(Boolean).join(', ') || local.address || 'Standard Delivery Address';
+            const addrObj =
+              o.shippingAddress ||
+              o.shipping?.address ||
+              o.deliveryAddress ||
+              o.address ||
+              local.shippingAddress ||
+              {};
+            const recipientName =
+              addrObj.fullName ||
+              addrObj.name ||
+              o.customer?.name ||
+              o.orderIntent?.recipientName ||
+              local.recipientName ||
+              "Customer";
+            const recipientPhone =
+              addrObj.phone ||
+              o.customer?.phone ||
+              o.orderIntent?.recipientPhone ||
+              local.recipientPhone ||
+              "";
+            const fullAddress =
+              addrObj.fullAddress ||
+              addrObj.addressLine ||
+              addrObj.street ||
+              addrObj.address ||
+              [
+                addrObj.houseNumber,
+                addrObj.addressLine1,
+                addrObj.area,
+                addrObj.city,
+                addrObj.state,
+                addrObj.pincode || addrObj.postalCode,
+              ]
+                .filter(Boolean)
+                .join(", ") ||
+              local.address ||
+              "Standard Delivery Address";
 
             // Helper to extract items, variants and real product images directly from API response
             const extractItemsFromApi = (list: any[]) => {
               if (!Array.isArray(list) || list.length === 0) return [];
               return list.map((i: any, idx: number) => {
-                const prod = (typeof i.productId === 'object' && i.productId !== null)
-                  ? i.productId
-                  : (typeof i.product === 'object' && i.product !== null ? i.product : {});
+                const prod =
+                  typeof i.productId === "object" && i.productId !== null
+                    ? i.productId
+                    : typeof i.product === "object" && i.product !== null
+                      ? i.product
+                      : {};
 
-                const title = prod.name || prod.title || i.productTitle || i.title || i.name || 'Store Item';
+                const title =
+                  prod.name ||
+                  prod.title ||
+                  i.productTitle ||
+                  i.title ||
+                  i.name ||
+                  "Store Item";
 
                 const matchingVariant = Array.isArray(prod.variants)
-                  ? (prod.variants.find((v: any) => String(v._id || v.id) === String(i.variantId)) || prod.variants[0])
+                  ? prod.variants.find(
+                      (v: any) => String(v._id || v.id) === String(i.variantId),
+                    ) || prod.variants[0]
                   : null;
 
-                const variantImg = matchingVariant?.images?.[0]?.url ||
-                  (typeof matchingVariant?.images?.[0] === 'string' ? matchingVariant?.images?.[0] : null) ||
+                const variantImg =
+                  matchingVariant?.images?.[0]?.url ||
+                  (typeof matchingVariant?.images?.[0] === "string"
+                    ? matchingVariant?.images?.[0]
+                    : null) ||
                   matchingVariant?.image?.url ||
                   matchingVariant?.image;
 
                 const prodImg =
-                  (Array.isArray(prod.images) ? (prod.images[0]?.url || (typeof prod.images[0] === 'string' ? prod.images[0] : null)) : null) ||
+                  (Array.isArray(prod.images)
+                    ? prod.images[0]?.url ||
+                      (typeof prod.images[0] === "string"
+                        ? prod.images[0]
+                        : null)
+                    : null) ||
                   prod.cardImage?.url ||
                   prod.image?.url ||
-                  (typeof prod.image === 'string' ? prod.image : null);
+                  (typeof prod.image === "string" ? prod.image : null);
 
                 const directImg =
                   i.image?.url ||
-                  (typeof i.image === 'string' ? i.image : null) ||
-                  (Array.isArray(i.images) ? (i.images[0]?.url || (typeof i.images[0] === 'string' ? i.images[0] : null)) : null) ||
+                  (typeof i.image === "string" ? i.image : null) ||
+                  (Array.isArray(i.images)
+                    ? i.images[0]?.url ||
+                      (typeof i.images[0] === "string" ? i.images[0] : null)
+                    : null) ||
                   i.thumbnail?.url ||
-                  (typeof i.thumbnail === 'string' ? i.thumbnail : null);
+                  (typeof i.thumbnail === "string" ? i.thumbnail : null);
 
-                const image = variantImg || prodImg || directImg || '';
-                const price = Number((i.priceSnapshot?.sale || i.priceSnapshot?.base) ?? (i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? prod.price ?? 0));
+                const image = variantImg || prodImg || directImg || "";
+                const price = Number(
+                  (i.priceSnapshot?.sale || i.priceSnapshot?.base) ??
+                    i.price ??
+                    i.salePrice ??
+                    i.unitPrice ??
+                    i.currentPrice ??
+                    prod.price ??
+                    0,
+                );
                 const qty = Number(i.quantity ?? i.qty ?? i.count ?? 1);
-                const category = prod.category?.name || prod.category || i.category || '';
+                const category =
+                  prod.category?.name || prod.category || i.category || "";
 
                 return {
-                  id: i.productId?._id || i.productId?.id || i.productId || i.id || `item-${idx}`,
+                  id:
+                    i.productId?._id ||
+                    i.productId?.id ||
+                    i.productId ||
+                    i.id ||
+                    `item-${idx}`,
                   title,
                   image,
                   price,
@@ -574,39 +803,96 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               });
             };
 
-            const rawItems = (o.items && o.items.length > 0) 
-              ? o.items 
-              : (o.orderItems || o.products || o.cartItems || local.items || []);
+            const rawItems =
+              o.items && o.items.length > 0
+                ? o.items
+                : o.orderItems ||
+                  o.products ||
+                  o.cartItems ||
+                  local.items ||
+                  [];
 
             const items = extractItemsFromApi(rawItems);
 
+            const rawEst =
+              o.shipmentInfo?.estimatedDelivery ||
+              o.estimatedDelivery ||
+              o.shipping?.estimatedDelivery ||
+              o.shippingSnapshot?.estimatedDelivery;
+            let resolvedEta = "";
+            if (rawEst) {
+              const d = new Date(rawEst);
+              resolvedEta = !isNaN(d.getTime())
+                ? `Delivery Expected: ${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`
+                : `Delivery Expected: ${rawEst}`;
+            } else if (o.shippingSnapshot?.etaLabel) {
+              resolvedEta = o.shippingSnapshot.etaLabel;
+            } else if (o.shippingSnapshot?.estimatedDays && o.createdAt) {
+              const d = new Date(
+                new Date(o.createdAt).getTime() +
+                  Number(o.shippingSnapshot.estimatedDays) * 86400000,
+              );
+              resolvedEta = `Delivery Expected: ${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`;
+            } else if (s.includes("deliver")) {
+              resolvedEta = "Delivered";
+            } else {
+              resolvedEta = "Awaiting Dispatch";
+            }
+
             return {
               id: orderId,
-              date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : (local.date || 'Recent'),
-              time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+              date: o.createdAt
+                ? new Date(o.createdAt).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
+                : local.date || "Recent",
+              time: o.createdAt
+                ? new Date(o.createdAt).toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "",
               status: displayStatus,
               statusColor,
-              eta: o.estimatedDelivery 
-                ? `Delivery Expected: ${new Date(o.estimatedDelivery).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`
-                : (local.eta || (s.includes('deliver') ? 'Delivered' : 'Delivery Expected: 3-5 days')),
+              eta: resolvedEta,
               total,
               subtotal,
               deliveryCharges,
               discount,
               itemCount: items.length || 1,
               trackingStep,
-              carrier: o.shipping?.carrier || o.carrier || local.carrier || 'Blue Dart Express',
-              trackingNumber: o.shipping?.trackingNumber || o.trackingNumber || o.awbNumber || local.trackingNumber || `BD-${String(orderId).slice(-8).toUpperCase()}`,
-              paymentMethod: o.paymentMethod || o.paymentMode || o.payment?.method || local.paymentMethod || 'Online Payment',
-              paymentStatus: o.paymentStatus || o.payment?.status || (s.includes('pending') ? 'Pending' : 'Completed'),
+              carrier:
+                o.shipmentInfo?.courier ||
+                o.shippingSnapshot?.courierName ||
+                o.shipping?.carrier ||
+                o.carrier ||
+                null,
+              trackingNumber:
+                o.shipmentInfo?.trackingNumber ||
+                o.shipmentInfo?.awbCode ||
+                o.shipping?.trackingNumber ||
+                o.trackingNumber ||
+                null,
+              paymentMethod:
+                o.paymentMethod ||
+                o.paymentMode ||
+                o.payment?.method ||
+                local.paymentMethod ||
+                "Online Payment",
+              paymentStatus:
+                o.paymentStatus ||
+                o.payment?.status ||
+                (s.includes("pending") ? "Pending" : "Completed"),
               shippingAddress: {
                 name: recipientName,
                 phone: recipientPhone,
                 address: fullAddress,
-                city: addrObj.city || '',
-                state: addrObj.state || '',
-                pincode: addrObj.pincode || addrObj.postalCode || '',
-                type: addrObj.type || 'Home',
+                city: addrObj.city || "",
+                state: addrObj.state || "",
+                pincode: addrObj.pincode || addrObj.postalCode || "",
+                type: addrObj.type || "Home",
               },
               items,
               orderId: o.orderId || orderId,
@@ -621,47 +907,86 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           orderList.forEach((o: any) => {
             const oId = o.orderId || o.orderNumber || o.id;
             if (!oId) return;
-            storefrontCheckoutApi.getOrderDetails(oId)
+            storefrontCheckoutApi
+              .getOrderDetails(oId)
               .then((res) => {
                 const detail = res?.order || res?.data || res;
-                const detailItems = detail?.items || detail?.orderItems || detail?.products || [];
+                const detailItems =
+                  detail?.items || detail?.orderItems || detail?.products || [];
                 if (Array.isArray(detailItems) && detailItems.length > 0) {
                   const parsed = detailItems.map((i: any, idx: number) => {
-                    const prod = (typeof i.productId === 'object' && i.productId !== null)
-                      ? i.productId
-                      : (typeof i.product === 'object' && i.product !== null ? i.product : {});
+                    const prod =
+                      typeof i.productId === "object" && i.productId !== null
+                        ? i.productId
+                        : typeof i.product === "object" && i.product !== null
+                          ? i.product
+                          : {};
 
-                    const title = prod.name || prod.title || i.productTitle || i.title || i.name || 'Store Item';
+                    const title =
+                      prod.name ||
+                      prod.title ||
+                      i.productTitle ||
+                      i.title ||
+                      i.name ||
+                      "Store Item";
 
                     const matchingVariant = Array.isArray(prod.variants)
-                      ? (prod.variants.find((v: any) => String(v._id || v.id) === String(i.variantId)) || prod.variants[0])
+                      ? prod.variants.find(
+                          (v: any) =>
+                            String(v._id || v.id) === String(i.variantId),
+                        ) || prod.variants[0]
                       : null;
 
-                    const variantImg = matchingVariant?.images?.[0]?.url ||
-                      (typeof matchingVariant?.images?.[0] === 'string' ? matchingVariant?.images?.[0] : null) ||
+                    const variantImg =
+                      matchingVariant?.images?.[0]?.url ||
+                      (typeof matchingVariant?.images?.[0] === "string"
+                        ? matchingVariant?.images?.[0]
+                        : null) ||
                       matchingVariant?.image?.url ||
                       matchingVariant?.image;
 
                     const prodImg =
-                      (Array.isArray(prod.images) ? (prod.images[0]?.url || (typeof prod.images[0] === 'string' ? prod.images[0] : null)) : null) ||
+                      (Array.isArray(prod.images)
+                        ? prod.images[0]?.url ||
+                          (typeof prod.images[0] === "string"
+                            ? prod.images[0]
+                            : null)
+                        : null) ||
                       prod.cardImage?.url ||
                       prod.image?.url ||
-                      (typeof prod.image === 'string' ? prod.image : null);
+                      (typeof prod.image === "string" ? prod.image : null);
 
                     const directImg =
                       i.image?.url ||
-                      (typeof i.image === 'string' ? i.image : null) ||
-                      (Array.isArray(i.images) ? (i.images[0]?.url || (typeof i.images[0] === 'string' ? i.images[0] : null)) : null) ||
+                      (typeof i.image === "string" ? i.image : null) ||
+                      (Array.isArray(i.images)
+                        ? i.images[0]?.url ||
+                          (typeof i.images[0] === "string" ? i.images[0] : null)
+                        : null) ||
                       i.thumbnail?.url ||
-                      (typeof i.thumbnail === 'string' ? i.thumbnail : null);
+                      (typeof i.thumbnail === "string" ? i.thumbnail : null);
 
-                    const image = variantImg || prodImg || directImg || '';
-                    const price = Number((i.priceSnapshot?.sale || i.priceSnapshot?.base) ?? (i.price ?? i.salePrice ?? i.unitPrice ?? i.currentPrice ?? prod.price ?? 0));
+                    const image = variantImg || prodImg || directImg || "";
+                    const price = Number(
+                      (i.priceSnapshot?.sale || i.priceSnapshot?.base) ??
+                        i.price ??
+                        i.salePrice ??
+                        i.unitPrice ??
+                        i.currentPrice ??
+                        prod.price ??
+                        0,
+                    );
                     const qty = Number(i.quantity ?? i.qty ?? i.count ?? 1);
-                    const category = prod.category?.name || prod.category || i.category || '';
+                    const category =
+                      prod.category?.name || prod.category || i.category || "";
 
                     return {
-                      id: i.productId?._id || i.productId?.id || i.productId || i.id || `item-${idx}`,
+                      id:
+                        i.productId?._id ||
+                        i.productId?.id ||
+                        i.productId ||
+                        i.id ||
+                        `item-${idx}`,
                       title,
                       image,
                       price,
@@ -673,10 +998,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   if (parsed.length > 0) {
                     setOrders((prev) =>
                       prev.map((ord) =>
-                        (ord.id === oId || ord.orderId === oId || (o._id && ord._id === o._id))
+                        ord.id === oId ||
+                        ord.orderId === oId ||
+                        (o._id && ord._id === o._id)
                           ? { ...ord, items: parsed, itemCount: parsed.length }
-                          : ord
-                      )
+                          : ord,
+                      ),
                     );
                   }
                 }
@@ -686,12 +1013,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         } else {
           // If server returned 0 orders, check if there are genuine session orders from checkout
           try {
-            const saved = localStorage.getItem('abb_user_orders_v1');
+            const saved = localStorage.getItem("abb_user_orders_v1");
             if (saved) {
               const parsed = JSON.parse(saved);
               if (Array.isArray(parsed)) {
-                const realSessionOrders = parsed.filter((p: any) => 
-                  p.id && p.id !== 'OFB-92841' && p.id !== 'OFB-84912'
+                const realSessionOrders = parsed.filter(
+                  (p: any) =>
+                    p.id && p.id !== "OFB-92841" && p.id !== "OFB-84912",
                 );
                 setOrders(realSessionOrders);
                 return;
@@ -702,9 +1030,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         }
       })
       .catch((err) => {
-        console.warn('Orders API error:', err);
+        console.warn("Orders API error:", err);
         setOrders([]);
-        setOrdersError('Unable to load orders at this time');
+        setOrdersError("Unable to load orders at this time");
       })
       .finally(() => {
         setIsLoadingOrders(false);
@@ -718,8 +1046,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setIsSavingProfile(true);
     setProfileError(null);
     try {
-      localStorage.setItem('abb_user_profile_name', userName);
-      localStorage.setItem('abb_user_profile_email', userEmail);
+      localStorage.setItem("abb_user_profile_name", userName);
+      localStorage.setItem("abb_user_profile_email", userEmail);
+      if (userEmail && userEmail.trim()) {
+        setIsEmailInitiallyAdded(true);
+      }
       persistUserPhone(userEmail, userPhone);
 
       // Backend rejects profile updates containing email because email requires verification flow.
@@ -729,12 +1060,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         phone: userPhone,
       });
 
-      window.dispatchEvent(new Event('abb_auth_change'));
+      window.dispatchEvent(new Event("abb_auth_change"));
       setIsSavedNotice(true);
       setTimeout(() => setIsSavedNotice(false), 2500);
     } catch (err: any) {
-      console.warn('Profile update error:', err);
-      const errMsg = err?.response?.data?.message || err?.message || 'Failed to update profile';
+      console.warn("Profile update error:", err);
+      const errMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update profile";
       setProfileError(errMsg);
     } finally {
       setIsSavingProfile(false);
@@ -744,27 +1078,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // Sync profile fields automatically whenever auth or phone updates anywhere in the app
   useEffect(() => {
     const handlePhoneUpdate = () => {
-      const em = localStorage.getItem('abb_user_profile_email') || '';
-      const ph = getPersistedUserPhone(em) || localStorage.getItem('abb_user_profile_phone') || '';
+      const em = localStorage.getItem("abb_user_profile_email") || "";
+      const ph =
+        getPersistedUserPhone(em) ||
+        localStorage.getItem("abb_user_profile_phone") ||
+        "";
       if (ph) setUserPhone(ph);
-      const nameVal = localStorage.getItem('abb_user_profile_name');
+      const nameVal = localStorage.getItem("abb_user_profile_name");
       if (nameVal) setUserName(nameVal);
-      const emailVal = localStorage.getItem('abb_user_profile_email');
+      const emailVal = localStorage.getItem("abb_user_profile_email");
       if (emailVal) setUserEmail(emailVal);
     };
-    window.addEventListener('abb_auth_change', handlePhoneUpdate);
-    return () => window.removeEventListener('abb_auth_change', handlePhoneUpdate);
+    window.addEventListener("abb_auth_change", handlePhoneUpdate);
+    return () =>
+      window.removeEventListener("abb_auth_change", handlePhoneUpdate);
   }, []);
 
   useEffect(() => {
     if (userName && !addrFullName) setAddrFullName(userName);
-    if (userPhone && !addrPhone) setAddrPhone(userPhone.replace('+91 ', ''));
+    if (userPhone && !addrPhone) setAddrPhone(userPhone.replace("+91 ", ""));
   }, [userName, userPhone]);
 
   const handleInlinePincodeChange = async (val: string) => {
-    const cleaned = val.replace(/\D/g, '').slice(0, 6);
+    const cleaned = val.replace(/\D/g, "").slice(0, 6);
     setAddrPincode(cleaned);
-    setPincodeHint('');
+    setPincodeHint("");
     if (cleaned.length === 6) {
       setIsFetchingPincode(true);
       try {
@@ -773,7 +1111,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           if (details.city) setAddrCity(details.city);
           if (details.state) setAddrState(details.state);
           if (details.locality && !addrArea) setAddrArea(details.locality);
-          setPincodeHint(`${details.city}${details.state ? `, ${details.state}` : ''}`);
+          setPincodeHint(
+            `${details.city}${details.state ? `, ${details.state}` : ""}`,
+          );
         }
       } catch {
         // ignore
@@ -785,86 +1125,102 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const resetAddressForm = () => {
     setEditingAddressId(null);
-    setAddrFullName(userName || '');
-    setAddrPhone((userPhone || '').replace('+91 ', '') || '');
-    setAddrPincode('');
-    setAddrHouseNumber('');
-    setAddrBuilding('');
-    setAddrFloor('');
-    setAddrArea('');
-    setAddrAddressLine1('');
-    setAddrAddressLine2('');
-    setAddrLandmark('');
-    setAddrCity('');
-    setAddrState('');
-    setAddrType('Home');
+    setAddrFullName(userName || "");
+    setAddrPhone((userPhone || "").replace("+91 ", "") || "");
+    setAddrPincode("");
+    setAddrHouseNumber("");
+    setAddrBuilding("");
+    setAddrFloor("");
+    setAddrArea("");
+    setAddrAddressLine1("");
+    setAddrAddressLine2("");
+    setAddrLandmark("");
+    setAddrCity("");
+    setAddrState("");
+    setAddrType("Home");
     setAddrIsDefault(false);
-    setPincodeHint('');
-    setAddressFormError('');
+    setPincodeHint("");
+    setAddressFormError("");
   };
 
   const handleStartEditAddress = (addr: any) => {
     setEditingAddressId(addr.id);
-    setAddressFormError('');
-    setAddrFullName(addr.name || addr.fullName || '');
-    const cleanPhone = (addr.phone || '').replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
+    setAddressFormError("");
+    setAddrFullName(addr.name || addr.fullName || "");
+    const cleanPhone = (addr.phone || "")
+      .replace(/^(\+91|91)/, "")
+      .replace(/\D/g, "")
+      .slice(-10);
     setAddrPhone(cleanPhone);
-    setAddrPincode(addr.pincode || addr.postalCode || '');
-    setAddrCity(addr.city || '');
-    setAddrState(addr.state || 'Delhi');
-    setAddrType((addr.type as 'Home' | 'Work' | 'Other') || 'Home');
+    setAddrPincode(addr.pincode || addr.postalCode || "");
+    setAddrCity(addr.city || "");
+    setAddrState(addr.state || "Delhi");
+    setAddrType((addr.type as "Home" | "Work" | "Other") || "Home");
     setAddrIsDefault(Boolean(addr.isDefault));
 
-    setAddrHouseNumber(addr.houseNumber || '');
-    setAddrBuilding(addr.building || '');
-    setAddrFloor(addr.floor || '');
-    setAddrArea(addr.area || '');
-    setAddrAddressLine1(addr.addressLine1 || addr.addressLine || '');
-    setAddrAddressLine2(addr.addressLine2 || '');
-    setAddrLandmark(addr.landmark || '');
+    setAddrHouseNumber(addr.houseNumber || "");
+    setAddrBuilding(addr.building || "");
+    setAddrFloor(addr.floor || "");
+    setAddrArea(addr.area || "");
+    setAddrAddressLine1(addr.addressLine1 || addr.addressLine || "");
+    setAddrAddressLine2(addr.addressLine2 || "");
+    setAddrLandmark(addr.landmark || "");
 
-    setPincodeHint(`${addr.city || ''}${addr.state ? `, ${addr.state}` : ''}`);
+    setPincodeHint(`${addr.city || ""}${addr.state ? `, ${addr.state}` : ""}`);
     setShowAddressForm(true);
-    window.scrollTo({ top: 120, behavior: 'smooth' });
+    window.scrollTo({ top: 120, behavior: "smooth" });
   };
 
   const handleSaveInlineAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAddressFormError('');
+    setAddressFormError("");
 
     if (!addrFullName.trim()) {
-      setAddressFormError('Please enter full name');
+      setAddressFormError("Please enter full name");
       return;
     }
-    const cleanPhone = addrPhone.replace(/^(\+91|91)/, '').replace(/\D/g, '').slice(-10);
-    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
-      setAddressFormError('Phone must be a valid 10-digit Indian mobile number (e.g. 9876543210)');
+    const cleanPhone = addrPhone
+      .replace(/^(\+91|91)/, "")
+      .replace(/\D/g, "")
+      .slice(-10);
+    if (
+      !cleanPhone ||
+      cleanPhone.length !== 10 ||
+      !/^[6-9]\d{9}$/.test(cleanPhone)
+    ) {
+      setAddressFormError(
+        "Phone must be a valid 10-digit Indian mobile number (e.g. 9876543210)",
+      );
       return;
     }
-    const cleanPin = addrPincode.replace(/\D/g, '');
+    const cleanPin = addrPincode.replace(/\D/g, "");
     if (cleanPin.length !== 6) {
-      setAddressFormError('Postal code / Pincode must be exactly 6 digits');
+      setAddressFormError("Postal code / Pincode must be exactly 6 digits");
       return;
     }
     if (!addrHouseNumber.trim()) {
-      setAddressFormError('House / flat / building number is required');
+      setAddressFormError("House / flat / building number is required");
       return;
     }
     if (!addrArea.trim()) {
-      setAddressFormError('Area / locality is required');
+      setAddressFormError("Area / locality is required");
       return;
     }
-    const finalAddressLine1 = addrAddressLine1.trim() || `${addrHouseNumber.trim()}, ${addrArea.trim()}`;
+    const finalAddressLine1 =
+      addrAddressLine1.trim() ||
+      `${addrHouseNumber.trim()}, ${addrArea.trim()}`;
     if (!finalAddressLine1) {
-      setAddressFormError('Address line 1 is required. Include street name, building, or road details.');
+      setAddressFormError(
+        "Address line 1 is required. Include street name, building, or road details.",
+      );
       return;
     }
     if (!addrCity.trim()) {
-      setAddressFormError('Please enter City / District');
+      setAddressFormError("Please enter City / District");
       return;
     }
     if (!addrState.trim()) {
-      setAddressFormError('Please enter State');
+      setAddressFormError("Please enter State");
       return;
     }
 
@@ -877,8 +1233,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       finalAddressLine1,
       addrAddressLine2.trim(),
       addrArea.trim(),
-      addrLandmark.trim() ? `Near ${addrLandmark.trim()}` : '',
-    ].filter(Boolean).join(', ');
+      addrLandmark.trim() ? `Near ${addrLandmark.trim()}` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
 
     if (editingAddressId) {
       // 1. Updating existing address
@@ -898,7 +1256,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           street: fullStreet,
           landmark: addrLandmark.trim(),
           city: addrCity.trim(),
-          state: addrState.trim() || 'Delhi',
+          state: addrState.trim() || "Delhi",
           type: addrType,
           isDefault: addrIsDefault,
         });
@@ -910,7 +1268,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           type: addrType,
           addressLine: fullStreet,
           city: addrCity.trim(),
-          state: addrState.trim() || 'Delhi',
+          state: addrState.trim() || "Delhi",
           pincode: cleanPin,
           isDefault: addrIsDefault,
           houseNumber: addrHouseNumber.trim(),
@@ -922,7 +1280,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           landmark: addrLandmark.trim(),
         };
 
-        let updatedList = addresses.map((a) => (a.id === editingAddressId ? { ...a, ...updatedObj } : a));
+        let updatedList = addresses.map((a) =>
+          a.id === editingAddressId ? { ...a, ...updatedObj } : a,
+        );
         if (addrIsDefault) {
           updatedList = updatedList.map((a) => ({
             ...a,
@@ -931,13 +1291,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         }
 
         setAddresses(updatedList);
-        setAddressSuccessMsg('Delivery address updated successfully!');
+        setAddressSuccessMsg("Delivery address updated successfully!");
         resetAddressForm();
         setShowAddressForm(false);
-        setTimeout(() => setAddressSuccessMsg(''), 3000);
+        setTimeout(() => setAddressSuccessMsg(""), 3000);
       } catch (apiErr: any) {
-        console.warn('Backend update address warning:', apiErr?.message);
-        setAddressFormError(apiErr?.response?.data?.message || apiErr?.message || 'Failed to update address on server.');
+        console.warn("Backend update address warning:", apiErr?.message);
+        setAddressFormError(
+          apiErr?.response?.data?.message ||
+            apiErr?.message ||
+            "Failed to update address on server.",
+        );
       } finally {
         setIsSavingAddress(false);
       }
@@ -951,7 +1315,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       type: addrType,
       addressLine: fullStreet,
       city: addrCity.trim(),
-      state: addrState.trim() || 'Delhi',
+      state: addrState.trim() || "Delhi",
       pincode: cleanPin,
       isDefault: addresses.length === 0 || addrIsDefault,
       houseNumber: addrHouseNumber.trim(),
@@ -980,7 +1344,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         landmark: addrLandmark.trim(),
         city: newAddrObj.city,
         state: newAddrObj.state,
-        type: newAddrObj.type === 'Work' ? 'Work' : 'Home',
+        type: newAddrObj.type === "Work" ? "Work" : "Home",
         isDefault: newAddrObj.isDefault,
       });
 
@@ -996,13 +1360,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       }
 
       setAddresses(updatedList);
-      setAddressSuccessMsg('Delivery address saved successfully!');
+      setAddressSuccessMsg("Delivery address saved successfully!");
       resetAddressForm();
       setShowAddressForm(false);
-      setTimeout(() => setAddressSuccessMsg(''), 3000);
+      setTimeout(() => setAddressSuccessMsg(""), 3000);
     } catch (apiErr: any) {
-      console.warn('API address sync note:', apiErr);
-      const errMsg = apiErr?.response?.data?.message || apiErr?.message || 'Failed to save address on server. Please check required fields.';
+      console.warn("API address sync note:", apiErr);
+      const errMsg =
+        apiErr?.response?.data?.message ||
+        apiErr?.message ||
+        "Failed to save address on server. Please check required fields.";
       setAddressFormError(errMsg);
     } finally {
       setIsSavingAddress(false);
@@ -1014,19 +1381,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       await storefrontAddressApi.delete(id);
       setAddresses((prev) => prev.filter((a) => a.id !== id));
     } catch (err: any) {
-      console.warn('Failed to delete address:', err);
+      console.warn("Failed to delete address:", err);
     }
   };
 
   const handleSetDefaultAddress = async (id: string) => {
     try {
       await storefrontAddressApi.update(id, { isDefault: true });
-      setAddresses((prev) => prev.map((a) => ({
-        ...a,
-        isDefault: a.id === id,
-      })));
+      setAddresses((prev) =>
+        prev.map((a) => ({
+          ...a,
+          isDefault: a.id === id,
+        })),
+      );
     } catch (err: any) {
-      console.warn('Failed to set default address:', err);
+      console.warn("Failed to set default address:", err);
     }
   };
 
@@ -1046,23 +1415,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       // Calls POST /auth/logout API endpoint & removes user_access_token
       await storefrontAuthApi.logout();
     } catch (err) {
-      console.warn('Logout API notice:', err);
+      console.warn("Logout API notice:", err);
     } finally {
-      localStorage.removeItem('user_access_token');
-      localStorage.removeItem('abb_user_profile_name');
-      localStorage.removeItem('abb_user_profile_email');
-      localStorage.removeItem('abb_user_profile_phone');
+      localStorage.removeItem("user_access_token");
+      localStorage.removeItem("abb_user_profile_name");
+      localStorage.removeItem("abb_user_profile_email");
+      localStorage.removeItem("abb_user_profile_phone");
       setIsLoggingOut(false);
-      window.dispatchEvent(new Event('abb_auth_change'));
+      window.dispatchEvent(new Event("abb_auth_change"));
       if (onBackToHome) {
         onBackToHome();
       } else {
-        window.location.href = '/';
+        window.location.href = "/";
       }
     }
   };
 
-  const hasAccessToken = typeof window !== 'undefined' ? Boolean(localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token')) : true;
+  const hasAccessToken =
+    typeof window !== "undefined"
+      ? Boolean(
+          localStorage.getItem("user_access_token") ||
+          localStorage.getItem("user_refresh_token"),
+        )
+      : true;
   if (!hasAccessToken) {
     return null;
   }
@@ -1070,21 +1445,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   return (
     <div className="bg-white min-h-screen py-6 sm:py-10 animate-fadeIn">
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        
-
-
         {/* User Hero Banner */}
         <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-navy text-white flex items-center justify-center font-bold text-2xl sm:text-3xl border-4 border-white shadow-md">
-              {userName ? userName.charAt(0).toUpperCase() : <User className="w-8 h-8" />}
+              {userName ? (
+                userName.charAt(0).toUpperCase()
+              ) : (
+                <User className="w-8 h-8" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-navy">{userName || 'My Account'}</h1>
+                <h1 className="text-xl sm:text-2xl font-black text-navy">
+                  {userName || "My Account"}
+                </h1>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                {userEmail || userPhone ? `${userEmail || ''} ${userEmail && userPhone ? '•' : ''} ${userPhone || ''}` : 'Manage your orders, saved addresses and preferences'}
+                {userEmail || userPhone
+                  ? `${userEmail || ""} ${userEmail && userPhone ? "•" : ""} ${userPhone || ""}`
+                  : "Manage your orders, saved addresses and preferences"}
               </p>
               <p className="text-[11px] text-slate-500 font-medium mt-1">
                 Member of Apna Bharat Bazaar
@@ -1095,22 +1475,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
         {/* Dashboard Navigation Tabs & Content */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-          
           {/* Left Navigation Sidebar */}
           <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-soft p-2 space-y-1">
             <button
               type="button"
               onClick={() => {
-                setActiveTab('orders');
+                setActiveTab("orders");
                 setSelectedOrderIdForInsideView(null);
-                if (typeof window !== 'undefined' && window.location.pathname !== '/order') {
-                  window.history.pushState(null, '', '/order');
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.pathname !== "/order"
+                ) {
+                  window.history.pushState(null, "", "/order");
                 }
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                activeTab === 'orders'
-                  ? 'bg-navy text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+                activeTab === "orders"
+                  ? "bg-navy text-white shadow-xs"
+                  : "text-slate-700 hover:bg-stone-100 hover:text-navy"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -1118,23 +1500,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <span>My Orders & Tracking</span>
               </div>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-current">
-                {isLoadingOrders ? '...' : orders.length}
+                {isLoadingOrders ? "..." : orders.length}
               </span>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setActiveTab('profile');
+                setActiveTab("profile");
                 setSelectedOrderIdForInsideView(null);
-                if (typeof window !== 'undefined' && window.location.pathname !== '/profile') {
-                  window.history.pushState(null, '', '/profile');
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.pathname !== "/profile"
+                ) {
+                  window.history.pushState(null, "", "/profile");
                 }
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                activeTab === 'profile'
-                  ? 'bg-navy text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+                activeTab === "profile"
+                  ? "bg-navy text-white shadow-xs"
+                  : "text-slate-700 hover:bg-stone-100 hover:text-navy"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -1147,16 +1532,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => {
-                setActiveTab('addresses');
+                setActiveTab("addresses");
                 setSelectedOrderIdForInsideView(null);
-                if (typeof window !== 'undefined' && window.location.pathname !== '/address') {
-                  window.history.pushState(null, '', '/address');
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.pathname !== "/address"
+                ) {
+                  window.history.pushState(null, "", "/address");
                 }
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                activeTab === 'addresses'
-                  ? 'bg-navy text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+                activeTab === "addresses"
+                  ? "bg-navy text-white shadow-xs"
+                  : "text-slate-700 hover:bg-stone-100 hover:text-navy"
               }`}
             >
               <div className="flex items-center gap-3">
@@ -1172,25 +1560,32 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => {
-                setActiveTab('wishlist');
+                setActiveTab("wishlist");
                 setSelectedOrderIdForInsideView(null);
-                if (typeof window !== 'undefined' && window.location.pathname !== '/wishlist') {
-                  window.history.pushState(null, '', '/wishlist');
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.pathname !== "/wishlist"
+                ) {
+                  window.history.pushState(null, "", "/wishlist");
                 }
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                activeTab === 'wishlist'
-                  ? 'bg-navy text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+                activeTab === "wishlist"
+                  ? "bg-navy text-white shadow-xs"
+                  : "text-slate-700 hover:bg-stone-100 hover:text-navy"
               }`}
             >
               <div className="flex items-center gap-3">
                 <Heart className="w-4 h-4" />
                 <span>My Saved Wishlist</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                activeTab === 'wishlist' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700'
-              }`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeTab === "wishlist"
+                    ? "bg-white/20 text-white"
+                    : "bg-rose-100 text-rose-700"
+                }`}
+              >
                 {wishlistCount}
               </span>
             </button>
@@ -1199,30 +1594,35 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               type="button"
               onClick={() => {
-                setActiveTab('cart');
+                setActiveTab("cart");
                 setSelectedOrderIdForInsideView(null);
-                if (typeof window !== 'undefined' && window.location.pathname !== '/cart') {
-                  window.history.pushState(null, '', '/cart');
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.pathname !== "/cart"
+                ) {
+                  window.history.pushState(null, "", "/cart");
                 }
               }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                activeTab === 'cart'
-                  ? 'bg-navy text-white shadow-xs'
-                  : 'text-slate-700 hover:bg-stone-100 hover:text-navy'
+                activeTab === "cart"
+                  ? "bg-navy text-white shadow-xs"
+                  : "text-slate-700 hover:bg-stone-100 hover:text-navy"
               }`}
             >
               <div className="flex items-center gap-3">
                 <ShoppingBag className="w-4 h-4" />
                 <span>My Shopping Cart</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                activeTab === 'cart' ? 'bg-white/20 text-white' : 'bg-[#A44101]/15 text-[#A44101]'
-              }`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeTab === "cart"
+                    ? "bg-white/20 text-white"
+                    : "bg-[#A44101]/15 text-[#A44101]"
+                }`}
+              >
                 {totalCount}
               </span>
             </button>
-
-         
 
             {/* Logout button in sidebar */}
             <div className="pt-2 mt-2 border-t border-slate-100">
@@ -1233,33 +1633,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 transition-colors cursor-pointer border border-transparent hover:border-red-100 disabled:opacity-60"
               >
                 <div className="flex items-center gap-3">
-                  {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin text-red-600" /> : <LogOut className="w-4 h-4" />}
-                  <span>{isLoggingOut ? 'Logging out...' : 'Log Out'}</span>
+                  {isLoggingOut ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
+                  <span>{isLoggingOut ? "Logging out..." : "Log Out"}</span>
                 </div>
-                <span className="text-[10px] text-red-400 font-mono">auth/logout</span>
               </button>
             </div>
           </div>
 
           {/* Right Tab Content View */}
           <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-soft p-5 sm:p-7 min-h-[460px]">
-            
             {/* TAB 1: ORDERS & TRACKING */}
-            {activeTab === 'orders' && (
-              selectedOrderIdForInsideView ? (
+            {activeTab === "orders" &&
+              (selectedOrderIdForInsideView ? (
                 (() => {
                   const matchedOrder = orders.find(
-                    (o) => o.id === selectedOrderIdForInsideView || o.orderId === selectedOrderIdForInsideView || o._id === selectedOrderIdForInsideView
+                    (o) =>
+                      o.id === selectedOrderIdForInsideView ||
+                      o.orderId === selectedOrderIdForInsideView ||
+                      o._id === selectedOrderIdForInsideView,
                   );
-                  const effectiveId = matchedOrder?.orderId || matchedOrder?.id || selectedOrderIdForInsideView;
+                  const effectiveId =
+                    matchedOrder?.orderId ||
+                    matchedOrder?.id ||
+                    selectedOrderIdForInsideView;
                   return (
                     <OrderDetailTrackingView
                       orderId={effectiveId}
                       initialOrder={matchedOrder}
                       onBack={() => {
                         setSelectedOrderIdForInsideView(null);
-                        if (typeof window !== 'undefined') {
-                          window.history.pushState(null, '', '/order');
+                        if (typeof window !== "undefined") {
+                          window.history.pushState(null, "", "/order");
                         }
                       }}
                       onGoToCheckout={onGoToCheckout}
@@ -1268,183 +1676,233 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 })()
               ) : (
                 <div className="space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
-                  <div>
-                    <h2 className="text-lg font-bold text-navy">Order History & Shipment Tracking</h2>
-                    <p className="text-xs text-slate-500 mt-0.5 capitalize">Track your packages, download GST invoices, and reorder</p>
-                  </div>
-                  <span className="text-xs text-navy bg-slate-100 px-2.5 py-1 rounded-full font-bold border border-slate-200">
-                    {isLoadingOrders ? 'Checking status...' : orders.length > 0 ? `${orders.length} Order${orders.length === 1 ? '' : 's'}` : '0 Orders'}
-                  </span>
-                </div>
-
-                {isLoadingOrders ? (
-                  <div className="py-20 text-center space-y-3">
-                    <Loader2 className="w-8 h-8 text-[#A44101] animate-spin mx-auto" />
-                    <p className="text-sm font-bold text-navy">Loading your orders...</p>
-                    <p className="text-xs text-slate-400">Fetching live order records from server</p>
-                  </div>
-                ) : orders.length === 0 ? (
-                  <div className="py-16 px-4 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-stone-50/50 space-y-4">
-                    <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
-                      <Package className="w-8 h-8" />
-                    </div>
-                    <div className="max-w-md mx-auto space-y-1">
-                      <h3 className="text-base font-bold text-navy">No Orders Found</h3>
-                      <p className="text-xs text-slate-500">
-                        {ordersError ? ordersError : "You haven't placed any orders yet. Discover our fresh collection and place your first order today!"}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                    <div>
+                      <h2 className="text-lg font-bold text-navy">
+                        Order History & Shipment Tracking
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5 capitalize">
+                        Track your packages, download GST invoices, and reorder
                       </p>
                     </div>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={onBackToHome}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-                      >
-                        <ShoppingBag className="w-4 h-4" />
-                        <span>Start Shopping</span>
-                      </button>
-                    </div>
+                    <span className="text-xs text-navy bg-slate-100 px-2.5 py-1 rounded-full font-bold border border-slate-200">
+                      {isLoadingOrders
+                        ? "Checking status..."
+                        : orders.length > 0
+                          ? `${orders.length} Order${orders.length === 1 ? "" : "s"}`
+                          : "0 Orders"}
+                    </span>
                   </div>
-                ) : (
-                  <div className="space-y-5">
-                    {orders.map((order) => {
-                      const displayItems = (order.items && order.items.length > 0)
-                        ? order.items
-                        : [
-                            {
-                              id: `order-item-${order.id}`,
-                              title: `Order #${String(order.id).length > 10 ? String(order.id).slice(-6) : order.id}`,
-                              image: '',
-                              price: order.total || 0,
-                              qty: 1,
-                              category: 'Order',
-                            }
-                          ];
 
-                      return (
-                        <div 
-                          key={order.id}
-                          onClick={() => handleOpenInsideOrder(order.id)}
-                          className="bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition-all duration-200 p-4 sm:p-5 cursor-pointer group"
+                  {isLoadingOrders ? (
+                    <div className="py-20 text-center space-y-3">
+                      <Loader2 className="w-8 h-8 text-[#A44101] animate-spin mx-auto" />
+                      <p className="text-sm font-bold text-navy">
+                        Loading your orders...
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Fetching live order records from server
+                      </p>
+                    </div>
+                  ) : orders.length === 0 ? (
+                    <div className="py-16 px-4 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-stone-50/50 space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                        <Package className="w-8 h-8" />
+                      </div>
+                      <div className="max-w-md mx-auto space-y-1">
+                        <h3 className="text-base font-bold text-navy">
+                          No Orders Found
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {ordersError
+                            ? ordersError
+                            : "You haven't placed any orders yet. Discover our fresh collection and place your first order today!"}
+                        </p>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={onBackToHome}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
                         >
-                          {/* Row 1: Header (Clean ID, Date, Status Badge, Total Amount) */}
-                          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-mono font-bold text-xs sm:text-sm text-navy group-hover:text-[#A44101] transition-colors flex items-center gap-1.5">
-                                <Package className="w-4 h-4 text-[#A44101]" />
-                                <span>#{String(order.id).length > 12 ? `${String(order.id).slice(0, 6)}...${String(order.id).slice(-4)}` : order.id}</span>
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopyText(order.id, `order-${order.id}`);
-                                }}
-                                className="text-slate-400 hover:text-navy p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
-                                title="Copy full Order ID"
-                              >
-                                {copiedId === `order-${order.id}` ? (
-                                  <span className="text-[10px] font-bold text-emerald-600">Copied!</span>
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                              </button>
-                              <span className="text-xs text-slate-300">•</span>
-                              <span className="text-xs text-slate-500 font-medium">Placed on {order.date}{order.time ? ` at ${order.time}` : ''}</span>
-                            </div>
+                          <ShoppingBag className="w-4 h-4" />
+                          <span>Start Shopping</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {orders.map((order) => {
+                        const displayItems =
+                          order.items && order.items.length > 0
+                            ? order.items
+                            : [
+                                {
+                                  id: `order-item-${order.id}`,
+                                  title: `Order #${String(order.id).length > 10 ? String(order.id).slice(-6) : order.id}`,
+                                  image: "",
+                                  price: order.total || 0,
+                                  qty: 1,
+                                  category: "Order",
+                                },
+                              ];
 
-                            <div className="flex items-center gap-3">
-                              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border capitalize ${order.statusColor}`}>
-                                {order.status}
-                              </span>
-                              <span className="text-sm sm:text-base font-black text-navy">
-                                ₹{order.total}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Row 2: Product Thumbnails, Summary & Actions */}
-                          <div className="pt-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              {/* Product Thumbnails Stack */}
-                              <div className="flex items-center -space-x-2 shrink-0">
-                                {displayItems.slice(0, 3).map((item: any, idx: number) => (
-                                  item.image ? (
-                                    <img
-                                      key={idx}
-                                      src={item.image}
-                                      alt={item.title}
-                                      className="w-12 h-12 rounded-xl object-cover border-2 border-white bg-slate-50 shadow-2xs"
-                                      onError={(e) => {
-                                        (e.target as HTMLElement).style.display = 'none';
-                                      }}
-                                    />
+                        return (
+                          <div
+                            key={order.id}
+                            onClick={() => handleOpenInsideOrder(order.id)}
+                            className="bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 hover:shadow-md transition-all duration-200 p-4 sm:p-5 cursor-pointer group"
+                          >
+                            {/* Row 1: Header (Clean ID, Date, Status Badge, Total Amount) */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono font-bold text-xs sm:text-sm text-navy group-hover:text-[#A44101] transition-colors flex items-center gap-1.5">
+                                  <Package className="w-4 h-4 text-[#A44101]" />
+                                  <span>
+                                    #
+                                    {String(order.id).length > 12
+                                      ? `${String(order.id).slice(0, 6)}...${String(order.id).slice(-4)}`
+                                      : order.id}
+                                  </span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyText(
+                                      order.id,
+                                      `order-${order.id}`,
+                                    );
+                                  }}
+                                  className="text-slate-400 hover:text-navy p-1 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                                  title="Copy full Order ID"
+                                >
+                                  {copiedId === `order-${order.id}` ? (
+                                    <span className="text-[10px] font-bold text-emerald-600">
+                                      Copied!
+                                    </span>
                                   ) : (
-                                    <div
-                                      key={idx}
-                                      className="w-12 h-12 rounded-xl border-2 border-white bg-[#A44101]/10 text-[#A44101] flex items-center justify-center shadow-2xs shrink-0"
-                                      title={item.title}
-                                    >
-                                      <Package className="w-5 h-5" />
-                                    </div>
-                                  )
-                                ))}
-                                {displayItems.length > 3 && (
-                                  <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[11px] font-bold text-slate-600 shadow-2xs">
-                                    +{displayItems.length - 3}
-                                  </div>
-                                )}
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                                <span className="text-xs text-slate-300">
+                                  •
+                                </span>
+                                <span className="text-xs text-slate-500 font-medium">
+                                  Placed on {order.date}
+                                  {order.time ? ` at ${order.time}` : ""}
+                                </span>
                               </div>
 
-                              {/* Title, ETA and Item count */}
-                              <div className="min-w-0">
-                                <p className="text-xs sm:text-sm font-bold text-navy truncate">
-                                  {displayItems[0]?.title || 'Order Item'}
-                                  {displayItems.length > 1 && (
-                                    <span className="text-slate-500 font-normal"> +{displayItems.length - 1} more</span>
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border capitalize ${order.statusColor}`}
+                                >
+                                  {order.status}
+                                </span>
+                                <span className="text-sm sm:text-base font-black text-navy">
+                                  ₹{order.total}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Row 2: Product Thumbnails, Summary & Actions */}
+                            <div className="pt-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-3.5 min-w-0">
+                                {/* Product Thumbnails Stack */}
+                                <div className="flex items-center -space-x-2 shrink-0">
+                                  {displayItems
+                                    .slice(0, 3)
+                                    .map((item: any, idx: number) =>
+                                      item.image ? (
+                                        <img
+                                          key={idx}
+                                          src={item.image}
+                                          alt={item.title}
+                                          className="w-12 h-12 rounded-xl object-cover border-2 border-white bg-slate-50 shadow-2xs"
+                                          onError={(e) => {
+                                            (
+                                              e.target as HTMLElement
+                                            ).style.display = "none";
+                                          }}
+                                        />
+                                      ) : (
+                                        <div
+                                          key={idx}
+                                          className="w-12 h-12 rounded-xl border-2 border-white bg-[#A44101]/10 text-[#A44101] flex items-center justify-center shadow-2xs shrink-0"
+                                          title={item.title}
+                                        >
+                                          <Package className="w-5 h-5" />
+                                        </div>
+                                      ),
+                                    )}
+                                  {displayItems.length > 3 && (
+                                    <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[11px] font-bold text-slate-600 shadow-2xs">
+                                      +{displayItems.length - 3}
+                                    </div>
                                   )}
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
-                                  <span className="flex items-center gap-1 text-slate-600 font-medium">
-                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
-                                    <span>{order.eta}</span>
-                                  </span>
-                                  <span>•</span>
-                                  <span>{displayItems.length} {displayItems.length === 1 ? 'item' : 'items'}</span>
+                                </div>
+
+                                {/* Title, ETA and Item count */}
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm font-bold text-navy truncate">
+                                    {displayItems[0]?.title || "Order Item"}
+                                    {displayItems.length > 1 && (
+                                      <span className="text-slate-500 font-normal">
+                                        {" "}
+                                        +{displayItems.length - 1} more
+                                      </span>
+                                    )}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                                    <span className="flex items-center gap-1 text-slate-600 font-medium">
+                                      <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                      <span>{order.eta}</span>
+                                    </span>
+                                    <span>•</span>
+                                    <span>
+                                      {displayItems.length}{" "}
+                                      {displayItems.length === 1
+                                        ? "item"
+                                        : "items"}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Actions on right */}
-                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenInsideOrder(order.id);
-                                }}
-                                className="px-4 py-2 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-98"
-                              >
-                                <span>View Details</span>
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </button>
+                              {/* Actions on right */}
+                              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenInsideOrder(order.id);
+                                  }}
+                                  className="px-4 py-2 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-98"
+                                >
+                                  <span>View Details</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
 
             {/* TAB 2: PROFILE INFORMATION */}
-            {activeTab === 'profile' && (
+            {activeTab === "profile" && (
               <form onSubmit={handleSaveProfile} className="space-y-6 max-w-xl">
                 <div>
-                  <h2 className="text-lg font-bold text-navy">Personal Profile Details</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Manage your identity details for billing and shipping</p>
+                  <h2 className="text-lg font-bold text-navy">
+                    Personal Profile Details
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5 capitalize">
+                    Manage your identity details for billing and shipping
+                  </p>
                 </div>
 
                 {isSavedNotice && (
@@ -1463,7 +1921,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Full Name
+                    </label>
                     <input
                       type="text"
                       value={userName}
@@ -1474,30 +1934,65 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      value={userEmail}
-                      onChange={(e) => setUserEmail(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
-                      required
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Email Address
+                      </label>
+                      {isEmailLocked && (
+                        <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          Non-editable
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={userEmail}
+                        readOnly={isEmailLocked}
+                        disabled={isEmailLocked}
+                        onChange={(e) => {
+                          if (!isEmailLocked) setUserEmail(e.target.value);
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm transition-colors ${
+                          isEmailLocked
+                            ? "bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed select-none"
+                            : "border-slate-300 focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
+                        }`}
+                        required
+                      />
+                      {isEmailLocked && (
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                    {isEmailLocked && (
+                      <p className="text-[11px] text-slate-400 mt-1 capitalize">
+                        Email address cannot be modified once added to your
+                        account.
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number (India)</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Mobile Number (India)
+                    </label>
                     <input
                       type="tel"
                       value={userPhone}
-                      onChange={(e) => setUserPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      onChange={(e) =>
+                        setUserPhone(
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
+                      }
                       placeholder="e.g. 9876543210"
                       maxLength={10}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-medium tracking-wide"
                       required
                     />
                   </div>
-
-               
                 </div>
 
                 <div className="pt-2">
@@ -1506,17 +2001,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     disabled={isSavingProfile}
                     className="px-6 py-2.5 rounded-xl bg-navy hover:bg-navy-light text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
                   >
-                    {isSavingProfile && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>{isSavingProfile ? 'Saving...' : 'Save Changes'}</span>
+                    {isSavingProfile && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    <span>
+                      {isSavingProfile ? "Saving..." : "Save Changes"}
+                    </span>
                   </button>
                 </div>
               </form>
             )}
 
             {/* TAB 3: SAVED DELIVERY ADDRESSES */}
-            {activeTab === 'addresses' && (
+            {activeTab === "addresses" && (
               <div className="space-y-6">
-                {showAddressForm || editingAddressId || addresses.length === 0 ? (
+                {showAddressForm ||
+                editingAddressId ||
+                addresses.length === 0 ? (
                   // DEDICATED EDIT / NEW ADDRESS VIEW (Exact Match to Reference Image 2)
                   <div className="space-y-6 animate-fadeIn">
                     {/* Top Back Button */}
@@ -1532,7 +2033,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 shadow-2xs hover:shadow-xs transition-all cursor-pointer active:scale-95 group"
                         >
                           <ArrowLeft className="w-3.5 h-3.5 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-                          <span className="uppercase tracking-wider text-[11px]">Back to addresses</span>
+                          <span className="uppercase tracking-wider text-[11px]">
+                            Back to addresses
+                          </span>
                         </button>
                       </div>
                     )}
@@ -1540,15 +2043,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     {/* Heading Area */}
                     <div className="space-y-1">
                       <span className="text-xs font-black uppercase tracking-widest text-[#E11D48]">
-                        {editingAddressId ? 'Edit Address' : 'New Address'}
+                        {editingAddressId ? "Edit Address" : "New Address"}
                       </span>
                       <h2 className="text-2xl sm:text-3xl font-serif sm:font-medium text-slate-900 leading-tight">
-                        {editingAddressId ? 'Update your address' : 'Add delivery address'}
+                        {editingAddressId
+                          ? "Update your address"
+                          : "Add delivery address"}
                       </h2>
                       <p className="text-xs sm:text-sm text-slate-500">
-                        {editingAddressId 
-                          ? 'Make changes to your delivery address details.' 
-                          : 'Enter your doorstep delivery address details below.'}
+                        {editingAddressId
+                          ? "Make changes to your delivery address details."
+                          : "Enter your doorstep delivery address details below."}
                       </p>
                     </div>
 
@@ -1558,12 +2063,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       </div>
                     )}
 
-                    <form onSubmit={handleSaveInlineAddress} className="space-y-6">
+                    <form
+                      onSubmit={handleSaveInlineAddress}
+                      className="space-y-6"
+                    >
                       {/* Card 1: Contact Details */}
                       <div className="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
                         <div>
-                          <h3 className="text-base font-bold text-slate-900 leading-tight">Contact</h3>
-                          <p className="text-xs text-slate-500 mt-0.5">Who should we deliver to?</p>
+                          <h3 className="text-base font-bold text-slate-900 leading-tight">
+                            Contact
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Who should we deliver to?
+                          </p>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
@@ -1586,11 +2098,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               Phone <span className="text-red-500">*</span>
                             </label>
                             <div className="relative flex items-center">
-                              <span className="absolute left-3 text-xs font-bold text-slate-400 select-none">+91</span>
+                              <span className="absolute left-3 text-xs font-bold text-slate-400 select-none">
+                                +91
+                              </span>
                               <input
                                 type="tel"
                                 value={addrPhone}
-                                onChange={(e) => setAddrPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                onChange={(e) =>
+                                  setAddrPhone(
+                                    e.target.value
+                                      .replace(/\D/g, "")
+                                      .slice(0, 10),
+                                  )
+                                }
                                 placeholder="Phone number"
                                 maxLength={10}
                                 className="w-full pl-12 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-mono"
@@ -1604,8 +2124,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       {/* Card 2: Delivery Location Details */}
                       <div className="bg-white rounded-2xl p-5 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
                         <div>
-                          <h3 className="text-base font-bold text-slate-900 leading-tight">Delivery location</h3>
-                          <p className="text-xs text-slate-500 mt-0.5">Exact doorstep details for the courier</p>
+                          <h3 className="text-base font-bold text-slate-900 leading-tight">
+                            Delivery location
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Exact doorstep details for the courier
+                          </p>
                         </div>
 
                         <div className="space-y-4 pt-1">
@@ -1613,12 +2137,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-bold text-slate-700 mb-1">
-                                House / flat no. <span className="text-red-500">*</span>
+                                House / flat no.{" "}
+                                <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
                                 value={addrHouseNumber}
-                                onChange={(e) => setAddrHouseNumber(e.target.value)}
+                                onChange={(e) =>
+                                  setAddrHouseNumber(e.target.value)
+                                }
                                 placeholder="e.g. 12 / Flat 302"
                                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
                                 required
@@ -1631,7 +2158,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               <input
                                 type="text"
                                 value={addrBuilding}
-                                onChange={(e) => setAddrBuilding(e.target.value)}
+                                onChange={(e) =>
+                                  setAddrBuilding(e.target.value)
+                                }
                                 placeholder="e.g. Marcc Apartment / Tower A"
                                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
                               />
@@ -1654,7 +2183,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             </div>
                             <div>
                               <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                                <span>Area / locality <span className="text-red-500">*</span></span>
+                                <span>
+                                  Area / locality{" "}
+                                  <span className="text-red-500">*</span>
+                                </span>
                               </label>
                               <div className="relative flex items-center">
                                 <MapPin className="w-3.5 h-3.5 text-amber-600 absolute left-3 pointer-events-none" />
@@ -1674,12 +2206,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-bold text-slate-700 mb-1">
-                                Address line 1 <span className="text-red-500">*</span>
+                                Address line 1{" "}
+                                <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
                                 value={addrAddressLine1}
-                                onChange={(e) => setAddrAddressLine1(e.target.value)}
+                                onChange={(e) =>
+                                  setAddrAddressLine1(e.target.value)
+                                }
                                 placeholder="e.g. Main Ring Road / Street details"
                                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
                                 required
@@ -1692,7 +2227,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               <input
                                 type="text"
                                 value={addrAddressLine2}
-                                onChange={(e) => setAddrAddressLine2(e.target.value)}
+                                onChange={(e) =>
+                                  setAddrAddressLine2(e.target.value)
+                                }
                                 placeholder="e.g. Lane / wing / suite"
                                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
                               />
@@ -1708,20 +2245,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               <input
                                 type="text"
                                 value={addrLandmark}
-                                onChange={(e) => setAddrLandmark(e.target.value)}
+                                onChange={(e) =>
+                                  setAddrLandmark(e.target.value)
+                                }
                                 placeholder="e.g. Near Metro Station / Behind Mall"
                                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy"
                               />
                             </div>
                             <div>
                               <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                                <span>PIN code <span className="text-red-500">*</span></span>
-                                {isFetchingPincode && <Loader2 className="w-3 h-3 animate-spin text-[#A44101]" />}
+                                <span>
+                                  PIN code{" "}
+                                  <span className="text-red-500">*</span>
+                                </span>
+                                {isFetchingPincode && (
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#A44101]" />
+                                )}
                               </label>
                               <input
                                 type="text"
                                 value={addrPincode}
-                                onChange={(e) => handleInlinePincodeChange(e.target.value)}
+                                onChange={(e) =>
+                                  handleInlinePincodeChange(e.target.value)
+                                }
                                 placeholder="e.g. 110045"
                                 maxLength={6}
                                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-navy focus:ring-1 focus:ring-navy font-mono"
@@ -1739,7 +2285,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-bold text-slate-700 mb-1">
-                                City / District <span className="text-red-500">*</span>
+                                City / District{" "}
+                                <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
@@ -1768,25 +2315,35 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           {/* Address Type & Default Checkbox */}
                           <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100">
                             <div className="space-y-1">
-                              <span className="block text-xs font-bold text-slate-700">Address Type</span>
+                              <span className="block text-xs font-bold text-slate-700">
+                                Address Type
+                              </span>
                               <div className="flex items-center gap-2">
-                                {(['Home', 'Work', 'Other'] as const).map((t) => (
-                                  <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setAddrType(t)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                      addrType === t
-                                        ? 'bg-navy text-white shadow-xs'
-                                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                                    }`}
-                                  >
-                                    {t === 'Home' && <Home className="w-3.5 h-3.5" />}
-                                    {t === 'Work' && <Briefcase className="w-3.5 h-3.5" />}
-                                    {t === 'Other' && <Building className="w-3.5 h-3.5" />}
-                                    <span>{t}</span>
-                                  </button>
-                                ))}
+                                {(["Home", "Work", "Other"] as const).map(
+                                  (t) => (
+                                    <button
+                                      key={t}
+                                      type="button"
+                                      onClick={() => setAddrType(t)}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                        addrType === t
+                                          ? "bg-navy text-white shadow-xs"
+                                          : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                                      }`}
+                                    >
+                                      {t === "Home" && (
+                                        <Home className="w-3.5 h-3.5" />
+                                      )}
+                                      {t === "Work" && (
+                                        <Briefcase className="w-3.5 h-3.5" />
+                                      )}
+                                      {t === "Other" && (
+                                        <Building className="w-3.5 h-3.5" />
+                                      )}
+                                      <span>{t}</span>
+                                    </button>
+                                  ),
+                                )}
                               </div>
                             </div>
 
@@ -1794,7 +2351,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                               <input
                                 type="checkbox"
                                 checked={addrIsDefault}
-                                onChange={(e) => setAddrIsDefault(e.target.checked)}
+                                onChange={(e) =>
+                                  setAddrIsDefault(e.target.checked)
+                                }
                                 className="w-4 h-4 rounded text-navy focus:ring-navy border-slate-300 cursor-pointer"
                               />
                               <span>Set as default delivery address</span>
@@ -1810,8 +2369,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           disabled={isSavingAddress}
                           className="px-7 py-3 rounded-xl bg-navy hover:bg-navy-light text-white text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer flex items-center gap-2 disabled:opacity-60 active:scale-98"
                         >
-                          {isSavingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                          <span>{isSavingAddress ? 'Saving...' : (editingAddressId ? 'Update address' : 'Save address')}</span>
+                          {isSavingAddress ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          <span>
+                            {isSavingAddress
+                              ? "Saving..."
+                              : editingAddressId
+                                ? "Update address"
+                                : "Save address"}
+                          </span>
                         </button>
                         {addresses.length > 0 && (
                           <button
@@ -1834,8 +2403,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <div className="space-y-6">
                     <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                       <div>
-                        <h2 className="text-lg font-bold text-navy">Saved Delivery Addresses</h2>
-                        <p className="text-xs text-slate-500 mt-0.5">Manage multiple shipping addresses for fast checkout</p>
+                        <h2 className="text-lg font-bold text-navy">
+                          Saved Delivery Addresses
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5 capitalize">
+                          Manage multiple shipping addresses for fast checkout
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -1869,17 +2442,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             <div
                               key={addr.id}
                               className={`p-4 rounded-2xl border transition-all relative ${
-                                addr.isDefault 
-                                  ? 'border-navy bg-stone-50/70 shadow-xs' 
-                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                                addr.isDefault
+                                  ? "border-navy bg-stone-50/70 shadow-xs"
+                                  : "border-slate-200 bg-white hover:border-slate-300"
                               }`}
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-stone-200/80 text-navy flex items-center gap-1">
-                                    {addr.type === 'Home' && <Home className="w-3 h-3" />}
-                                    {addr.type === 'Work' && <Briefcase className="w-3 h-3" />}
-                                    {addr.type === 'Other' && <Building className="w-3 h-3" />}
+                                    {addr.type === "Home" && (
+                                      <Home className="w-3 h-3" />
+                                    )}
+                                    {addr.type === "Work" && (
+                                      <Briefcase className="w-3 h-3" />
+                                    )}
+                                    {addr.type === "Other" && (
+                                      <Building className="w-3 h-3" />
+                                    )}
                                     <span>{addr.type}</span>
                                   </span>
                                   {addr.isDefault && (
@@ -1902,7 +2481,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                                   {!addr.isDefault && (
                                     <button
                                       type="button"
-                                      onClick={() => handleSetDefaultAddress(addr.id)}
+                                      onClick={() =>
+                                        handleSetDefaultAddress(addr.id)
+                                      }
                                       className="text-[11px] font-bold text-[#A44101] hover:underline cursor-pointer px-1 py-1"
                                     >
                                       Set Default
@@ -1919,9 +2500,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                                 </div>
                               </div>
 
-                              <h4 className="text-xs font-bold text-navy">{addr.name}</h4>
+                              <h4 className="text-xs font-bold text-navy">
+                                {addr.name}
+                              </h4>
                               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                                {addr.addressLine}, {addr.city}, {addr.state} - <span className="font-bold text-navy">{addr.pincode}</span>
+                                {addr.addressLine}, {addr.city}, {addr.state} -{" "}
+                                <span className="font-bold text-navy">
+                                  {addr.pincode}
+                                </span>
                               </p>
                               <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
                                 <Phone className="w-3.5 h-3.5" />
@@ -1938,11 +2524,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             )}
 
             {/* TAB 4: WALLET & BABA COINS */}
-            {activeTab === 'wallet' && (
+            {activeTab === "wallet" && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-bold text-navy">OfferWale Baba Coins &amp; Cashback</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Use coins during checkout for instant discounts (1 Coin = ₹1)</p>
+                  <h2 className="text-lg font-bold text-navy">
+                    OfferWale Baba Coins &amp; Cashback
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Use coins during checkout for instant discounts (1 Coin =
+                    ₹1)
+                  </p>
                 </div>
 
                 <div className="p-6 rounded-2xl bg-gradient-to-r from-navy via-navy to-slate-900 border border-slate-800 text-white shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1951,9 +2542,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <Coins className="w-8 h-8" />
                     </div>
                     <div>
-                      <span className="text-xs uppercase tracking-wider text-slate-300 font-bold">Total Available Balance</span>
-                      <h3 className="text-3xl font-black">450 <span className="text-lg font-medium text-slate-300">Baba Coins</span></h3>
-                      <p className="text-xs text-slate-300 mt-0.5">Worth ₹450 flat discount on your next order</p>
+                      <span className="text-xs uppercase tracking-wider text-slate-300 font-bold">
+                        Total Available Balance
+                      </span>
+                      <h3 className="text-3xl font-black">
+                        450{" "}
+                        <span className="text-lg font-medium text-slate-300">
+                          Baba Coins
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        Worth ₹450 flat discount on your next order
+                      </p>
                     </div>
                   </div>
                   <button
@@ -1974,13 +2574,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-black text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded">BABA100</span>
-                        <p className="text-xs font-bold text-slate-800 mt-1">₹100 Flat OFF on Orders Above ₹599</p>
-                        <span className="text-[10px] text-slate-500">Expires in 12 days</span>
+                        <span className="text-xs font-black text-[#A44101] bg-[#A44101]/10 px-2 py-0.5 rounded">
+                          BABA100
+                        </span>
+                        <p className="text-xs font-bold text-slate-800 mt-1">
+                          ₹100 Flat OFF on Orders Above ₹599
+                        </p>
+                        <span className="text-[10px] text-slate-500">
+                          Expires in 12 days
+                        </span>
                       </div>
                       <button
                         type="button"
-                        onClick={() => alert('Code BABA100 copied!')}
+                        onClick={() => alert("Code BABA100 copied!")}
                         className="text-xs font-bold text-[#A44101] hover:underline cursor-pointer"
                       >
                         Copy
@@ -1989,13 +2595,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                     <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-black text-navy bg-slate-200 px-2 py-0.5 rounded">FREESHIP</span>
-                        <p className="text-xs font-bold text-slate-800 mt-1">Free Pan-India Express Delivery</p>
-                        <span className="text-[10px] text-slate-500">No minimum cart value</span>
+                        <span className="text-xs font-black text-navy bg-slate-200 px-2 py-0.5 rounded">
+                          FREESHIP
+                        </span>
+                        <p className="text-xs font-bold text-slate-800 mt-1">
+                          Free Pan-India Express Delivery
+                        </p>
+                        <span className="text-[10px] text-slate-500">
+                          No minimum cart value
+                        </span>
                       </div>
                       <button
                         type="button"
-                        onClick={() => alert('Code FREESHIP copied!')}
+                        onClick={() => alert("Code FREESHIP copied!")}
                         className="text-xs font-bold text-[#A44101] hover:underline cursor-pointer"
                       >
                         Copy
@@ -2007,36 +2619,66 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             )}
 
             {/* TAB 5: SETTINGS & SECURITY */}
-            {activeTab === 'settings' && (
+            {activeTab === "settings" && (
               <div className="space-y-6 max-w-xl">
                 <div>
-                  <h2 className="text-lg font-bold text-navy">Account Preferences &amp; Notifications</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Control communication channels and password security</p>
+                  <h2 className="text-lg font-bold text-navy">
+                    Account Preferences &amp; Notifications
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Control communication channels and password security
+                  </p>
                 </div>
 
                 <div className="space-y-4 text-xs">
                   <div className="p-4 rounded-xl border border-slate-200 flex items-center justify-between">
                     <div>
-                      <h4 className="font-bold text-slate-800">WhatsApp Order Tracking Updates</h4>
-                      <p className="text-slate-500 text-[11px] mt-0.5">Receive dispatch tracking and live delivery OTP via WhatsApp</p>
+                      <h4 className="font-bold text-slate-800">
+                        WhatsApp Order Tracking Updates
+                      </h4>
+                      <p className="text-slate-500 text-[11px] mt-0.5">
+                        Receive dispatch tracking and live delivery OTP via
+                        WhatsApp
+                      </p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-4 h-4 text-navy rounded cursor-pointer" />
+                    <input
+                      type="checkbox"
+                      defaultChecked
+                      className="w-4 h-4 text-navy rounded cursor-pointer"
+                    />
                   </div>
 
                   <div className="p-4 rounded-xl border border-slate-200 flex items-center justify-between">
                     <div>
-                      <h4 className="font-bold text-slate-800">Flash Deal &amp; Price Drop Alerts</h4>
-                      <p className="text-slate-500 text-[11px] mt-0.5">Get notified when items in your wishlist go on 70%+ clearance</p>
+                      <h4 className="font-bold text-slate-800">
+                        Flash Deal &amp; Price Drop Alerts
+                      </h4>
+                      <p className="text-slate-500 text-[11px] mt-0.5">
+                        Get notified when items in your wishlist go on 70%+
+                        clearance
+                      </p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-4 h-4 text-navy rounded cursor-pointer" />
+                    <input
+                      type="checkbox"
+                      defaultChecked
+                      className="w-4 h-4 text-navy rounded cursor-pointer"
+                    />
                   </div>
 
                   <div className="p-4 rounded-xl border border-slate-200 flex items-center justify-between">
                     <div>
-                      <h4 className="font-bold text-slate-800">Two-Factor OTP Login</h4>
-                      <p className="text-slate-500 text-[11px] mt-0.5">Verify via SMS OTP on each new device login</p>
+                      <h4 className="font-bold text-slate-800">
+                        Two-Factor OTP Login
+                      </h4>
+                      <p className="text-slate-500 text-[11px] mt-0.5">
+                        Verify via SMS OTP on each new device login
+                      </p>
                     </div>
-                    <input type="checkbox" defaultChecked className="w-4 h-4 text-navy rounded cursor-pointer" />
+                    <input
+                      type="checkbox"
+                      defaultChecked
+                      className="w-4 h-4 text-navy rounded cursor-pointer"
+                    />
                   </div>
                 </div>
 
@@ -2047,16 +2689,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     disabled={isLoggingOut}
                     className="px-4 py-2.5 rounded-xl text-xs font-bold text-red-600 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 transition-colors cursor-pointer disabled:opacity-60 flex items-center gap-1.5 shadow-xs"
                   >
-                    {isLoggingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
-                    <span>{isLoggingOut ? 'Logging out via /auth/logout...' : 'Log Out of Account'}</span>
+                    {isLoggingOut ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <LogOut className="w-3.5 h-3.5" />
+                    )}
+                    <span>
+                      {isLoggingOut
+                        ? "Logging out via /auth/logout..."
+                        : "Log Out of Account"}
+                    </span>
                   </button>
-                  <span className="text-[11px] text-slate-500">Secured with 256-bit SSL</span>
+                  <span className="text-[11px] text-slate-500">
+                    Secured with 256-bit SSL
+                  </span>
                 </div>
               </div>
             )}
 
             {/* TAB: WISHLIST */}
-            {activeTab === 'wishlist' && (
+            {activeTab === "wishlist" && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                   <div>
@@ -2064,7 +2716,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <Heart className="w-5 h-5 text-[#E11D48] fill-[#E11D48]/20" />
                       <span>My Saved Wishlist</span>
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5 capitalize">
                       Products you saved to buy later or monitor for price drops
                     </p>
                   </div>
@@ -2081,9 +2733,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            if (window.confirm('Clear all items from your wishlist?')) {
+                            if (
+                              window.confirm(
+                                "Clear all items from your wishlist?",
+                              )
+                            ) {
                               wishlistItems.forEach((it) => {
-                                const slug = it.slug || it.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || it.id;
+                                const slug =
+                                  it.slug ||
+                                  it.title
+                                    ?.toLowerCase()
+                                    .replace(/[^a-z0-9]+/g, "-") ||
+                                  it.id;
                                 toggleWishlistItem(it.id, slug);
                               });
                               setWishlistItems([]);
@@ -2112,8 +2773,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 {isLoadingWishlist ? (
                   <div className="py-16 text-center space-y-3">
                     <Loader2 className="w-8 h-8 text-[#A44101] animate-spin mx-auto" />
-                    <p className="text-sm font-bold text-navy">Loading wishlist items...</p>
-                    <p className="text-xs text-slate-400">Fetching your saved products from API</p>
+                    <p className="text-sm font-bold text-navy">
+                      Loading wishlist items...
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Fetching your saved products from API
+                    </p>
                   </div>
                 ) : wishlistItems.length === 0 ? (
                   <div className="py-16 px-4 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-stone-50/50 space-y-4">
@@ -2121,9 +2786,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <Heart className="w-8 h-8" />
                     </div>
                     <div className="max-w-md mx-auto space-y-1">
-                      <h3 className="text-base font-bold text-navy">Your Wishlist is Empty</h3>
-                      <p className="text-xs text-slate-500">
-                        Explore our top deals and hit the heart icon on products you love to save them here!
+                      <h3 className="text-base font-bold text-navy">
+                        Your Wishlist is Empty
+                      </h3>
+                      <p className="text-xs text-slate-500 capitalize">
+                        Explore our top deals and hit the heart icon on products
+                        you love to save them here!
                       </p>
                     </div>
                     <div>
@@ -2156,7 +2824,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             )}
                             <button
                               type="button"
-                              onClick={(e) => handleRemoveFromWishlist(item.id, e)}
+                              onClick={(e) =>
+                                handleRemoveFromWishlist(item.id, e)
+                              }
                               className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-slate-400 hover:text-red-600 flex items-center justify-center shadow-xs transition-colors cursor-pointer"
                               title="Remove from wishlist"
                             >
@@ -2166,9 +2836,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
                           <div>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                              {item.category || 'General'}
+                              {item.category || "General"}
                             </span>
-                            <h4 className="text-xs font-bold text-slate-800 line-clamp-2 mt-0.5" title={item.title}>
+                            <h4
+                              className="text-xs font-bold text-slate-800 line-clamp-2 mt-0.5"
+                              title={item.title}
+                            >
                               {item.title}
                             </h4>
                           </div>
@@ -2213,7 +2886,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             )}
 
             {/* TAB: CART */}
-            {activeTab === 'cart' && (
+            {activeTab === "cart" && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-100">
                   <div>
@@ -2221,8 +2894,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <ShoppingBag className="w-5 h-5 text-[#A44101]" />
                       <span>My Shopping Cart</span>
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Review items in your cart, update quantities or proceed directly to checkout
+                    <p className="text-xs text-slate-500 mt-0.5 capitalize">
+                      Review items in your cart, update quantities or proceed
+                      directly to checkout
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2252,9 +2926,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <ShoppingBag className="w-8 h-8" />
                     </div>
                     <div className="max-w-md mx-auto space-y-1">
-                      <h3 className="text-base font-bold text-navy">Your Cart is Currently Empty</h3>
+                      <h3 className="text-base font-bold text-navy">
+                        Your Cart is Currently Empty
+                      </h3>
                       <p className="text-xs text-slate-500">
-                        Looks like you haven't added anything to your cart yet. Discover great bargains today!
+                        Looks like you haven't added anything to your cart yet.
+                        Discover great bargains today!
                       </p>
                     </div>
                     <div>
@@ -2283,7 +2960,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                                   src={item.image}
                                   alt={item.title}
                                   onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
+                                    (e.target as HTMLImageElement).src =
+                                      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
                                   }}
                                   className="w-full h-full object-contain"
                                 />
@@ -2293,9 +2971,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             </div>
                             <div className="min-w-0">
                               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                                {item.category || 'General'}
+                                {item.category || "General"}
                               </span>
-                              <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate" title={item.title}>
+                              <h4
+                                className="text-xs sm:text-sm font-bold text-slate-900 truncate"
+                                title={item.title}
+                              >
                                 {item.title}
                               </h4>
                               <div className="flex items-center gap-2 mt-1">
@@ -2364,7 +3045,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <div className="space-y-2 text-xs">
                           <div className="flex justify-between text-slate-600">
                             <span>Subtotal ({totalCount} items)</span>
-                            <span className="font-bold text-slate-800">₹{subtotal}</span>
+                            <span className="font-bold text-slate-800">
+                              ₹{subtotal}
+                            </span>
                           </div>
                           {totalSavings > 0 && (
                             <div className="flex justify-between text-emerald-600 font-medium">
@@ -2375,15 +3058,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           <div className="flex justify-between text-slate-600">
                             <span>Pan-India Delivery</span>
                             <span className="font-bold text-emerald-600">
-                              {subtotal >= 499 ? 'FREE' : '₹49'}
+                              {subtotal >= 499 ? "FREE" : "₹49"}
                             </span>
                           </div>
                         </div>
 
                         <div className="pt-3 border-t border-slate-200 flex justify-between items-baseline">
-                          <span className="text-xs font-bold text-navy">Total Payable</span>
+                          <span className="text-xs font-bold text-navy">
+                            Total Payable
+                          </span>
                           <span className="text-lg font-black text-[#A44101]">
-                            ₹{subtotal >= 499 || subtotal === 0 ? subtotal : subtotal + 49}
+                            ₹
+                            {subtotal >= 499 || subtotal === 0
+                              ? subtotal
+                              : subtotal + 49}
                           </span>
                         </div>
 
@@ -2403,16 +3091,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 )}
               </div>
             )}
-
           </div>
-
         </div>
-
       </div>
-
-
-
-
     </div>
   );
 };

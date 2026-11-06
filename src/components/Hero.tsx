@@ -196,7 +196,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
           
           {/* 1. LEFT OF HERO: "Explore By Category" Sidebar (Desktop) */}
           <aside
-            className="hidden lg:flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-visible select-none h-full relative"
+            className="hidden lg:flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-visible h-full relative"
             aria-label="Explore By Category Menu"
             onMouseLeave={() => setHoveredCatIdx(null)}
           >
@@ -212,7 +212,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
             <ul className="flex-1 min-h-0 divide-y divide-slate-100 flex flex-col justify-between py-1">
               {sidebarCategories.map((cat, idx) => {
                 const IconComponent = cat.icon || getCategoryIcon(cat.name || '', cat.id || '');
-                const subcategories = cat.subcategories || [];
+                const hasSubcategories = Boolean(cat.subcategories && cat.subcategories.length > 0);
                 const isHoveredItem = hoveredCatIdx === idx;
 
                 return (
@@ -246,73 +246,84 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                        <ChevronRight className={`w-3.5 h-3.5 transition-all ${
-                          isHoveredItem ? 'text-[#A44101] translate-x-0.5' : 'text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5'
-                        }`} />
+                        {hasSubcategories ? (
+                          <ChevronRight className={`w-3.5 h-3.5 transition-all ${
+                            isHoveredItem ? 'text-[#A44101] translate-x-0.5' : 'text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5'
+                          }`} />
+                        ) : (
+                          <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                            isHoveredItem ? 'text-[#A44101] translate-x-0.5' : 'text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5'
+                          }`} />
+                        )}
                       </div>
                     </button>
-
-                    {/* Flyout panel on hover for subcategories */}
-                    {isHoveredItem && subcategories && subcategories.length > 0 && (
-                      <div
-                        className={`absolute left-full ${
-                          idx >= 5 ? 'bottom-0' : 'top-0'
-                        } ml-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 flex flex-col justify-between animate-fadeIn before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:content-['']`}
-                        onMouseEnter={() => setHoveredCatIdx(idx)}
-                        onMouseLeave={() => setHoveredCatIdx(null)}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
-                            <span className="text-xs font-bold text-navy uppercase tracking-wider">
-                              {cat.name}
-                            </span>
-                            <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded">
-                              Subcategories
-                            </span>
-                          </div>
-
-                          <div className="space-y-1">
-                            {subcategories.map((sub, sIdx) => (
-                              <button
-                                key={sIdx}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setHoveredCatIdx(null);
-                                  if (cat.id) {
-                                    onSelectCategory?.(cat.id, sub);
-                                  }
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#A44101] hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer"
-                              >
-                                <span>{sub}</span>
-                                <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100 mt-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHoveredCatIdx(null);
-                              if (cat.id) {
-                                onSelectCategory?.(cat.id);
-                              }
-                            }}
-                            className="w-full text-center text-xs font-bold text-[#A44101] hover:underline cursor-pointer py-0.5 block"
-                          >
-                            Explore All {cat.name} &rarr;
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </li>
                 );
               })}
             </ul>
+
+            {/* Subcategories Flyout on the Right */}
+            {hoveredCatIdx !== null && sidebarCategories[hoveredCatIdx]?.subcategories && sidebarCategories[hoveredCatIdx].subcategories!.length > 0 && (() => {
+              const activeCat = sidebarCategories[hoveredCatIdx];
+              const isLowerHalf = hoveredCatIdx >= 5;
+
+              return (
+                <div
+                  className={`absolute left-full ${
+                    isLowerHalf ? 'bottom-0' : 'top-0'
+                  } ml-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 flex flex-col justify-between animate-fadeIn before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:content-['']`}
+                  onMouseEnter={() => setHoveredCatIdx(hoveredCatIdx)}
+                  onMouseLeave={() => setHoveredCatIdx(null)}
+                >
+                  <div>
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
+                      <span className="text-xs font-bold text-navy uppercase tracking-wider truncate">
+                        {activeCat.name}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#A44101] bg-[#A44101]/10 px-1.5 py-0.5 rounded shrink-0">
+                        Subcategories
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 max-h-[320px] overflow-y-auto">
+                      {activeCat.subcategories!.map((sub, sIdx) => (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHoveredCatIdx(null);
+                            if (activeCat.id) {
+                              onSelectCategory?.(activeCat.id, sub);
+                            }
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-[#A44101] hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer"
+                        >
+                          <span className="truncate">{sub}</span>
+                          <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 mt-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHoveredCatIdx(null);
+                        if (activeCat.id) {
+                          onSelectCategory?.(activeCat.id);
+                        }
+                      }}
+                      className="w-full text-center text-xs font-bold text-[#A44101] hover:underline cursor-pointer py-0.5 block"
+                    >
+                      Explore All {activeCat.name} &rarr;
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Footer: View All Categories */}
             <div className="bg-slate-50 border-t border-slate-100 px-3.5 py-2 shrink-0 rounded-b-2xl">
@@ -332,7 +343,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
 
           {/* 2. RIGHT OF HERO: Promotional Banner Carousel */}
           <div
-            className="relative w-full h-[250px] sm:h-[380px] lg:h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border border-slate-200/90 bg-slate-900 select-none group"
+            className="relative w-full h-[250px] sm:h-[380px] lg:h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border border-slate-200/90 bg-slate-900 group"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -426,7 +437,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
 
           {/* 3. RIGHT OF HERO: Value Proposition Cards (Desktop) */}
           <aside
-            className="hidden lg:flex flex-col justify-between gap-3 h-full select-none"
+            className="hidden lg:flex flex-col justify-between gap-3 h-full"
             aria-label="Store Value Guarantees"
           >
             {/* Card 1: Direct Factory Price */}

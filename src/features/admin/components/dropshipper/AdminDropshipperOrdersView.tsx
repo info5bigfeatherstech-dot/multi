@@ -270,18 +270,18 @@ export const AdminDropshipperOrdersView: React.FC = () => {
                         ₹{Number(ord.totalAmount || ord.pricing?.totalAmount || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3.5 px-4">
-                        {ord.shippingSnapshot?.courierName ? (
+                        {(ord.shippingSnapshot?.courierName || ord.shipmentInfo?.courier || ord.courier) ? (
                           <div className="text-[11px] text-slate-700 font-medium flex items-center gap-1">
                             <Truck className="w-3.5 h-3.5 text-[#A44101] shrink-0" />
-                            <span className="truncate max-w-[130px]">{ord.shippingSnapshot.courierName}</span>
+                            <span className="truncate max-w-[130px]">{ord.shippingSnapshot?.courierName || ord.shipmentInfo?.courier || ord.courier}</span>
                           </div>
-                        ) : ord.tracking?.awb ? (
+                        ) : (ord.tracking?.awb || ord.shipmentInfo?.awbCode || ord.awbCode) ? (
                           <div className="font-mono text-[11px] text-indigo-700 font-bold flex items-center gap-1">
                             <Truck className="w-3.5 h-3.5 shrink-0" />
-                            <span>{ord.tracking.awb}</span>
+                            <span>{ord.tracking?.awb || ord.shipmentInfo?.awbCode || ord.awbCode}</span>
                           </div>
                         ) : (
-                          <span className="text-[11px] text-slate-400">Shiprocket Ready</span>
+                          <span className="text-[11px] text-slate-400 font-medium">Unassigned</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4">
