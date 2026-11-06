@@ -74,80 +74,106 @@
   animation: diwaliShimmer 3.5s infinite;
 }
 
-/* Diya Flame Flicker Animation */
+/* Diya Flame Flicker Animation - GPU Optimized (Transform & Opacity only to prevent repaint lag) */
 @keyframes diwaliFlameFlicker {
   0%, 100% {
-    transform: scale(1) rotate(-1deg);
+    transform: scale(1) rotate(-1deg) translateZ(0);
     opacity: 0.95;
-    filter: drop-shadow(0 0 6px rgba(255, 138, 0, 0.8));
   }
   25% {
-    transform: scale(1.08, 0.95) rotate(1.5deg);
+    transform: scale(1.06, 0.96) rotate(1.2deg) translateZ(0);
     opacity: 1;
-    filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.95));
   }
   50% {
-    transform: scale(0.96, 1.05) rotate(-0.5deg);
+    transform: scale(0.97, 1.04) rotate(-0.5deg) translateZ(0);
     opacity: 0.9;
-    filter: drop-shadow(0 0 7px rgba(255, 138, 0, 0.85));
   }
   75% {
-    transform: scale(1.04, 0.98) rotate(1deg);
+    transform: scale(1.03, 0.98) rotate(0.8deg) translateZ(0);
     opacity: 1;
-    filter: drop-shadow(0 0 9px rgba(255, 193, 7, 0.9));
   }
 }
 
 .diwali-flame-animated {
   transform-origin: bottom center;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 0 7px rgba(255, 138, 0, 0.85));
   animation: diwaliFlameFlicker 1.8s ease-in-out infinite;
 }
 
-/* Lantern (Akash Kandil) Sway Animation */
+/* Lantern (Akash Kandil) Sway Animation - GPU Accelerated */
 @keyframes diwaliLanternSway {
   0%, 100% {
-    transform: rotate(-3.5deg);
+    transform: rotate(-3.5deg) translateZ(0);
   }
   50% {
-    transform: rotate(3.5deg);
+    transform: rotate(3.5deg) translateZ(0);
   }
 }
 
 .diwali-lantern-sway {
   transform-origin: top center;
+  will-change: transform;
   animation: diwaliLanternSway 4s ease-in-out infinite;
 }
 
 .diwali-lantern-sway-delayed {
   transform-origin: top center;
+  will-change: transform;
   animation: diwaliLanternSway 4.5s ease-in-out infinite 0.8s;
 }
 
-/* Fairy Lights Twinkle Animation */
+/* Fairy Lights Twinkle Animation - High-Performance GPU Composited (Zero Repaint) */
 @keyframes diwaliFairyTwinkle {
   0%, 100% {
     opacity: 0.35;
-    transform: scale(0.9);
-    filter: drop-shadow(0 0 2px rgba(255, 193, 7, 0.3));
+    transform: scale(0.9) translateZ(0);
   }
   50% {
     opacity: 1;
-    transform: scale(1.15);
-    filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.9));
+    transform: scale(1.15) translateZ(0);
   }
 }
 
 .diwali-fairy-light-1 {
+  will-change: opacity, transform;
   animation: diwaliFairyTwinkle 1.6s ease-in-out infinite;
 }
 .diwali-fairy-light-2 {
+  will-change: opacity, transform;
   animation: diwaliFairyTwinkle 2.1s ease-in-out infinite 0.4s;
 }
 .diwali-fairy-light-3 {
+  will-change: opacity, transform;
   animation: diwaliFairyTwinkle 1.8s ease-in-out infinite 0.9s;
 }
 .diwali-fairy-light-4 {
+  will-change: opacity, transform;
   animation: diwaliFairyTwinkle 2.4s ease-in-out infinite 1.3s;
+}
+
+/* Pure CSS Falling Petals Animation - 100% Compositor Thread */
+@keyframes diwaliPetalFall {
+  0% {
+    transform: translate3d(0, -20px, 0) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.75;
+  }
+  85% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate3d(var(--petal-drift, 20px), 85vh, 0) rotate(var(--petal-rot, 180deg));
+    opacity: 0;
+  }
+}
+
+.diwali-petal-pure {
+  will-change: transform, opacity;
+  animation: diwaliPetalFall var(--petal-dur, 10s) linear infinite;
+  animation-delay: var(--petal-delay, 0s);
 }
 
 /* Product Card Festive Glow & Ribbon on Home Page */

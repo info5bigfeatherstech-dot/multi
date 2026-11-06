@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Sparkles, 
   ArrowRight, 
   ShieldCheck, 
   Truck, 
@@ -114,12 +113,15 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
     touchEndX.current = null;
   };
 
-  // Preload banner images so transitions are instant
+  // Preload and decode banner images so transitions are instant
   useEffect(() => {
     banners.forEach((banner) => {
       if (banner.image) {
         const img = new Image();
         img.src = banner.image;
+        if ('decode' in img) {
+          img.decode().catch(() => {});
+        }
       }
     });
   }, [banners]);
@@ -149,21 +151,21 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
   const bannerVariants = {
     enter: (dir: number) => ({
       x: dir > 0 ? '100%' : '-100%',
-      opacity: 0.9,
+      opacity: 0.6,
     }),
     center: {
       x: 0,
       opacity: 1,
       transition: {
-        x: { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 0.45 },
+        x: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.35 },
         opacity: { duration: 0.25 },
       },
     },
     exit: (dir: number) => ({
       x: dir > 0 ? '-100%' : '100%',
-      opacity: 0.9,
+      opacity: 0.6,
       transition: {
-        x: { type: 'tween', ease: [0.25, 1, 0.5, 1], duration: 0.45 },
+        x: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.35 },
         opacity: { duration: 0.25 },
       },
     }),
@@ -386,7 +388,8 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                 initial="enter"
                 animate="center"
                 exit="exit"
-                className="absolute inset-0 w-full h-full block cursor-pointer overflow-hidden focus:outline-none"
+                className="absolute inset-0 w-full h-full block cursor-pointer overflow-hidden focus:outline-none transform-gpu will-change-transform select-none"
+                style={{ willChange: 'transform, opacity' }}
                 aria-label={currentBanner.alt}
                 role="button"
                 tabIndex={0}
@@ -400,8 +403,10 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                 <img
                   src={currentBanner.image}
                   alt={currentBanner.alt}
-                  className="w-full h-full object-cover sm:object-fill lg:object-cover"
+                  className="w-full h-full object-cover sm:object-fill lg:object-cover pointer-events-none select-none"
                   loading="eager"
+                  decoding="async"
+                  draggable={false}
                 />
               </motion.div>
             </AnimatePresence>
@@ -426,12 +431,6 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
                   />
                 );
               })}
-            </div>
-
-            {/* Quick Active Category Pill Tag Top Right */}
-            <div className="absolute top-3 sm:top-5 right-3 sm:right-6 z-20 pointer-events-none hidden xs:flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white text-[11px] sm:text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20 shadow-md">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>{currentBanner.categoryName || 'Apna Bharat Bazar Deals'}</span>
             </div>
           </div>
 

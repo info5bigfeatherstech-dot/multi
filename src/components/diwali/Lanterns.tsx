@@ -14,7 +14,7 @@ export const Lanterns: React.FC = () => {
           viewBox="0 0 60 140"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="overflow-visible filter drop-shadow-md"
+          className="overflow-visible"
         >
           {/* Top Hanging Gold Cord */}
           <line x1="30" y1="0" x2="30" y2="25" stroke="#D4AF37" strokeWidth="1.5" />
@@ -48,7 +48,7 @@ export const Lanterns: React.FC = () => {
           viewBox="0 0 60 140"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="overflow-visible filter drop-shadow-md"
+          className="overflow-visible"
         >
           {/* Top Hanging Gold Cord */}
           <line x1="30" y1="0" x2="30" y2="30" stroke="#D4AF37" strokeWidth="1.5" />

@@ -1,19 +1,20 @@
 import React, { useMemo } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 
 export const FallingPetals: React.FC = () => {
   const shouldReduceMotion = useReducedMotion();
 
-  // Subtle 7 petals drifting across hero
+  // Subtle 7 petals drifting across hero using pure GPU compositor animations
   const petals = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => ({
       id: i,
       left: `${(i * 14 + 5)}%`,
-      delay: i * 1.8,
-      duration: 8 + (i % 3) * 2,
+      delay: `${i * 1.8}s`,
+      duration: `${8 + (i % 3) * 2}s`,
+      drift: `${(i % 2 === 0 ? 30 : -30)}px`,
+      rot: `${(i % 2 === 0 ? 180 : -180)}deg`,
       size: i % 2 === 0 ? 12 : 9,
       color: i % 2 === 0 ? '#FF8A00' : '#FFC107',
-      rotateDir: i % 2 === 0 ? 180 : -180,
     }));
   }, []);
 
@@ -25,24 +26,16 @@ export const FallingPetals: React.FC = () => {
       aria-hidden="true"
     >
       {petals.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className="absolute"
+          className="absolute diwali-petal-pure"
           style={{
             left: p.left,
             top: '-20px',
-          }}
-          animate={{
-            y: ['0vh', '85vh'],
-            x: [0, (p.id % 2 === 0 ? 25 : -25), 0],
-            rotate: [0, p.rotateDir],
-            opacity: [0, 0.75, 0.75, 0],
-          }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            repeat: Infinity,
-            ease: 'linear',
+            ['--petal-delay' as any]: p.delay,
+            ['--petal-dur' as any]: p.duration,
+            ['--petal-drift' as any]: p.drift,
+            ['--petal-rot' as any]: p.rot,
           }}
         >
           {/* SVG Marigold Petal Shape */}
@@ -64,9 +57,8 @@ export const FallingPetals: React.FC = () => {
               opacity="0.4"
             />
           </svg>
-        </motion.div>
+        </div>
       ))}
     </div>
   );
 };
-
