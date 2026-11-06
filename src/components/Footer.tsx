@@ -91,8 +91,8 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Main Footer Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-10 py-12 border-b border-slate-700/60">
           
-          {/* Brand Bio & Contact (4 cols) */}
-          <div className="lg:col-span-4 space-y-4">
+          {/* Brand Bio & Contact (5 cols) */}
+          <div className="lg:col-span-5 space-y-4">
             <a href="/" className="inline-flex items-center group">
               <img
                 src="/images/logo.jpeg"
@@ -126,8 +126,8 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
           </div>
 
-          {/* Quick Category Links (3 cols) */}
-          <div className="lg:col-span-3">
+          {/* Quick Category Links (4 cols) */}
+          <div className="lg:col-span-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
               <span className="w-1.5 h-3 bg-[#A44101] rounded-full" />
               <span>Top Categories</span>
@@ -159,8 +159,8 @@ export const Footer: React.FC<FooterProps> = ({
             </ul>
           </div>
 
-          {/* Customer Service & Policies (2 cols) */}
-          <div className="lg:col-span-2">
+          {/* Customer Service & Policies (3 cols) */}
+          <div className="lg:col-span-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-2">
               <span className="w-1.5 h-3 bg-[#A44101] rounded-full" />
               <span>Help &amp; Policies</span>
@@ -290,39 +290,6 @@ export const Footer: React.FC<FooterProps> = ({
                 </a>
               </li>
             </ul>
-          </div>
-
-          {/* Exclusive Deals Alert Newsletter (3 cols) */}
-          <div className="lg:col-span-3 space-y-3.5">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-              <span className="w-1.5 h-3 bg-[#A44101] rounded-full" />
-              <span>Deal Alerts</span>
-            </h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Subscribe to get alerts on flash discounts under ₹99, ₹149, and new inventory arrivals.
-            </p>
-
-            <form onSubmit={(e) => e.preventDefault()} className="space-y-2">
-              <div className="relative">
-                <input
-                  type="email"
-                  placeholder="Enter email or WhatsApp number"
-                  className="w-full px-3.5 py-2.5 rounded-theme bg-slate-800/90 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#A44101]"
-                  aria-label="Enter email or WhatsApp number for deals alerts"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold py-2.5 px-4 rounded-theme text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-              >
-                <span>Get Secret Discounts</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </form>
-
-            <p className="text-[11px] text-slate-500">
-              🔒 No spam. Only legitimate daily price drops. Unsubscribe anytime.
-            </p>
           </div>
 
         </div>

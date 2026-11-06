@@ -1,19 +1,14 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, 
-  MessageSquare, 
-  Phone, 
   Mail, 
-  MapPin, 
   Clock, 
   ShieldCheck, 
   Send, 
   CheckCircle2, 
   HelpCircle, 
   ChevronDown, 
-  Package, 
   Sparkles,
-  ExternalLink,
   Copy,
   Check
 } from 'lucide-react';
@@ -243,111 +238,9 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
       </section>
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10 space-y-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-10 space-y-10">
 
-        {/* 3. Direct Contact Channels Strip (4 Cards) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* Card 1: WhatsApp */}
-          <a
-            href="https://wa.me/919320001717?text=Namaste!%20I%20need%20assistance%20with%20my%20Apna%20Bharat%20Bazaar%20order."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group bg-white rounded-2xl p-5 shadow-sm hover:shadow-md border border-slate-200 hover:border-emerald-500 transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-3.5 group-hover:scale-105 transition-transform">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                Fastest Response
-              </span>
-              <h3 className="text-base font-black text-navy mt-2">
-                WhatsApp Chat
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Connect instantly with our support team on WhatsApp.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700">
-              <span>+91 93200 01717</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </div>
-          </a>
-
-          {/* Card 2: Phone */}
-          <a
-            href="tel:+919320001717"
-            className="group bg-white rounded-2xl p-5 shadow-sm hover:shadow-md border border-slate-200 hover:border-[#A44101] transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-[#A44101] mb-3.5 group-hover:scale-105 transition-transform">
-                <Phone className="w-6 h-6" />
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-                Direct Helpline
-              </span>
-              <h3 className="text-base font-black text-navy mt-2">
-                Phone Support
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Available Tue - Sun from 1:00 PM to 10:00 PM IST.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#A44101]">
-              <span>+91 93200 01717</span>
-              <Phone className="w-3.5 h-3.5" />
-            </div>
-          </a>
-
-          {/* Card 3: Email */}
-          <a
-            href={`mailto:${TARGET_SUPPORT_EMAIL}?subject=Support%20Inquiry%20-%20MehtaMart`}
-            className="group bg-white rounded-2xl p-5 shadow-sm hover:shadow-md border border-slate-200 hover:border-blue-500 transition-all flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-3.5 group-hover:scale-105 transition-transform">
-                <Mail className="w-6 h-6" />
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                Written Inquiries
-              </span>
-              <h3 className="text-base font-black text-navy mt-2">
-                Official Email Desk
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Detailed queries, GST invoice copy, and receipts.
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-700 truncate">
-              <span className="truncate">{TARGET_SUPPORT_EMAIL}</span>
-            </div>
-          </a>
-
-          {/* Card 4: Logistics Hub */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col justify-between">
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 mb-3.5">
-                <MapPin className="w-6 h-6" />
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                Fulfillment Hub
-              </span>
-              <h3 className="text-base font-black text-navy mt-2">
-                Warehouse Center
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Bhiwandi Logistics Center, Maharashtra - 421302
-              </p>
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-medium text-slate-400">
-              Pan-India Hubs: Mumbai &bull; Delhi &bull; Surat
-            </div>
-          </div>
-
-        </div>
-
-        {/* 4. Interactive Support Ticket Form */}
+        {/* Interactive Support Ticket Form */}
         <div className="max-w-3xl mx-auto w-full">
           <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200">
               
@@ -620,33 +513,6 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBackToHome }) => {
               );
             })}
           </div>
-        </div>
-
-        {/* 6. Pan-India Delivery Guarantee Strip */}
-        <div className="rounded-2xl bg-[#A44101]/5 border border-[#A44101]/20 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[#A44101] text-white flex items-center justify-center shrink-0 shadow-md">
-              <Package className="w-7 h-7" />
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-navy">
-                Pan-India Express Shipping &bull; 24,000+ Pin Codes
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                Every order is safely packed, dispatched within 24 hours, and backed by our replacement guarantee.
-              </p>
-            </div>
-          </div>
-
-          <a
-            href="https://wa.me/919320001717?text=Hi%20Apna%20Bharat%20Bazaar,%20I%20have%20a%20support%20question."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md transition-all shrink-0 cursor-pointer active:scale-95"
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Chat With Us on WhatsApp</span>
-          </a>
         </div>
 
       </div>
