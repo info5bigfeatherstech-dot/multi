@@ -1,9 +1,16 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 
-export const BASE_API_URL =
-  (import.meta as any).env?.VITE_API_URL ||
-  (import.meta as any).env?.VITE_API_BASE_URL ||
-  "/api";
+const normalizeApiUrl = (raw?: string): string => {
+  if (!raw) return "/api";
+  const trimmed = raw.trim();
+  if (trimmed === "/api" || trimmed === "/api/") return "/api";
+  const clean = trimmed.replace(/\/+$/, "");
+  return clean.endsWith("/api") ? clean : `${clean}/api`;
+};
+
+export const BASE_API_URL = normalizeApiUrl(
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "/api"
+);
 
 export const apiClient = axios.create({
   baseURL: BASE_API_URL,
