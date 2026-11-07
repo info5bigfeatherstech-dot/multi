@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8081',
+        target: 'https://mhm-sdd.onrender.com/',
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
