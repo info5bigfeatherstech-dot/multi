@@ -290,7 +290,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                 viewport={{ once: true }}
                 transition={{ duration: 0.3, delay: idx * 0.05 }}
                 onClick={() => onProductClick && onProductClick(product)}
-                className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer snap-start min-w-[170px] sm:min-w-0"
+                className="group bg-white rounded-2xl border border-slate-200/90 hover:border-[#A44101]/40 shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer snap-start min-w-[140px] sm:min-w-0"
               >
                 {/* Top Image Container */}
                 <div className="relative aspect-square w-full bg-slate-50 overflow-hidden">

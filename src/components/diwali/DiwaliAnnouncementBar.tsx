@@ -1,11 +1,11 @@
 import React from 'react';
-import { Sparkles, Truck } from 'lucide-react';
+import { Sparkles /*, Truck */ } from 'lucide-react';
 import { DiyaGlow } from './DiyaGlow';
 
 export const DiwaliAnnouncementBar: React.FC = () => {
   return (
     <div
-      className="bg-[#7A0C1E] text-white text-xs sm:text-[13px] py-2 px-4 border-b border-[#D4AF37]/50 relative z-40 overflow-hidden shadow-xs"
+      className="bg-[#7A0C1E] text-white text-xs sm:text-[13px] py-1.5 sm:py-2 px-2.5 sm:px-4 border-b border-[#D4AF37]/50 relative z-40 overflow-hidden shadow-xs"
       role="region"
       aria-label="Festive Diwali Announcement"
     >
@@ -22,17 +22,20 @@ export const DiwaliAnnouncementBar: React.FC = () => {
         {/* Center: Main Festive Announcement */}
         <div className="w-full md:w-auto flex items-center justify-center gap-2 text-center">
           <Sparkles className="w-3.5 h-3.5 text-[#FFD54F] shrink-0 animate-pulse" />
-          <span className="font-extrabold tracking-wide text-white text-[12px] sm:text-xs">
+          <span className="font-extrabold tracking-wide text-white text-[11px] sm:text-xs leading-tight">
             Happy Diwali! Festive Sale Live — <span className="text-[#FFD54F]">Up to 50% OFF</span> + Free Pan-India Delivery
           </span>
           <Sparkles className="w-3.5 h-3.5 text-[#FFD54F] shrink-0 animate-pulse" />
         </div>
 
-        {/* Desktop Right: Fast Dispatch Guarantee */}
+        {/* Desktop Right: Fast Dispatch Guarantee (Commented Out) */}
+        {/*
         <div className="hidden md:flex items-center space-x-2 text-[#FFE082] text-xs font-semibold">
           <Truck className="w-3.5 h-3.5 text-[#FFC107]" />
           <span>Guaranteed Pre-Diwali Dispatch</span>
         </div>
+        */}
+        <div className="hidden md:block w-36" aria-hidden="true" />
       </div>
     </div>
   );

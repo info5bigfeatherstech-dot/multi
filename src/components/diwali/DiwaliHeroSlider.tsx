@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -116,18 +115,35 @@ const DIWALI_SLIDES: DiwaliSlide[] = [
   },
 ];
 
+// Extended slides for seamless infinite hardware-accelerated carousel
+const EXTENDED_DIWALI_SLIDES = [
+  DIWALI_SLIDES[DIWALI_SLIDES.length - 1],
+  ...DIWALI_SLIDES,
+  DIWALI_SLIDES[0],
+];
+
 export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCategory }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [trackIndex, setTrackIndex] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [direction, setDirection] = useState(1);
-  const shouldReduceMotion = useReducedMotion();
+
+  // Derived real index (0..4) for indicators and metadata
+  const activeRealIndex = ((trackIndex - 1) % DIWALI_SLIDES.length + DIWALI_SLIDES.length) % DIWALI_SLIDES.length;
+
+  // Refs for high-frequency pointer interaction without re-render lag
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartY = useRef(0);
+  const dragStartTime = useRef(0);
+  const hasMovedRef = useRef(false);
 
   // Category sidebar state
   const [sidebarCategories, setSidebarCategories] = useState<CategorySidebarItem[]>(() => getCachedCategories());
   const [hoveredCatIdx, setHoveredCatIdx] = useState<number | null>(null);
-
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
 
   // Load categories for left sidebar
   useEffect(() => {
@@ -155,16 +171,6 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
       });
   }, []);
 
-  // Autoplay (5s), pauses on hover
-  useEffect(() => {
-    if (isPaused) return;
-    const timer = setInterval(() => {
-      setDirection(1);
-      setCurrentIndex((prev) => (prev + 1) % DIWALI_SLIDES.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [isPaused]);
-
   // Preload and decode slide images in memory for 60fps instant transitions
   useEffect(() => {
     DIWALI_SLIDES.forEach((slide) => {
@@ -176,19 +182,142 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
     });
   }, []);
 
+  // Smooth infinite slide navigation
   const handlePrev = () => {
-    setDirection(-1);
-    setCurrentIndex((prev) => (prev - 1 + DIWALI_SLIDES.length) % DIWALI_SLIDES.length);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTrackIndex((prev) => prev - 1);
   };
 
   const handleNext = () => {
-    setDirection(1);
-    setCurrentIndex((prev) => (prev + 1) % DIWALI_SLIDES.length);
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTrackIndex((prev) => prev + 1);
   };
 
-  const goToSlide = (idx: number) => {
-    setDirection(idx > currentIndex ? 1 : -1);
-    setCurrentIndex(idx);
+  const goToSlide = (realIdx: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTrackIndex(realIdx + 1);
+  };
+
+  // Seamless infinite loop wrap
+  const handleTransitionEnd = (e: React.TransitionEvent) => {
+    if (e.target !== trackRef.current) return;
+    setIsTransitioning(false);
+    setTrackIndex((current) => {
+      if (current >= DIWALI_SLIDES.length + 1) {
+        return 1;
+      }
+      if (current <= 0) {
+        return DIWALI_SLIDES.length;
+      }
+      return current;
+    });
+  };
+
+  // Autoplay (5s), pauses on hover, drag, or hidden tab
+  useEffect(() => {
+    if (isPaused || isDragging || isTransitioning) return;
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      setIsTransitioning(true);
+      setTrackIndex((prev) => prev + 1);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [isPaused, isDragging, isTransitioning]);
+
+  // Pointer (Mouse + Touch) Gesture Handlers for real-time 1:1 hardware drag
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // If clicking on arrows, dots, or buttons, ignore pointer drag completely
+    if ((e.target as HTMLElement)?.closest('button, a')) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    isDraggingRef.current = true;
+    dragStartX.current = e.clientX;
+    dragStartY.current = e.clientY;
+    dragStartTime.current = Date.now();
+    hasMovedRef.current = false;
+    setIsDragging(true);
+    setIsTransitioning(false);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartX.current;
+    const dy = e.clientY - dragStartY.current;
+
+    if (!hasMovedRef.current) {
+      // If vertical scroll dominates, let native browser scroll take over
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        setDragOffset(0);
+        return;
+      }
+      if (Math.abs(dx) > 6) {
+        hasMovedRef.current = true;
+        try {
+          (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
+        } catch (_) {}
+      }
+    }
+
+    if (hasMovedRef.current) {
+      setDragOffset(dx);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    // If releasing on arrows, dots, or buttons, ignore pointer drag click
+    if ((e.target as HTMLElement)?.closest('button, a')) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      setDragOffset(0);
+      return;
+    }
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    try {
+      (e.target as HTMLElement)?.releasePointerCapture?.(e.pointerId);
+    } catch (_) {}
+
+    const totalDist = Math.hypot(e.clientX - dragStartX.current, e.clientY - dragStartY.current);
+    const dx = e.clientX - dragStartX.current;
+    const dt = Date.now() - dragStartTime.current;
+    const velocity = Math.abs(dx) / Math.max(dt, 1);
+    setDragOffset(0);
+
+    // If total movement is under 12px, it is a pure click -> open category deals
+    if (totalDist < 12) {
+      handleCtaClick(e as any, DIWALI_SLIDES[activeRealIndex].categoryId);
+      return;
+    }
+
+    // Only swipe if there was deliberate horizontal gesture:
+    // Distance > 60px OR (Distance > 35px with flick velocity > 0.6)
+    if (dx < -60 || (dx < -35 && velocity > 0.6)) {
+      // Swiped Left -> Next
+      setIsTransitioning(true);
+      setTrackIndex((prev) => prev + 1);
+    } else if (dx > 60 || (dx > 35 && velocity > 0.6)) {
+      // Swiped Right -> Prev
+      setIsTransitioning(true);
+      setTrackIndex((prev) => prev - 1);
+    } else {
+      // Snap back to current slide
+      if (Math.abs(dx) > 0) {
+        setIsTransitioning(true);
+      }
+    }
+  };
+
+  const handlePointerCancel = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    setDragOffset(0);
+    setIsTransitioning(true);
   };
 
   // Keyboard navigation
@@ -197,57 +326,16 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
     if (e.key === 'ArrowRight') handleNext();
   };
 
-  // Touch Swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0].clientX;
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.targetTouches[0].clientX;
-  };
-  const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) return;
-    const diff = touchStartX.current - touchEndX.current;
-    if (diff > 45) handleNext();
-    else if (diff < -45) handlePrev();
-    touchStartX.current = null;
-    touchEndX.current = null;
-  };
-
   const handleCtaClick = (e: React.MouseEvent, categoryId: string) => {
     triggerFireworksBurst(e);
     if (onSelectCategory) {
       onSelectCategory(categoryId);
     }
     // Also scroll down smoothly to target category section if exists
-    const el = document.getElementById(categoryId) || document.getElementById(`section-${categoryId}`);
+    const el = document.querySelector(`.section-${categoryId}`) || document.getElementById(categoryId) || document.getElementById(`section-${categoryId}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
     }
-  };
-
-  const currentSlide = DIWALI_SLIDES[currentIndex];
-
-  const slideVariants = {
-    enter: (dir: number) => ({
-      x: shouldReduceMotion ? 0 : (dir > 0 ? '100%' : '-100%'),
-      opacity: shouldReduceMotion ? 1 : 0.6,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: {
-        x: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.35 },
-        opacity: { duration: 0.25 },
-      },
-    },
-    exit: (dir: number) => ({
-      x: shouldReduceMotion ? 0 : (dir > 0 ? '-100%' : '100%'),
-      opacity: shouldReduceMotion ? 1 : 0.6,
-      transition: {
-        x: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.35 },
-        opacity: { duration: 0.25 },
-      },
-    }),
   };
 
   return (
@@ -260,9 +348,6 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
       aria-roledescription="carousel"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
       {/* Decorative Twinkling Fairy Lights across the very top of Hero */}
       <FairyLights />
@@ -402,70 +487,128 @@ export const DiwaliHeroSlider: React.FC<DiwaliHeroSliderProps> = ({ onSelectCate
             })()}
           </aside>
 
-          {/* 2. CENTER: The 5 Templated Selling Banner Slides */}
-          <div className="relative rounded-2xl overflow-hidden shadow-lg border-2 border-[#D4AF37]/60 h-[360px] sm:h-[430px] lg:h-full bg-slate-900 group">
-            <AnimatePresence initial={false} custom={direction}>
-              <motion.div
-                key={currentSlide.id}
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                onClick={(e) => handleCtaClick(e, currentSlide.categoryId)}
-                className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none transform-gpu will-change-transform select-none"
-                style={{ willChange: 'transform, opacity' }}
-                role="button"
-                tabIndex={0}
-                aria-label={currentSlide.headline}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleCtaClick(e as any, currentSlide.categoryId);
-                  }
-                }}
-              >
-                {/* Background Image with High Resolution and Cover fit - Pure Selling Template with No Text Overlay */}
-                <img
-                  src={currentSlide.image}
-                  alt={currentSlide.headline}
-                  className="w-full h-full object-cover object-center pointer-events-none select-none"
-                  loading="eager"
-                  decoding="async"
-                  draggable={false}
-                />
-              </motion.div>
-            </AnimatePresence>
+          {/* 2. CENTER: Hardware-Accelerated Continuous Infinite Selling Banner Track */}
+          <div
+            ref={containerRef}
+            className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-lg border sm:border-2 border-[#D4AF37]/60 w-full aspect-[16/9] lg:aspect-auto lg:h-full bg-slate-900 group select-none touch-pan-y"
+            style={{
+              contain: 'paint',
+              isolation: 'isolate',
+              transform: 'translate3d(0, 0, 0)',
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
+              cursor: isDragging ? 'grabbing' : 'grab',
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => {
+              setIsPaused(false);
+              if (isDraggingRef.current) {
+                handlePointerCancel();
+              }
+            }}
+            onDragStart={(e) => e.preventDefault()}
+          >
+            {/* Seamless Infinite Slider Track */}
+            <div
+              ref={trackRef}
+              className="flex h-full w-full select-none"
+              style={{
+                transform: `translate3d(calc(-${trackIndex * 100}% + ${dragOffset}px), 0, 0)`,
+                transition: isTransitioning
+                  ? 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)'
+                  : 'none',
+                willChange: 'transform',
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {EXTENDED_DIWALI_SLIDES.map((slide, sIdx) => (
+                <div
+                  key={`${slide.id}-${sIdx}`}
+                  className="w-full h-full shrink-0 relative overflow-hidden select-none cursor-pointer"
+                  style={{
+                    transform: 'translate3d(0, 0, 0)',
+                  }}
+                  onClick={(e) => {
+                    if (hasMovedRef.current) return;
+                    handleCtaClick(e, slide.categoryId);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={slide.headline}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleCtaClick(e as any, slide.categoryId);
+                    }
+                  }}
+                >
+                  <img
+                    src={slide.image}
+                    alt={slide.headline}
+                    className="w-full h-full object-cover object-center pointer-events-none select-none"
+                    loading="eager"
+                    decoding="async"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
 
-            {/* Slider Navigation Arrows */}
+            {/* Slider Navigation Arrows - High Performance Without Backdrop Blur Stalls */}
             <button
               type="button"
-              onClick={handlePrev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#1B0B2E]/70 hover:bg-[#7A0C1E] text-[#D4AF37] hover:text-white border border-[#D4AF37]/50 flex items-center justify-center backdrop-blur-xs transition-all shadow-md z-30 cursor-pointer active:scale-90"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handlePrev();
+              }}
+              className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-11 sm:h-11 rounded-full bg-[#1B0B2E]/85 hover:bg-[#7A0C1E] text-[#D4AF37] hover:text-white border border-[#D4AF37]/50 flex items-center justify-center transition-all shadow-md z-30 cursor-pointer active:scale-90"
               aria-label="Previous Slide"
             >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+              <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6" />
             </button>
             <button
               type="button"
-              onClick={handleNext}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#1B0B2E]/70 hover:bg-[#7A0C1E] text-[#D4AF37] hover:text-white border border-[#D4AF37]/50 flex items-center justify-center backdrop-blur-xs transition-all shadow-md z-30 cursor-pointer active:scale-90"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleNext();
+              }}
+              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-11 sm:h-11 rounded-full bg-[#1B0B2E]/85 hover:bg-[#7A0C1E] text-[#D4AF37] hover:text-white border border-[#D4AF37]/50 flex items-center justify-center transition-all shadow-md z-30 cursor-pointer active:scale-90"
               aria-label="Next Slide"
             >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+              <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6" />
             </button>
 
             {/* Slide Navigation Dots */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30">
+            <div
+              className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 sm:gap-2 z-30"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+            >
               {DIWALI_SLIDES.map((slide, idx) => (
                 <button
                   key={slide.id}
                   type="button"
-                  onClick={() => goToSlide(idx)}
-                  className={`transition-all rounded-full cursor-pointer ${
-                    currentIndex === idx
-                      ? 'w-7 sm:w-8 h-2 bg-[#D4AF37] shadow-md'
-                      : 'w-2 h-2 bg-white/50 hover:bg-white/80'
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerUp={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    goToSlide(idx);
+                  }}
+                  className={`transition-all duration-300 rounded-full cursor-pointer ${
+                    activeRealIndex === idx
+                      ? 'w-5 sm:w-8 h-1.5 sm:h-2 bg-[#D4AF37] shadow-md'
+                      : 'w-1.5 sm:w-2 h-1.5 sm:h-2 bg-white/50 hover:bg-white/80'
                   }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />

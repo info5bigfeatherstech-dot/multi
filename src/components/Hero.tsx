@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -30,16 +29,34 @@ export interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
   // Static curated promo banners - uses the created high-resolution static banners
   const banners: HeroBanner[] = HERO_TEMPLATED_BANNERS;
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [trackIndex, setTrackIndex] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [hoveredCatIdx, setHoveredCatIdx] = useState<number | null>(null);
-  const [direction, setDirection] = useState(1);
+
+  // Extended banners for seamless infinite hardware-accelerated carousel
+  const extendedBanners = [
+    banners[banners.length - 1],
+    ...banners,
+    banners[0],
+  ];
+
+  // Derived real index (0..4) for indicators and metadata
+  const activeRealIndex = ((trackIndex - 1) % banners.length + banners.length) % banners.length;
+
+  // Refs for high-frequency pointer interaction without re-render lag
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartY = useRef(0);
+  const dragStartTime = useRef(0);
+  const hasMovedRef = useRef(false);
 
   // Independent left sidebar categories - completely decoupled from banner carousel
   const [sidebarCategories, setSidebarCategories] = useState<CategorySidebarItem[]>(() => getCachedCategories());
-
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
-  const totalBanners = banners.length;
 
   // Load dynamic categories for the left sidebar only
   useEffect(() => {
@@ -69,50 +86,6 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
       });
   }, []);
 
-  // Clamp currentIndex if banners list size changes
-  useEffect(() => {
-    if (currentIndex >= banners.length && banners.length > 0) {
-      setCurrentIndex(0);
-    }
-  }, [banners.length, currentIndex]);
-
-  const handlePrev = () => {
-    setDirection(-1);
-    setCurrentIndex((prev) => (prev - 1 + totalBanners) % totalBanners);
-  };
-
-  const handleNext = () => {
-    setDirection(1);
-    setCurrentIndex((prev) => (prev + 1) % totalBanners);
-  };
-
-  const goToSlide = (idx: number) => {
-    setDirection(idx > currentIndex ? 1 : -1);
-    setCurrentIndex(idx);
-  };
-
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowLeft') handlePrev();
-    if (e.key === 'ArrowRight') handleNext();
-  };
-
-  // Touch swipe support for mobile devices
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.targetTouches[0].clientX;
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.targetTouches[0].clientX;
-  };
-  const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) return;
-    const diff = touchStartX.current - touchEndX.current;
-    if (diff > 45) handleNext();
-    else if (diff < -45) handlePrev();
-    touchStartX.current = null;
-    touchEndX.current = null;
-  };
-
   // Preload and decode banner images so transitions are instant
   useEffect(() => {
     banners.forEach((banner) => {
@@ -126,7 +99,149 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
     });
   }, [banners]);
 
-  const currentBanner: HeroBanner = banners[currentIndex] || banners[0] || HERO_TEMPLATED_BANNERS[0];
+  // Smooth infinite slide navigation
+  const handlePrev = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTrackIndex((prev) => prev - 1);
+  };
+
+  const handleNext = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTrackIndex((prev) => prev + 1);
+  };
+
+  const goToSlide = (realIdx: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTrackIndex(realIdx + 1);
+  };
+
+  // Seamless infinite loop wrap
+  const handleTransitionEnd = (e: React.TransitionEvent) => {
+    if (e.target !== trackRef.current) return;
+    setIsTransitioning(false);
+    setTrackIndex((current) => {
+      if (current >= banners.length + 1) {
+        return 1;
+      }
+      if (current <= 0) {
+        return banners.length;
+      }
+      return current;
+    });
+  };
+
+  // Autoplay (5s), pauses on hover, drag, or hidden tab
+  useEffect(() => {
+    if (isPaused || isDragging || isTransitioning) return;
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      setIsTransitioning(true);
+      setTrackIndex((prev) => prev + 1);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [isPaused, isDragging, isTransitioning, banners.length]);
+
+  // Pointer (Mouse + Touch) Gesture Handlers for real-time 1:1 hardware drag
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // If clicking on arrows, dots, or buttons, ignore pointer drag completely
+    if ((e.target as HTMLElement)?.closest('button, a')) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    isDraggingRef.current = true;
+    dragStartX.current = e.clientX;
+    dragStartY.current = e.clientY;
+    dragStartTime.current = Date.now();
+    hasMovedRef.current = false;
+    setIsDragging(true);
+    setIsTransitioning(false);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartX.current;
+    const dy = e.clientY - dragStartY.current;
+
+    if (!hasMovedRef.current) {
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+        // Vertical scroll dominates
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        setDragOffset(0);
+        return;
+      }
+      if (Math.abs(dx) > 6) {
+        hasMovedRef.current = true;
+        try {
+          (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId);
+        } catch (_) {}
+      }
+    }
+
+    if (hasMovedRef.current) {
+      setDragOffset(dx);
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    // If releasing on arrows, dots, or buttons, ignore pointer drag click
+    if ((e.target as HTMLElement)?.closest('button, a')) {
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      setDragOffset(0);
+      return;
+    }
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    try {
+      (e.target as HTMLElement)?.releasePointerCapture?.(e.pointerId);
+    } catch (_) {}
+
+    const totalDist = Math.hypot(e.clientX - dragStartX.current, e.clientY - dragStartY.current);
+    const dx = e.clientX - dragStartX.current;
+    const dt = Date.now() - dragStartTime.current;
+    const velocity = Math.abs(dx) / Math.max(dt, 1);
+    setDragOffset(0);
+
+    // If total movement is under 12px, it is a pure click -> open category deals
+    if (totalDist < 12) {
+      handleBannerClick(banners[activeRealIndex]);
+      return;
+    }
+
+    // Only swipe if there was deliberate horizontal gesture:
+    // Distance > 60px OR (Distance > 35px with flick velocity > 0.6)
+    if (dx < -60 || (dx < -35 && velocity > 0.6)) {
+      // Swiped Left -> Next
+      setIsTransitioning(true);
+      setTrackIndex((prev) => prev + 1);
+    } else if (dx > 60 || (dx > 35 && velocity > 0.6)) {
+      // Swiped Right -> Prev
+      setIsTransitioning(true);
+      setTrackIndex((prev) => prev - 1);
+    } else {
+      // Snap back smoothly
+      if (Math.abs(dx) > 0) {
+        setIsTransitioning(true);
+      }
+    }
+  };
+
+  const handlePointerCancel = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    setDragOffset(0);
+    setIsTransitioning(true);
+  };
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') handlePrev();
+    if (e.key === 'ArrowRight') handleNext();
+  };
 
   const handleBannerClick = (banner: HeroBanner) => {
     if (banner.categoryId) {
@@ -148,33 +263,10 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
     }
   };
 
-  const bannerVariants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? '100%' : '-100%',
-      opacity: 0.6,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: {
-        x: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.35 },
-        opacity: { duration: 0.25 },
-      },
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? '-100%' : '100%',
-      opacity: 0.6,
-      transition: {
-        x: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.35 },
-        opacity: { duration: 0.25 },
-      },
-    }),
-  };
-
   return (
     <section
       className="relative isolate bg-gradient-to-b from-amber-50/40 via-white to-white py-3 sm:py-5 flex flex-col items-center justify-center border-b border-slate-200/80"
-      aria-label="Apna Bharat Bazar Hero Slider"
+      aria-label="Hero Promotional Slider"
       onKeyDown={handleKeyDown}
       tabIndex={0}
       role="region"
@@ -343,84 +435,116 @@ export const Hero: React.FC<HeroProps> = ({ onSelectCategory }) => {
             </div>
           </aside>
 
-          {/* 2. RIGHT OF HERO: Promotional Banner Carousel */}
+          {/* 2. RIGHT OF HERO: Hardware-Accelerated Continuous Infinite Banner Carousel */}
           <div
-            className="relative w-full h-[250px] sm:h-[380px] lg:h-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border border-slate-200/90 bg-slate-900 group"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            ref={containerRef}
+            className="relative w-full aspect-[16/9] lg:aspect-auto lg:h-full rounded-xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border border-slate-200/90 bg-slate-900 group select-none touch-pan-y"
+            style={{
+              contain: 'paint',
+              isolation: 'isolate',
+              transform: 'translate3d(0, 0, 0)',
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
+              cursor: isDragging ? 'grabbing' : 'grab',
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => {
+              setIsPaused(false);
+              if (isDraggingRef.current) {
+                handlePointerCancel();
+              }
+            }}
+            onDragStart={(e) => e.preventDefault()}
           >
+            {/* Seamless Infinite Slider Track */}
+            <div
+              ref={trackRef}
+              className="flex h-full w-full select-none"
+              style={{
+                transform: `translate3d(calc(-${trackIndex * 100}% + ${dragOffset}px), 0, 0)`,
+                transition: isTransitioning
+                  ? 'transform 420ms cubic-bezier(0.22, 1, 0.36, 1)'
+                  : 'none',
+                willChange: 'transform',
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {extendedBanners.map((banner, bIdx) => (
+                <div
+                  key={`${banner.id}-${bIdx}`}
+                  className="w-full h-full shrink-0 relative overflow-hidden select-none"
+                  style={{
+                    transform: 'translate3d(0, 0, 0)',
+                  }}
+                >
+                  <img
+                    src={banner.image}
+                    alt={banner.alt}
+                    className="w-full h-full object-cover sm:object-fill lg:object-cover pointer-events-none select-none"
+                    loading="eager"
+                    decoding="async"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
+
             {/* Left Arrow Button */}
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 handlePrev();
               }}
-              className="absolute left-2.5 sm:left-6 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-white/90 hover:bg-white text-slate-800 hover:text-[#A44101] shadow-lg border border-white/60 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-[#A44101]"
+              className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 z-30 w-7 h-7 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 hover:text-[#A44101] shadow-lg border border-white/60 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#A44101]"
               aria-label="Previous category banner"
             >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+              <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6" strokeWidth={2.5} />
             </button>
 
             {/* Right Arrow Button */}
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 handleNext();
               }}
-              className="absolute right-2.5 sm:right-6 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-white/90 hover:bg-white text-slate-800 hover:text-[#A44101] shadow-lg border border-white/60 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-[#A44101]"
+              className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 z-30 w-7 h-7 sm:w-12 sm:h-12 rounded-full bg-white/95 hover:bg-white text-slate-800 hover:text-[#A44101] shadow-lg border border-white/60 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#A44101]"
               aria-label="Next category banner"
             >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+              <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6" strokeWidth={2.5} />
             </button>
 
-            {/* Animated Banner Slide */}
-            <AnimatePresence initial={false} custom={direction}>
-              <motion.div
-                key={currentBanner.id}
-                onClick={() => handleBannerClick(currentBanner)}
-                custom={direction}
-                variants={bannerVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="absolute inset-0 w-full h-full block cursor-pointer overflow-hidden focus:outline-none transform-gpu will-change-transform select-none"
-                style={{ willChange: 'transform, opacity' }}
-                aria-label={currentBanner.alt}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleBannerClick(currentBanner);
-                  }
-                }}
-              >
-                <img
-                  src={currentBanner.image}
-                  alt={currentBanner.alt}
-                  className="w-full h-full object-cover sm:object-fill lg:object-cover pointer-events-none select-none"
-                  loading="eager"
-                  decoding="async"
-                  draggable={false}
-                />
-              </motion.div>
-            </AnimatePresence>
-
             {/* OfferWaleBaba Style Pill Indicators at Bottom Center */}
-            <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 sm:gap-2 bg-black/50 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/20 shadow-lg">
+            <div
+              className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 sm:gap-2 bg-black/70 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white/20 shadow-lg"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+            >
               {banners.map((banner, idx) => {
-                const isActive = idx === currentIndex;
+                const isActive = idx === activeRealIndex;
                 return (
                   <button
                     key={banner.id}
                     type="button"
-                    onClick={() => goToSlide(idx)}
-                    className={`transition-all duration-300 rounded-full focus:outline-none ${
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onPointerUp={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      goToSlide(idx);
+                    }}
+                    className={`transition-all duration-300 rounded-full focus:outline-none cursor-pointer ${
                       isActive
                         ? 'w-6 sm:w-8 h-2 sm:h-2.5 bg-[#A44101] shadow-xs'
                         : 'w-2 sm:w-2.5 h-2 sm:h-2.5 bg-white/60 hover:bg-white'

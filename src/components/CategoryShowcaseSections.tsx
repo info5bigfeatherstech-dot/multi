@@ -558,7 +558,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.3 }}
-              className="relative w-full h-full min-h-[300px] sm:min-h-[340px] lg:min-h-full rounded-theme overflow-hidden border border-slate-200/90 shadow-soft group flex flex-col justify-between p-5 sm:p-6 text-white"
+              className="relative w-full h-full min-h-[170px] sm:min-h-[240px] lg:min-h-full rounded-theme overflow-hidden border border-slate-200/90 shadow-soft group flex flex-col justify-between p-4 sm:p-6 text-white"
             >
               {/* Category Image (only if coming from backend) */}
               {section.image ? (
@@ -633,7 +633,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
             <button
               type="button"
               onClick={() => scrollOneProduct('left')}
-              className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
+              className="hidden sm:flex absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
               aria-label={`Scroll ${section.name} products left`}
               title="Previous product"
             >
@@ -655,7 +655,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                   <article
                     key={product.id}
                     onClick={() => onProductClick?.(product)}
-                    className="w-[200px] sm:w-[220px] lg:w-[calc((100%-3*12px)/4)] xl:w-[calc((100%-4*14px)/5)] min-w-[190px] xl:min-w-[205px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer"
+                    className="w-[160px] sm:w-[220px] lg:w-[calc((100%-3*12px)/4)] xl:w-[calc((100%-4*14px)/5)] min-w-[155px] sm:min-w-[190px] xl:min-w-[205px] shrink-0 bg-white rounded-theme border border-slate-200 shadow-soft hover:shadow-soft-hover hover:border-[#A44101]/40 transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer"
                   >
                     {/* Product Visual */}
                     <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
@@ -800,19 +800,19 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
               {/* Explore All Products Card for this specific category */}
               <div
                 onClick={() => onCategoryClick?.(section.id)}
-                className="w-[190px] sm:w-[210px] min-w-[180px] shrink-0 rounded-theme border-2 border-dashed border-[#A44101]/40 bg-gradient-to-b from-[#A44101]/5 via-white to-[#A44101]/10 hover:border-[#A44101] transition-all p-5 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group shadow-2xs hover:shadow-md"
+                className="w-[160px] sm:w-[210px] min-w-[155px] sm:min-w-[180px] shrink-0 rounded-theme border-2 border-dashed border-[#A44101]/40 bg-gradient-to-b from-[#A44101]/5 via-white to-[#A44101]/10 hover:border-[#A44101] transition-all p-4 sm:p-5 flex flex-col items-center justify-center text-center gap-2.5 sm:gap-3 cursor-pointer group shadow-2xs hover:shadow-md"
               >
-                <div className="w-12 h-12 rounded-full bg-[#A44101]/10 group-hover:bg-[#A44101] text-[#A44101] group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-xs">
-                  <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#A44101]/10 group-hover:bg-[#A44101] text-[#A44101] group-hover:text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-xs">
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#A44101] block mb-1">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#A44101] block mb-0.5 sm:mb-1">
                     Complete Collection
                   </span>
                   <h4 className="text-xs sm:text-sm font-extrabold text-navy group-hover:text-[#A44101] transition-colors leading-tight">
                     Explore All {section.name} Products
                   </h4>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-1">
                     View all items &amp; deals
                   </p>
                 </div>
@@ -823,7 +823,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
             <button
               type="button"
               onClick={() => scrollOneProduct('right')}
-              className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
+              className="hidden sm:flex absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-[#A44101] text-navy hover:text-white border border-slate-300 shadow-md items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-xs"
               aria-label={`Scroll ${section.name} products right`}
               title="Next product"
             >

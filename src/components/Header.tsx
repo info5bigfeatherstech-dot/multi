@@ -32,7 +32,6 @@ import {
   Loader2,
   ArrowRight,
   Clock,
-  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../context/CartContext';
@@ -298,14 +297,16 @@ export const Header: React.FC<HeaderProps> = ({
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem('abb_recent_searches');
-      return stored ? JSON.parse(stored) : ['Pressure Cooker', 'Naphthalene Balls', 'Glass Cover Lid'];
+      return stored ? JSON.parse(stored) : [];
     } catch {
-      return ['Pressure Cooker', 'Naphthalene Balls', 'Glass Cover Lid'];
+      return [];
     }
   });
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
+  const [activeResultIndex, setActiveResultIndex] = useState<number>(-1);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeCategoryTab, setActiveCategoryTab] = useState("all");
@@ -516,6 +517,22 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Global keyboard shortcut: Cmd+K / Ctrl+K to focus search (shadcn style)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        desktopSearchInputRef.current?.focus();
+        setIsSearchOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Search API execution with debounce
   useEffect(() => {
     const query = searchQuery.trim();
@@ -625,6 +642,23 @@ export const Header: React.FC<HeaderProps> = ({
     setIsSearchOpen(true);
   };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSearchOpen || searchResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveResultIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveResultIndex((prev) => (prev > 0 ? prev - 1 : searchResults.length - 1));
+    } else if (e.key === 'Enter') {
+      if (activeResultIndex >= 0 && activeResultIndex < searchResults.length) {
+        e.preventDefault();
+        handleProductSelect(searchResults[activeResultIndex]);
+      }
+    }
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = searchQuery.trim();
@@ -645,6 +679,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const renderSearchDropdown = () => {
     if (!isSearchOpen) return null;
+    if (!isSearching && searchQuery.trim().length === 0 && recentSearches.length === 0) return null;
 
     return (
       <AnimatePresence>
@@ -653,7 +688,7 @@ export const Header: React.FC<HeaderProps> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.99 }}
           transition={{ duration: 0.15 }}
-          className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-charcoal text-left"
+          className="absolute top-[calc(100%+8px)] left-0 right-0 bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/90 ring-1 ring-black/5 overflow-hidden z-50 text-slate-800 text-left divide-y divide-slate-100"
         >
           {isSearching ? (
             <div className="p-4 space-y-3">
@@ -674,20 +709,26 @@ export const Header: React.FC<HeaderProps> = ({
           ) : searchQuery.trim().length > 0 ? (
             searchResults.length > 0 ? (
               <div>
-                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
+                <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs">
                   <span className="font-bold text-slate-700">
                     Found {searchResults.length} matching {searchResults.length === 1 ? 'product' : 'products'}
                   </span>
-                  <span className="text-[11px] text-[#A44101] font-semibold bg-[#A44101]/10 px-2 py-0.5 rounded-full">
-                    Live Search
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#A44101] font-semibold bg-[#A44101]/10 px-2 py-0.5 rounded-full">
+                    <Sparkles className="w-3 h-3" />
+                    Live Results
                   </span>
                 </div>
-                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                  {searchResults.map((product) => (
+                <div className="max-h-80 overflow-y-auto p-1.5 space-y-1">
+                  {searchResults.map((product, idx) => (
                     <div
                       key={product.id}
                       onClick={() => handleProductSelect(product)}
-                      className="p-3 hover:bg-amber-50/50 flex items-center gap-3 transition-colors cursor-pointer group"
+                      onMouseEnter={() => setActiveResultIndex(idx)}
+                      className={'group flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all duration-150 ' + (
+                        activeResultIndex === idx
+                          ? 'bg-amber-50/90 ring-1 ring-inset ring-[#A44101]/30 shadow-2xs'
+                          : 'hover:bg-slate-50'
+                      )}
                     >
                       <div className="relative w-12 h-12 rounded-lg bg-slate-100 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center">
                         <img
@@ -713,11 +754,11 @@ export const Header: React.FC<HeaderProps> = ({
                             <span className="text-[9px] text-rose-500 font-semibold">• Out of Stock</span>
                           )}
                         </div>
-                        <h4 className="text-xs font-bold text-navy truncate group-hover:text-[#A44101] transition-colors">
+                        <h4 className="text-xs font-bold text-slate-900 truncate group-hover:text-[#A44101] transition-colors">
                           {product.title}
                         </h4>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs font-black text-navy">₹{product.currentPrice}</span>
+                          <span className="text-xs font-black text-slate-900">₹{product.currentPrice}</span>
                           {product.originalPrice > product.currentPrice && (
                             <span className="text-[11px] text-slate-400 line-through">₹{product.originalPrice}</span>
                           )}
@@ -726,7 +767,15 @@ export const Header: React.FC<HeaderProps> = ({
                           </span>
                         </div>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all shrink-0" />
+                      <div className="shrink-0 flex items-center pr-1">
+                        {activeResultIndex === idx ? (
+                          <kbd className="hidden sm:inline-flex items-center text-[10px] font-mono font-semibold text-[#A44101] bg-white border border-[#A44101]/30 rounded px-1.5 py-0.5 shadow-2xs">
+                            ↵
+                          </kbd>
+                        ) : (
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#A44101] group-hover:translate-x-0.5 transition-all" />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -734,7 +783,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     type="button"
                     onClick={handleSearchSubmit}
-                    className="w-full py-2 px-3 rounded-xl bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#A44101] to-[#8C3701] hover:from-[#8C3701] hover:to-[#732C01] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
                   >
                     <span>View all matching products for "{searchQuery}"</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -746,86 +795,64 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="w-10 h-10 rounded-full bg-amber-50 text-[#A44101] flex items-center justify-center mx-auto mb-2 border border-amber-200">
                   <Search className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-bold text-navy">No products found for "{searchQuery}"</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Try searching with another keyword or explore popular tags</p>
-                <div className="mt-3 flex flex-wrap gap-1.5 justify-center">
-                  {['Pressure Cooker', 'Naphthalene Balls', 'Glass Cover Lid', 'Chopper', 'Kitchenware'].map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => handleSearchTermClick(tag)}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-[#A44101] hover:text-white text-slate-600 transition-colors cursor-pointer"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-xs font-bold text-slate-900">No products found for "{searchQuery}"</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Try searching with another keyword or explore categories</p>
               </div>
             )
-          ) : (
-            <div className="p-4 space-y-3">
-              <div>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  <Flame className="w-3.5 h-3.5 text-[#A44101]" />
-                  <span>Trending Searches</span>
+          ) : recentSearches.length > 0 ? (
+            <div className="p-4 space-y-2">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Recent Searches</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    'Pressure Cooker',
-                    'Naphthalene Balls',
-                    'Glass Cover Lid',
-                    'Vegetable Chopper',
-                    'Water Bottle',
-                    'Tiffin Box',
-                    'Smart Life Gadgets'
-                  ].map((term) => (
-                    <button
-                      key={term}
-                      type="button"
-                      onClick={() => handleSearchTermClick(term)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-[#A44101] hover:text-white text-slate-700 transition-all cursor-pointer flex items-center gap-1 border border-slate-200/60"
-                    >
-                      <TrendingUp className="w-3 h-3 opacity-60" />
-                      <span>{term}</span>
-                    </button>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecentSearches([]);
+                    localStorage.removeItem('abb_recent_searches');
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-[#A44101] cursor-pointer"
+                >
+                  Clear
+                </button>
               </div>
-
-              {recentSearches.length > 0 && (
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Recent Searches</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRecentSearches([]);
-                        localStorage.removeItem('abb_recent_searches');
-                      }}
-                      className="text-[10px] text-slate-400 hover:text-[#A44101] cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {recentSearches.map((term) => (
-                      <button
-                        key={term}
-                        type="button"
-                        onClick={() => handleSearchTermClick(term)}
-                        className="px-2.5 py-1 rounded-md text-xs text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-navy border border-slate-200 transition-colors cursor-pointer"
-                      >
-                        {term}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-1.5">
+                {recentSearches.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => handleSearchTermClick(term)}
+                    className="px-2.5 py-1 rounded-md text-xs text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+          ) : null}
+
+          {/* Shadcn Command Footer Shortcuts */}
+          <div className="px-4 py-2 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 select-none">
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline-flex items-center">
+                <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 shadow-2xs mr-1">↑</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 shadow-2xs mr-1">↓</kbd>
+                navigate
+              </span>
+              <span className="inline-flex items-center">
+                <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 shadow-2xs mr-1">↵</kbd>
+                select
+              </span>
+              <span className="inline-flex items-center">
+                <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 shadow-2xs mr-1">esc</kbd>
+                close
+              </span>
+            </div>
+            <span className="text-[10px] font-medium text-slate-400">
+              Apna Bharat Instant Search
+            </span>
+          </div>
         </motion.div>
       </AnimatePresence>
     );
@@ -881,19 +908,19 @@ export const Header: React.FC<HeaderProps> = ({
       >
         <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
           {/* Main Header Row */}
-          <div className="flex items-center justify-between h-28 sm:h-32 md:h-36 gap-3 md:gap-8 py-2">
+          <div className="flex items-center justify-between h-16 sm:h-24 md:h-32 lg:h-36 gap-2 sm:gap-4 md:gap-8 py-1 sm:py-2">
 
             {/* Logo */}
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Mobile Hamburger toggle */}
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="p-2 -ml-2 text-navy hover:text-[#A44101] md:hidden rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 -ml-1 text-navy hover:text-[#A44101] md:hidden rounded-lg hover:bg-slate-100 transition-colors"
                 aria-label="Open navigation menu"
                 aria-expanded={isMobileMenuOpen}
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
 
               <a
@@ -906,43 +933,53 @@ export const Header: React.FC<HeaderProps> = ({
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }
                 }}
-                className="flex items-center group cursor-pointer focus:outline-none"
+                className="flex items-center gap-2 group cursor-pointer focus:outline-none"
                 aria-label="Apna Bharat Bazaar Home"
               >
                 <img
                   src="/images/logo.jpeg"
                   alt="Apna Bharat Bazaar"
-                  className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover shadow-md ring-3 ring-[#A44101] group-hover:scale-105 transition-transform duration-200 bg-white"
+                  className="w-12 h-12 sm:w-20 sm:h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-full object-cover shadow-sm sm:shadow-md ring-2 sm:ring-3 ring-[#A44101] group-hover:scale-105 transition-transform duration-200 bg-white shrink-0"
                 />
+                <div className="flex flex-col md:hidden leading-tight">
+                  <span className="font-black text-xs sm:text-sm text-navy tracking-tight whitespace-nowrap">
+                    Apna Bharat <span className="text-[#A44101]">Bazaar</span>
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] text-[#A44101] font-bold uppercase tracking-wider">
+                    Think Shopping, Think Us
+                  </span>
+                </div>
               </a>
             </div>
 
-            {/* Desktop Center: Large Search Bar */}
+            {/* Desktop Center: Large Search Bar (shadcn Command Style) */}
             <div ref={searchContainerRef} className="hidden md:flex flex-1 max-w-2xl relative">
               <form
                 onSubmit={handleSearchSubmit}
-                className="relative flex w-full items-center rounded-theme border-2 border-slate-200 bg-white hover:border-[#A44101]/70 focus-within:border-[#A44101] focus-within:ring-2 focus-within:ring-[#A44101]/20 transition-all shadow-xs overflow-hidden"
+                className="relative flex w-full items-center h-11 lg:h-12 rounded-full border border-slate-200/90 bg-slate-50/70 hover:bg-slate-50 focus-within:bg-white hover:border-slate-300 focus-within:border-[#A44101] focus-within:ring-4 focus-within:ring-[#A44101]/10 transition-all duration-200 pl-4 pr-1.5 shadow-xs hover:shadow-sm"
                 role="search"
               >
-                <div className="pl-4 pr-1 text-slate-400 flex items-center justify-center pointer-events-none">
+                <div className="text-slate-400 flex items-center justify-center pointer-events-none shrink-0 mr-2">
                   {isSearching ? (
                     <Loader2 className="w-4 h-4 text-[#A44101] animate-spin" />
                   ) : (
-                    <Search className="w-4 h-4" />
+                    <Search className="w-4 h-4 text-slate-400 transition-colors" />
                   )}
                 </div>
 
                 {/* Input Field */}
                 <input
+                  ref={desktopSearchInputRef}
                   type="text"
                   value={searchQuery}
                   onFocus={() => setIsSearchOpen(true)}
+                  onKeyDown={handleSearchKeyDown}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     if (!isSearchOpen) setIsSearchOpen(true);
                   }}
                   placeholder="Search 10,000+ lowest price deals (e.g. pressure cooker, tiffin, toys)..."
-                  className="w-full px-3 py-2.5 text-sm text-charcoal placeholder-slate-400 focus:outline-none"
+                  className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
                   aria-label="Search products"
                 />
 
@@ -953,21 +990,28 @@ export const Header: React.FC<HeaderProps> = ({
                     onClick={() => {
                       setSearchQuery("");
                       setSearchResults([]);
+                      desktopSearchInputRef.current?.focus();
                     }}
-                    className="p-1 mr-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
+                    className="p-1 mr-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition-colors cursor-pointer"
                     aria-label="Clear search"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
                 )}
 
-                {/* Search Button (Theme CTA) */}
+                {/* Keyboard Shortcut badge (shadcn Command style) */}
+                <kbd className="hidden lg:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-semibold text-slate-400 bg-white border border-slate-200 rounded-md shadow-2xs font-mono mr-1.5 select-none pointer-events-none">
+                  <span className="text-[11px]">⌘</span>K
+                </kbd>
+
+                {/* Search CTA Pill Button */}
                 <button
                   type="submit"
-                  className="bg-[#A44101] hover:bg-[#8C3701] text-white px-6 py-2.5 flex items-center justify-center font-extrabold text-xs uppercase tracking-wider transition-colors shrink-0 cursor-pointer shadow-xs active:scale-98"
+                  className="h-8 lg:h-9 px-4 lg:px-5 rounded-full bg-gradient-to-r from-[#A44101] to-[#8C3701] hover:from-[#8C3701] hover:to-[#732C01] text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs hover:shadow-sm transition-all duration-150 active:scale-95 shrink-0 cursor-pointer"
                   aria-label="Execute search"
                 >
-                  Search
+                  <span>Search</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </form>
 
@@ -1045,24 +1089,27 @@ export const Header: React.FC<HeaderProps> = ({
           <div ref={mobileSearchRef} className="pb-3 md:hidden relative">
             <form
               onSubmit={handleSearchSubmit}
-              className="flex w-full items-center rounded-theme border border-slate-200 bg-slate-50/70 overflow-hidden focus-within:border-[#A44101] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#A44101]/20 transition-all"
+              className="relative flex w-full items-center h-10 rounded-full border border-slate-200 bg-slate-50/80 focus-within:bg-white focus-within:border-[#A44101] focus-within:ring-3 focus-within:ring-[#A44101]/15 transition-all pl-3.5 pr-1.5 shadow-2xs"
               role="search"
             >
-              {isSearching ? (
-                <Loader2 className="w-4 h-4 text-[#A44101] animate-spin ml-3.5 shrink-0" />
-              ) : (
-                <Search className="w-4 h-4 text-slate-400 ml-3.5 shrink-0" />
-              )}
+              <div className="text-slate-400 flex items-center justify-center pointer-events-none shrink-0 mr-2">
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 text-[#A44101] animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4 text-slate-400" />
+                )}
+              </div>
               <input
                 type="text"
                 value={searchQuery}
                 onFocus={() => setIsSearchOpen(true)}
+                onKeyDown={handleSearchKeyDown}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   if (!isSearchOpen) setIsSearchOpen(true);
                 }}
                 placeholder="Search deals, pressure cookers, toys..."
-                className="w-full px-3 py-2 text-sm text-charcoal bg-transparent placeholder-slate-400 focus:outline-none"
+                className="w-full text-xs text-slate-800 bg-transparent placeholder:text-slate-400 focus:outline-none"
                 aria-label="Search products"
               />
               {searchQuery && (
@@ -1072,16 +1119,19 @@ export const Header: React.FC<HeaderProps> = ({
                     setSearchQuery("");
                     setSearchResults([]);
                   }}
-                  className="p-1 mr-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  className="p-1 mr-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 cursor-pointer"
+                  aria-label="Clear search"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-3 h-3" />
                 </button>
               )}
               <button
                 type="submit"
-                className="bg-[#A44101] text-white px-4 py-2 text-xs font-extrabold shrink-0 hover:bg-[#8C3701] transition-colors"
+                className="h-7 px-3.5 rounded-full bg-gradient-to-r from-[#A44101] to-[#8C3701] text-white text-[11px] font-bold uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-2xs hover:shadow-xs active:scale-95 transition-all cursor-pointer"
+                aria-label="Find products"
               >
-                Find
+                <span>Find</span>
+                <ArrowRight className="w-3 h-3" />
               </button>
             </form>
 
@@ -1282,6 +1332,8 @@ export const Header: React.FC<HeaderProps> = ({
                 );
               })}
 
+              {/* Dropship B2B Button (Commented Out) */}
+              {/*
               <button
                 type="button"
                 onClick={() => {
@@ -1300,6 +1352,7 @@ export const Header: React.FC<HeaderProps> = ({
                   B2B
                 </span>
               </button>
+              */}
 
               <button
                 type="button"

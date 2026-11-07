@@ -28,6 +28,10 @@ dist-ssr
 # TypeScript cache
 *.tsbuildinfo
 
+# Scratch & temporary assets
+scratch/
+scratch
+
 # Environment variables
 .env
 .env.*

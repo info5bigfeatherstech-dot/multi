@@ -1942,6 +1942,50 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           </div>
         )}
       </AnimatePresence>
+      {/* Mobile Sticky Quick CTA Bar */}
+      <div className="sm:hidden fixed bottom-14 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-3 py-2 shadow-2xl flex items-center justify-between gap-3">
+        <div className="flex flex-col">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-lg font-black text-navy leading-none">₹{payablePrice}</span>
+            {originalPrice > payablePrice && (
+              <span className="text-xs text-slate-400 line-through">₹{originalPrice}</span>
+            )}
+          </div>
+          {discountPercentage > 0 && (
+            <span className="text-[10px] font-black text-emerald-600">Save {discountPercentage}%</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {isOutOfStock ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowOosModal(true);
+              }}
+              className="px-4 py-2 bg-[#A44101] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+            >
+              Notify Me
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-navy text-xs font-bold rounded-xl border border-slate-300 transition-all active:scale-95 cursor-pointer"
+              >
+                {isAddedToCart ? 'Added!' : 'Add to Cart'}
+              </button>
+              <button
+                type="button"
+                onClick={handleBuyNow}
+                className="px-4 py-2 bg-[#A44101] hover:bg-[#8C3701] text-white text-xs font-extrabold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                Buy Now
+              </button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

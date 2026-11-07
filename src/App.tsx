@@ -27,6 +27,7 @@ import { BecomeDropshipperPage } from './pages/BecomeDropshipperPage';
 import { DIWALI_THEME } from './config/diwaliConfig';
 import { DiwaliAnnouncementBar } from './components/diwali/DiwaliAnnouncementBar';
 import { DiwaliHomePage } from './components/diwali/DiwaliHomePage';
+import { MobileBottomNav } from './components/navigation/MobileBottomNav';
 
 import { Loader2, PackageX } from 'lucide-react';
 import { cacheProduct, getCachedProduct, fetchProductByIdentifier, getProductSlug, isProductActive } from './utils/productUtils';
@@ -607,7 +608,7 @@ export const App: React.FC = () => {
         />
 
         {/* Main Content Area (White background under the header) */}
-        <main className="main-content flex-1 bg-white relative">
+        <main className="main-content flex-1 bg-white relative pb-16 md:pb-0">
           {currentView === 'become-dropshipper' ? (
             /* Dedicated Become Dropshipper Page */
             <BecomeDropshipperPage
@@ -753,6 +754,23 @@ export const App: React.FC = () => {
 
         {/* Slide-in Cart Drawer */}
         <CartDrawer onGoToCheckout={handleGoToCheckout} />
+
+        {/* Mobile Fixed Bottom Navigation Bar */}
+        <MobileBottomNav
+          currentView={currentView}
+          onGoToHome={handleBackToStore}
+          onGoToWishlist={handleGoToWishlist}
+          onOpenCategories={() => {
+            handleSelectCategory('explore-all');
+          }}
+          onGoToDeals={() => {
+            setDealsType('today-deals');
+            setCurrentView('deals');
+            setSelectedProduct(null);
+            window.history.pushState(null, '', '/today-deals');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
 
         {/* Mandatory Phone Number Collection Gate Lock Modal */}
         <PhonePromptModal

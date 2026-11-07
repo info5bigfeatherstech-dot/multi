@@ -28,11 +28,11 @@ export const Footer: React.FC<FooterProps> = ({
   onGoToContact,
   onGoToBulkOrders,
   onGoToCustomizeGift,
-  onGoToBecomeDropshipper,
+  onGoToBecomeDropshipper: _onGoToBecomeDropshipper,
   onGoToInfluencer,
 }) => {
   return (
-    <footer className="site-footer bg-navy text-slate-300 pt-14 pb-8 border-t border-navy-light/40" role="contentinfo">
+    <footer className="site-footer bg-navy text-slate-300 pt-10 sm:pt-14 pb-12 sm:pb-8 border-t border-navy-light/40" role="contentinfo">
       <div className="w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Top Trust Features Strip */}
@@ -97,7 +97,7 @@ export const Footer: React.FC<FooterProps> = ({
               <img
                 src="/images/logo.jpeg"
                 alt="Apna Bharat Bazaar"
-                className="w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 rounded-full object-cover ring-3 ring-[#A44101] bg-white shadow-lg group-hover:scale-105 transition-transform duration-200"
+                className="w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-full object-cover ring-2 sm:ring-3 ring-[#A44101] bg-white shadow-lg group-hover:scale-105 transition-transform duration-200"
               />
             </a>
 
@@ -251,7 +251,7 @@ export const Footer: React.FC<FooterProps> = ({
                   </span>
                 </a>
               </li>
-              <li>
+              {/* <li>
                 <a
                   href="/become-dropshipper"
                   onClick={(e) => {
@@ -269,7 +269,7 @@ export const Footer: React.FC<FooterProps> = ({
                     B2B
                   </span>
                 </a>
-              </li>
+              </li> */}
               <li>
                 <a
                   href="/influencer"
