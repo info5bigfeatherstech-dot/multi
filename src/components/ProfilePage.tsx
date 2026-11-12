@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   User,
   Package,
@@ -73,7 +73,11 @@ const getTabFromLocation = (): TabKey => {
     path === "/order" ||
     path === "/orders" ||
     path.startsWith("/order/") ||
-    path.startsWith("/orders/")
+    path.startsWith("/orders/") ||
+    path === "/profile/order" ||
+    path === "/profile/orders" ||
+    path.startsWith("/profile/order/") ||
+    path.startsWith("/profile/orders/")
   ) {
     return "orders";
   }
@@ -81,17 +85,19 @@ const getTabFromLocation = (): TabKey => {
     path === "/address" ||
     path === "/addresses" ||
     path.startsWith("/address/") ||
-    path.startsWith("/addresses/")
+    path.startsWith("/addresses/") ||
+    path === "/profile/address" ||
+    path === "/profile/addresses"
   ) {
     return "addresses";
   }
-  if (path === "/wishlist" || path.startsWith("/wishlist/")) {
+  if (path === "/wishlist" || path.startsWith("/wishlist/") || path === "/profile/wishlist") {
     return "wishlist";
   }
-  if (path === "/cart") {
+  if (path === "/cart" || path === "/profile/cart") {
     return "cart";
   }
-  if (path === "/profile") {
+  if (path.startsWith("/profile") || path === "/account") {
     return "profile";
   }
   const hash = window.location.hash.toLowerCase();
@@ -449,11 +455,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [selectedOrderIdForInsideView, setSelectedOrderIdForInsideView] =
     useState<string | null>(() => {
       if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const oParam = params.get("order");
-        if (oParam) return oParam;
-        const hash = window.location.hash;
-        if (hash.startsWith("#order-")) return hash.replace("#order-", "");
+        const path = window.location.pathname.toLowerCase();
+        if (path.includes("order") || window.location.hash.includes("order")) {
+          const params = new URLSearchParams(window.location.search);
+          const oParam = params.get("order");
+          if (oParam) return oParam;
+          const hash = window.location.hash;
+          if (hash.startsWith("#order-")) return hash.replace("#order-", "");
+        }
       }
       return null;
     });
@@ -473,9 +482,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const handlePopState = () => {
       const tab = getTabFromLocation();
       setActiveTab(tab);
-      const params = new URLSearchParams(window.location.search);
-      const oParam = params.get("order");
-      setSelectedOrderIdForInsideView(oParam || null);
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes("order") || window.location.hash.includes("order")) {
+        const params = new URLSearchParams(window.location.search);
+        const oParam = params.get("order");
+        setSelectedOrderIdForInsideView(oParam || null);
+      } else {
+        setSelectedOrderIdForInsideView(null);
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -484,6 +498,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // Auto-resolve MongoDB ObjectId (e.g. 6ad59f5a740cc5d773dae434) to public orderId (OWB-ECOMM-...)
   useEffect(() => {
     if (selectedOrderIdForInsideView && orders.length > 0) {
+      const path = typeof window !== "undefined" ? window.location.pathname.toLowerCase() : "";
+      if (!path.includes("order")) return;
+
       const matched = orders.find(
         (o) =>
           o._id === selectedOrderIdForInsideView ||
@@ -574,6 +591,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         console.warn("Addresses API error:", err);
         setAddresses([]);
       });
+
+  }, [onRequireAuth, onBackToHome]);
+
+  const hasLoadedOrdersRef = useRef(false);
+
+  const loadOrders = useCallback(async (force = false) => {
+    if (hasLoadedOrdersRef.current && !force) return;
+    hasLoadedOrdersRef.current = true;
 
     // 3. Clean out legacy dummy mock orders from storage
     try {
@@ -1037,7 +1062,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       .finally(() => {
         setIsLoadingOrders(false);
       });
+
   }, []);
+
+  // Only load orders when user is on the "orders" tab or has navigated to view an order
+  useEffect(() => {
+    if (activeTab === "orders" || selectedOrderIdForInsideView) {
+      loadOrders();
+    }
+  }, [activeTab, selectedOrderIdForInsideView, loadOrders]);
 
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -1482,6 +1515,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               onClick={() => {
                 setActiveTab("orders");
                 setSelectedOrderIdForInsideView(null);
+                loadOrders(true);
                 if (
                   typeof window !== "undefined" &&
                   window.location.pathname !== "/order"
@@ -1499,9 +1533,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <Package className="w-4 h-4" />
                 <span>My Orders & Tracking</span>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-current">
-                {isLoadingOrders ? "..." : orders.length}
-              </span>
+              {hasLoadedOrdersRef.current ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-current">
+                  {isLoadingOrders ? "..." : orders.length}
+                </span>
+              ) : null}
             </button>
 
             <button

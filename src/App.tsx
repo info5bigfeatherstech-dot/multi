@@ -313,11 +313,11 @@ export const App: React.FC = () => {
         setSelectedProduct(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (
-        path === '/profile' ||
-        path === '/orders' ||
-        path === '/order' ||
-        path === '/addresses' ||
-        path === '/address' ||
+        path.startsWith('/profile') ||
+        path.startsWith('/orders') ||
+        path.startsWith('/order') ||
+        path.startsWith('/addresses') ||
+        path.startsWith('/address') ||
         path === '/account'
       ) {
         const token = localStorage.getItem('user_access_token') || localStorage.getItem('user_refresh_token');
