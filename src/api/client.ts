@@ -187,6 +187,15 @@ export async function ensureAdminToken(): Promise<string | null> {
 export async function refreshCustomerAccessToken(): Promise<string | null> {
   const refreshToken = getUserRefreshToken();
 
+  // If in admin mode and no customer refresh token exists, avoid attempting customer refresh
+  if (
+    !refreshToken &&
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/admin") || window.location.hash.includes("admin"))
+  ) {
+    return null;
+  }
+
   if (userRefreshPromise) return userRefreshPromise;
 
   userRefreshPromise = (async () => {
@@ -212,7 +221,7 @@ export async function refreshCustomerAccessToken(): Promise<string | null> {
           {
             headers,
             withCredentials: true,
-            timeout: 10000,
+            timeout: 5000,
           }
         );
       } catch (err: any) {
@@ -223,7 +232,7 @@ export async function refreshCustomerAccessToken(): Promise<string | null> {
             {
               headers,
               withCredentials: true,
-              timeout: 10000,
+              timeout: 5000,
             }
           );
         } else {
@@ -345,9 +354,15 @@ apiClient.interceptors.request.use(
     const url = config.url || "";
     const isAdminRoute =
       Boolean((config as any)?.useAdminAuth) ||
+      Boolean((config as any)?.headers?.["x-storefront"] === "admin-ecomm") ||
+      Boolean(typeof (config as any)?.headers?.get === "function" && (config as any)?.headers.get("x-storefront") === "admin-ecomm") ||
       url.includes("/admin") ||
       url.includes("/categories/admin") ||
-      (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
+      (typeof window !== "undefined" && (
+        window.location.pathname.startsWith("/admin") ||
+        window.location.hash.startsWith("#admin") ||
+        window.location.hash.includes("admin")
+      ));
 
     const isDropshipperRoute =
       !isAdminRoute &&
@@ -426,9 +441,15 @@ apiClient.interceptors.response.use(
     const isLoginOrRefreshRoute = url.includes("/auth/login") || url.includes("/auth/refresh");
     const isAdminRoute =
       Boolean((originalConfig as any)?.useAdminAuth) ||
+      Boolean((originalConfig as any)?.headers?.["x-storefront"] === "admin-ecomm") ||
+      Boolean(typeof (originalConfig as any)?.headers?.get === "function" && (originalConfig as any)?.headers.get("x-storefront") === "admin-ecomm") ||
       url.includes("/admin") ||
       url.includes("/categories/admin") ||
-      (typeof window !== "undefined" && window.location.pathname.startsWith("/admin"));
+      (typeof window !== "undefined" && (
+        window.location.pathname.startsWith("/admin") ||
+        window.location.hash.startsWith("#admin") ||
+        window.location.hash.includes("admin")
+      ));
 
     const isDropshipperRoute =
       !isAdminRoute &&

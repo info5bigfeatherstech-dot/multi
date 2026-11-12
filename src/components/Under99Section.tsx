@@ -216,7 +216,7 @@ export const Under99Section: React.FC<Under99SectionProps> = ({ onProductClick }
                 <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
                   {isOutOfStock && (
                     <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
-                      <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                      <span className="px-3 py-1 rounded-full bg-navy text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
                         Out of Stock
                       </span>
                     </div>

@@ -1566,7 +1566,7 @@ export const CategoryPage: React.FC<CategoryPageProps> = ({
                       <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
                         {isOutOfStock && (
                           <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
-                            <span className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md border border-white/20">
+                            <span className="px-2.5 py-1 rounded-full bg-navy text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md border border-white/20">
                               Out of Stock
                             </span>
                           </div>

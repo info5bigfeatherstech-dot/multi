@@ -1332,8 +1332,7 @@ export const Header: React.FC<HeaderProps> = ({
                 );
               })}
 
-              {/* Dropship B2B Button (Commented Out) */}
-              {/*
+              {/* Dropship B2B Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -1343,7 +1342,7 @@ export const Header: React.FC<HeaderProps> = ({
                     window.dispatchEvent(new PopStateEvent('popstate'));
                   }
                 }}
-                className="hidden lg:flex px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer items-center gap-1 2xl:gap-1.5 shrink-0 whitespace-nowrap"
+                className="px-2 2xl:px-2.5 py-1 2xl:py-1.5 rounded-lg text-[11px] 2xl:text-xs font-semibold text-charcoal hover:text-navy hover:bg-stone-200/70 transition-colors cursor-pointer flex items-center gap-1 2xl:gap-1.5 shrink-0 whitespace-nowrap"
                 title="Become an Official Dropship Partner"
               >
                 <PackageCheck className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-[#A44101] shrink-0" />
@@ -1352,7 +1351,6 @@ export const Header: React.FC<HeaderProps> = ({
                   B2B
                 </span>
               </button>
-              */}
 
               <button
                 type="button"

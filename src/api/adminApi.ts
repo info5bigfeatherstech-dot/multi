@@ -661,18 +661,39 @@ export const adminOrdersApi = {
     }
   },
   getOrderDetail: async (orderId: string) => {
+    const cleanId = orderId.replace(/^#/, '').trim();
+    // 1. Try dedicated admin order detail endpoint
     try {
-      const cleanId = orderId.replace(/^#/, '');
-      const res = await apiClient.get(`/orders/items/${encodeURIComponent(cleanId)}`, {
+      const res = await apiClient.get(`/admin/orders/${encodeURIComponent(cleanId)}`, {
         useAdminAuth: true,
       } as any);
       const data = res.data?.data || res.data;
       if (data?.order) return data.order;
       if (data?.orderId) return data;
-      return null;
     } catch {
-      return adminOrdersApi.getBySearch(orderId);
+      // Endpoint not available yet or 404, fallback to admin search
     }
+
+    // 2. Fallback to admin search lookup
+    try {
+      const found = await adminOrdersApi.getBySearch(cleanId);
+      if (found) return found;
+    } catch {
+      // Continue to next fallback
+    }
+
+    // 3. Fallback to /orders/admin/items/:cleanId if mounted there
+    try {
+      const res = await apiClient.get(`/orders/admin/items/${encodeURIComponent(cleanId)}`, {
+        useAdminAuth: true,
+      } as any);
+      const data = res.data?.data || res.data;
+      if (data?.order) return data.order;
+      if (data?.orderId) return data;
+    } catch {
+      // Ignore
+    }
+    return null;
   },
   editPendingAddress: async (orderId: string, addressPatch: any, alsoUpdateSavedAddress = false) => {
     try {

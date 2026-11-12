@@ -296,7 +296,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                 <div className="relative aspect-square w-full bg-slate-50 overflow-hidden">
                   {isOutOfStock && (
                     <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
-                      <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                      <span className="px-3 py-1 rounded-full bg-navy text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
                         Out of Stock
                       </span>
                     </div>
@@ -322,7 +322,7 @@ export const NewArrivalsSection: React.FC<NewArrivalsSectionProps> = ({
                       {isDiwali ? 'DIWALI SPECIAL' : 'NEW'}
                     </span>
                     {product.discountPercentage > 0 && product.originalPrice > product.currentPrice && (
-                      <span className="bg-navy/90 backdrop-blur-xs text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
+                      <span className="bg-[#A44101] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-2xs">
                         {product.discountPercentage}% OFF
                       </span>
                     )}

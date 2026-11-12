@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   CreditCard,
   ArrowLeft, 
@@ -80,10 +80,15 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
     country: 'India'
   });
 
+  const loadingOrderIdRef = useRef<string | null>(null);
+
   const loadOrderDetails = async () => {
+    const cleanId = orderId.replace(/^#/, '');
+    if (loadingOrderIdRef.current === cleanId) return;
+    loadingOrderIdRef.current = cleanId;
+
     setIsLoading(true);
     try {
-      const cleanId = orderId.replace(/^#/, '');
       // Fetch full order details or fallback to search summary or mock store
       let ord: any = null;
       try {
@@ -231,6 +236,7 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
     } catch (err: any) {
       toast.error('Failed to load order details: ' + (err.message || 'Error'));
     } finally {
+      loadingOrderIdRef.current = null;
       setIsLoading(false);
     }
   };

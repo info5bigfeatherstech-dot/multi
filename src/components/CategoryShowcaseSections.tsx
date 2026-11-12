@@ -527,7 +527,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                 isDiwali ? 'font-serif text-[#7A0C1E] font-bold' : 'text-navy font-roboto'
               }`}
             >
-              {section.name}: <span className={isDiwali ? 'text-[#FF8A00] font-semibold' : 'text-blue-800 font-semibold'}>Products</span>
+              {section.name}: <span className={isDiwali ? 'text-[#FF8A00] font-semibold' : 'text-[#A44101] font-semibold'}>Products</span>
             </h2>
             <p className="text-xs sm:text-sm text-mutedGray mt-1 max-w-2xl font-normal">
               {section.tagline}
@@ -661,7 +661,7 @@ const CategoryShowcaseRow: React.FC<CategoryShowcaseRowProps> = ({
                     <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
                       {isOutOfStock && (
                         <div className="absolute inset-0 z-20 bg-slate-950/45 backdrop-blur-[0.5px] flex items-center justify-center pointer-events-none">
-                          <span className="px-3 py-1 rounded-full bg-rose-600 text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
+                          <span className="px-3 py-1 rounded-full bg-navy text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md border border-white/20">
                             Out of Stock
                           </span>
                         </div>
