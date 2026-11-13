@@ -570,12 +570,16 @@ export const AdminOrderDetailView: React.FC<AdminOrderDetailViewProps> = ({ orde
   const deliveryAddressString = [
     addrObj.houseNumber,
     addrObj.building,
-    addrObj.addressLine1,
-    addrObj.area,
+    addrObj.floor || addrObj.floorNo,
+    addrObj.addressLine1 || addrObj.streetLine1 || addrObj.addressLine,
+    addrObj.addressLine2 || addrObj.streetLine2,
+    addrObj.area || addrObj.areaLocality,
     addrObj.landmark,
     addrObj.city,
     addrObj.state,
-    addrObj.postalCode ? `- ${addrObj.postalCode}` : '',
+    addrObj.postalCode || addrObj.pincode
+      ? `- ${addrObj.postalCode || addrObj.pincode}`
+      : '',
     addrObj.country ? `(${addrObj.country})` : '(India)'
   ].filter(Boolean).join(', ') || 'No street address line (India)';
 

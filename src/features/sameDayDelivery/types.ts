@@ -1,13 +1,14 @@
-export type ShippingSpeed = 'standard' | 'same_day';
+/** Simple Same Day Delivery (not Shiprocket Quick). */
+export type DeliveryMode = 'standard' | 'same_day';
 
-export interface SameDayOption {
-  available: boolean;
-  deliveryCharges: number | null;
-  etaLabel: string | null;
-  openHour: number | null;
-  cutoffHour: number | null;
-  courierName: string | null;
-  reason: string | null;
+/** @deprecated Prefer DeliveryMode — kept for gradual checkout migration. */
+export type ShippingSpeed = DeliveryMode;
+
+export interface SameDaySettings {
+  enabled: boolean;
+  pincodes: string[];
+  pincodeCount?: number;
+  ready?: boolean;
 }
 
 export interface StandardDeliverySettings {
@@ -15,47 +16,87 @@ export interface StandardDeliverySettings {
   ready?: boolean;
 }
 
-export interface SameDaySettings {
+export interface SameDayEligibility {
+  eligible: boolean;
   enabled: boolean;
-  pincodes: string[];
-  openHour: number;
-  cutoffHour: number;
-  floorFeeInr: number;
-  feeBuffer: number;
-  warehouseLat: number | null;
-  warehouseLng: number | null;
-  pincodeCount?: number;
-  pincodeRestricted?: boolean;
-  ready?: boolean;
+  pincode?: string | null;
+  reason?: string | null;
+}
+
+export interface SameDayQuoteResult {
+  quoteId: string;
+  deliveryMode: 'same_day';
+  isDeliverable: boolean;
+  codAvailable: boolean;
+  advanceAvailable: boolean;
+  pincode?: string | null;
+  itemCount?: number;
+  itemsSubtotal?: number;
+  promotionDiscount?: number;
+  deliveryCharges: number;
+  taxes?: number;
+  amountPayable?: number;
+  includesShippingAndHandling?: boolean;
+  couponApplied?: boolean;
+  quoteExpiresAt?: string;
+  cartFingerprint?: string;
+  paymentMethod?: 'online' | string;
+  paymentPlan?: 'full' | string;
+}
+
+export interface SameDayConfirmResult {
+  quoteId: string;
+  deliveryMode: 'same_day';
+  validated: boolean;
+  paymentMethod?: 'online' | string;
+  paymentPlan?: 'full' | string;
+  totals?: {
+    itemCount?: number;
+    itemsSubtotal?: number;
+    promotionDiscount?: number;
+    deliveryCharges?: number;
+    taxes?: number;
+    amountPayable?: number;
+  };
+  next?: {
+    createOrderEndpoint?: string;
+    payload?: Record<string, unknown>;
+  };
+}
+
+/** UI option card for checkout (derived from eligibility + quote). */
+export interface SameDayOption {
+  available: boolean;
+  deliveryCharges: number | null;
+  etaLabel: string | null;
+  reason: string | null;
 }
 
 export const DEFAULT_SAME_DAY_OPTION: SameDayOption = {
   available: false,
-  deliveryCharges: null,
-  etaLabel: null,
-  openHour: 9,
-  cutoffHour: 14,
-  courierName: null,
+  deliveryCharges: 0,
+  etaLabel: 'Same day',
   reason: null,
 };
 
-export function normalizeShippingSpeed(value: unknown): ShippingSpeed {
+export function normalizeDeliveryMode(value: unknown): DeliveryMode {
   const raw = String(value || '')
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
-  if (raw === 'same_day' || raw === 'sameday' || raw === 'quick') return 'same_day';
+  if (raw === 'same_day' || raw === 'sameday') return 'same_day';
   return 'standard';
 }
 
-export function formatCutoffLabel(hour: number | null | undefined): string {
-  const h = Number(hour);
-  if (!Number.isFinite(h) || h < 0 || h > 23) return '14:00';
-  return `${String(Math.trunc(h)).padStart(2, '0')}:00`;
+/** @deprecated Prefer normalizeDeliveryMode */
+export function normalizeShippingSpeed(value: unknown): ShippingSpeed {
+  return normalizeDeliveryMode(value);
 }
 
-export function formatHourLabel(hour: number | null | undefined, fallback = 9): string {
-  const n = Number(hour);
-  const h = Number.isFinite(n) && n >= 0 && n <= 23 ? Math.trunc(n) : fallback;
-  return `${String(h).padStart(2, '0')}:00`;
+export function isSameDayOrderRecord(order: any): boolean {
+  if (!order || typeof order !== 'object') return false;
+  if (order.fulfillmentMode === 'same_day' || order.enquiryType === 'same_day') return true;
+  if (order.deliveryMode === 'same_day') return true;
+  if (order.sameDay && typeof order.sameDay === 'object') return true;
+  return false;
 }

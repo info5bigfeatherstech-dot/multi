@@ -605,6 +605,47 @@ export const storefrontWishlistApi = {
 };
 
 /* ============================================================
+   4b. SIMPLE SAME DAY DELIVERY (public) — not Shiprocket Quick
+   ============================================================ */
+export const storefrontSameDayDeliveryApi = {
+  /** GET /api/same-day-delivery/eligibility?pincode=&addressId= */
+  getEligibility: async (params: { pincode?: string; addressId?: string }) => {
+    try {
+      const res = await apiClient.get("/same-day-delivery/eligibility", { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  /** POST /api/same-day-delivery/quote — online full, deliveryCharges 0 */
+  quote: async (payload: { addressId: string; couponCode?: string }) => {
+    try {
+      const res = await apiClient.post("/same-day-delivery/quote", {
+        addressId: payload.addressId,
+        couponCode: payload.couponCode || undefined,
+      });
+      // Controller returns flat fields (quoteId, amountPayable, …) not nested under data
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  /** POST /api/same-day-delivery/confirm — validates quote before createOrder */
+  confirm: async (payload: { quoteId: string }) => {
+    try {
+      const res = await apiClient.post("/same-day-delivery/confirm", {
+        quoteId: payload.quoteId,
+      });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+/* ============================================================
    5. CHECKOUT & RAZORPAY PAYMENT GATEWAY APIs
    ============================================================ */
 export const storefrontCheckoutApi = {
@@ -655,7 +696,7 @@ export const storefrontCheckoutApi = {
     }
   },
 
-  // Step 3: Establish Authoritative Checkout Quote
+  // Step 3: Establish Authoritative Checkout Quote (standard delivery)
   getQuote: async (payload: {
     addressId: string;
     paymentMethodHint?: "online" | "full_cod" | "advance" | "cod" | string;
@@ -664,7 +705,9 @@ export const storefrontCheckoutApi = {
     balanceCollection?: "online" | "cod" | string;
     couponCode?: string;
     loyaltyPointsToRedeem?: number;
+    /** Ignored by backend for simple SDD — use storefrontSameDayDeliveryApi.quote instead. */
     shippingSpeed?: "standard" | "same_day" | string;
+    deliveryMode?: "standard" | "same_day" | string;
   }) => {
     try {
       const sanitizedPayload = {

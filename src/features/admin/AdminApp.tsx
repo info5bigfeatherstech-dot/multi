@@ -21,7 +21,7 @@ import { AdminDropshipperOrdersView } from './components/dropshipper/AdminDropsh
 import { AdminDropshipperPricingView } from './components/dropshipper/AdminDropshipperPricingView';
 import { AdminDropshipperSettingsView } from './components/dropshipper/AdminDropshipperSettingsView';
 import { AdminGiftEnquiriesView } from './components/enquiries/AdminGiftEnquiriesView';
-
+import { AdminSameDayOrdersPanel } from '../sameDayDelivery';
 
 import { refreshAdminAccessToken, clearAdminTokens } from '../../api';
 
@@ -265,12 +265,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToStore }) => {
       )}
 
       {currentTab === 'orders' && (
-        <AdminOrdersView initialStatusFilter={orderFilter} shippingSpeedScope="standard" />
+        <AdminOrdersView initialStatusFilter={orderFilter} />
       )}
 
-      {currentTab === 'same-day-orders' && (
-        <AdminOrdersView initialStatusFilter={orderFilter} shippingSpeedScope="same_day" />
-      )}
+      {currentTab === 'same-day-orders' && <AdminSameDayOrdersPanel />}
 
       {currentTab === 'returns' && (
         <AdminReturnsRefundsView />

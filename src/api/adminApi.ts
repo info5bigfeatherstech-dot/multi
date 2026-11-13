@@ -662,7 +662,9 @@ export const adminOrdersApi = {
   },
   getOrderDetail: async (orderId: string) => {
     const cleanId = orderId.replace(/^#/, '').trim();
-    // 1. Try dedicated admin order detail endpoint
+    if (!cleanId) return null;
+
+    // Primary: dedicated admin full-detail endpoint (customer, address, items, paymentInfo)
     try {
       const res = await apiClient.get(`/admin/orders/${encodeURIComponent(cleanId)}`, {
         useAdminAuth: true,
@@ -670,28 +672,34 @@ export const adminOrdersApi = {
       const data = res.data?.data || res.data;
       if (data?.order) return data.order;
       if (data?.orderId) return data;
-    } catch {
-      // Endpoint not available yet or 404, fallback to admin search
+    } catch (err: any) {
+      const status = err?.response?.status;
+      // 404 = truly missing; other errors still allow soft fallbacks below
+      if (status && status !== 404) {
+        throw new Error(normalizeApiError(err));
+      }
     }
 
-    // 2. Fallback to admin search lookup
+    // Fallback: user/staff getOrder (populated) — admin token is allowed by getOrder
     try {
-      const found = await adminOrdersApi.getBySearch(cleanId);
-      if (found) return found;
-    } catch {
-      // Continue to next fallback
-    }
-
-    // 3. Fallback to /orders/admin/items/:cleanId if mounted there
-    try {
-      const res = await apiClient.get(`/orders/admin/items/${encodeURIComponent(cleanId)}`, {
+      const res = await apiClient.get(`/orders/items/${encodeURIComponent(cleanId)}`, {
         useAdminAuth: true,
       } as any);
       const data = res.data?.data || res.data;
       if (data?.order) return data.order;
       if (data?.orderId) return data;
     } catch {
-      // Ignore
+      // continue
+    }
+
+    // Last resort: list search (summary row — incomplete; avoid if possible)
+    try {
+      const found = await adminOrdersApi.getBySearch(cleanId);
+      if (found?.addressSnapshot || found?.items?.length) return found;
+      // Skinny list rows lack address/customer — do not pretend they are full detail
+      if (found) return found;
+    } catch {
+      // ignore
     }
     return null;
   },
@@ -1451,6 +1459,134 @@ export const adminShipmozoLabelSettingsApi = {
   removeLogo: async () => {
     try {
       const res = await apiClient.delete("/shipping-provider/admin/shipmozo-label-settings/logo");
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+};
+
+/* ============================================================
+   SIMPLE SAME DAY DELIVERY ADMIN — not Shiprocket Quick
+   ============================================================ */
+export const adminSameDayDeliveryApi = {
+  getSettings: async () => {
+    try {
+      const res = await apiClient.get("/admin/same-day-delivery/settings");
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  updateSettings: async (payload: { enabled?: boolean; pincodes?: string[] | string }) => {
+    try {
+      const res = await apiClient.put("/admin/same-day-delivery/settings", payload);
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  getOrdersSummary: async (params?: {
+    rangePreset?: string;
+    from?: string;
+    to?: string;
+    presetDays?: number | string;
+  }) => {
+    try {
+      const res = await apiClient.get("/admin/same-day-delivery/orders/summary", { params });
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  listOrders: async (params?: {
+    tab?: 'pending' | 'shipped' | 'cancelled' | string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    rangePreset?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    try {
+      const res = await apiClient.get("/admin/same-day-delivery/orders", { params });
+      return {
+        data: res.data?.data || [],
+        pagination: res.data?.pagination || { page: 1, totalPages: 0, total: 0, limit: 20 },
+        success: res.data?.success !== false,
+      };
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  getOrder: async (orderId: string) => {
+    try {
+      const cleanId = String(orderId || '').replace(/^#/, '');
+      const res = await apiClient.get(
+        `/admin/same-day-delivery/orders/${encodeURIComponent(cleanId)}`
+      );
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  shipOrder: async (orderId: string) => {
+    try {
+      const cleanId = String(orderId || '').replace(/^#/, '');
+      const res = await apiClient.post(
+        `/admin/same-day-delivery/orders/${encodeURIComponent(cleanId)}/ship`,
+        {}
+      );
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  cancelOrder: async (orderId: string, reason?: string) => {
+    try {
+      const cleanId = String(orderId || '').replace(/^#/, '');
+      const res = await apiClient.post(
+        `/admin/same-day-delivery/orders/${encodeURIComponent(cleanId)}/cancel`,
+        { reason: reason || 'admin_cancelled_same_day' }
+      );
+      return res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  previewEdit: async (
+    orderId: string,
+    itemUpdates: Array<{ productId: string; variantId: string; quantity: number }>
+  ) => {
+    try {
+      const cleanId = String(orderId || '').replace(/^#/, '');
+      const res = await apiClient.post(
+        `/admin/same-day-delivery/orders/${encodeURIComponent(cleanId)}/edit/preview`,
+        { itemUpdates }
+      );
+      return res.data?.data || res.data;
+    } catch (err) {
+      throw new Error(normalizeApiError(err));
+    }
+  },
+
+  applyEdit: async (
+    orderId: string,
+    itemUpdates: Array<{ productId: string; variantId: string; quantity: number }>
+  ) => {
+    try {
+      const cleanId = String(orderId || '').replace(/^#/, '');
+      const res = await apiClient.post(
+        `/admin/same-day-delivery/orders/${encodeURIComponent(cleanId)}/edit`,
+        { itemUpdates }
+      );
       return res.data;
     } catch (err) {
       throw new Error(normalizeApiError(err));

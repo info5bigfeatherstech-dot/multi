@@ -22,7 +22,7 @@ import {
 
 import { useCart } from '../context/CartContext';
 import { AddAddressModal, NewAddressData } from './AddAddressModal';
-import { storefrontCheckoutApi, storefrontAddressApi } from '../api';
+import { storefrontCheckoutApi, storefrontAddressApi, storefrontSameDayDeliveryApi } from '../api';
 import { isAuthenticated, requireAuth } from '../utils/authGuard';
 import { buildAddressCreatePayload } from '../utils/splitCheckoutAddress';
 
@@ -66,8 +66,10 @@ function mapSavedAddress(a: any): CheckoutSavedAddress {
   };
 }
 import {
+  CheckoutShippingSpeedCards,
+  DEFAULT_SAME_DAY_OPTION,
+  DeliveryMode,
   SameDayOption,
-  ShippingSpeed,
 } from '../features/sameDayDelivery';
 
 interface CheckoutPageProps {
@@ -184,17 +186,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     promotionDiscount?: number;
     amountPayable?: number;
     codAvailable?: boolean;
+    advanceAvailable?: boolean;
     fullCodAvailable?: boolean;
     partialBalanceCodAvailable?: boolean;
-    shippingSpeed?: ShippingSpeed | null;
+    deliveryMode?: DeliveryMode | null;
     sameDayOption?: SameDayOption;
     isDeliverable?: boolean;
     standardDeliveryEnabled?: boolean;
     message?: string;
   } | null>(null);
   const [isQuoteLoading, setIsQuoteLoading] = useState(false);
-  const [shippingSpeed, setShippingSpeed] = useState<ShippingSpeed>('standard');
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('standard');
+  const [sameDayEligible, setSameDayEligible] = useState(false);
+  const [sameDayOption, setSameDayOption] = useState<SameDayOption>(DEFAULT_SAME_DAY_OPTION);
+  const [isEligibilityChecking, setIsEligibilityChecking] = useState(false);
   const [standardDeliveryCharges, setStandardDeliveryCharges] = useState<number | null>(null);
+  const isSameDayCheckout = deliveryMode === 'same_day';
 
   // --------------------------------------------------------------------------
   // Order Placement & Post-Order Lifecycle State
@@ -304,13 +311,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           </div>
         )}
 
-        {/* Delivery Charges: ONLY shown if returned by API */}
-        {apiDeliveryCharges !== null && (
+        {/* Delivery Charges: hidden fee line for Same Day (always free) */}
+        {!isSameDayCheckout && apiDeliveryCharges !== null && (
           <div className="flex justify-between items-center text-slate-700 pt-1 border-t border-slate-100">
             <span>Delivery Fee</span>
             <span className={apiDeliveryCharges === 0 ? "font-bold text-emerald-700" : "font-bold text-navy"}>
               {apiDeliveryCharges === 0 ? "FREE" : `₹${apiDeliveryCharges.toLocaleString()}`}
             </span>
+          </div>
+        )}
+        {isSameDayCheckout && (
+          <div className="flex justify-between items-center text-emerald-700 pt-1 border-t border-slate-100 font-bold">
+            <span>Same Day Delivery</span>
+            <span>FREE</span>
           </div>
         )}
 
@@ -327,9 +340,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           <div>
             <span className="text-sm font-bold text-navy block">Total Amount Payable</span>
             <span className="text-[10px] text-slate-400">
-              {apiDeliveryCharges !== null 
-                ? 'Includes applicable taxes & delivery' 
-                : 'Delivery calculated after address selection'}
+              {isSameDayCheckout
+                ? 'Same Day · online full payment · no shipping fee'
+                : apiDeliveryCharges !== null
+                  ? 'Includes applicable taxes & delivery'
+                  : 'Delivery calculated after address selection'}
             </span>
           </div>
           <span className="text-xl sm:text-2xl font-black text-[#A44101]">
@@ -515,6 +530,80 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   };
 
   // --------------------------------------------------------------------------
+  // Same Day eligibility (after address selected)
+  // --------------------------------------------------------------------------
+  const resolveAddressId = async (): Promise<string | null> => {
+    if (!selectedAddressId) return null;
+    let addrIdToUse = selectedAddressId;
+    if (!isValidObjectId(addrIdToUse)) {
+      const addrObj = addresses.find((a) => a.id === selectedAddressId);
+      if (addrObj) {
+        addrIdToUse = await ensureAddressSavedOnServer(addrObj);
+      }
+    }
+    return isValidObjectId(addrIdToUse) ? addrIdToUse : null;
+  };
+
+  const checkSameDayEligibility = async () => {
+    if (!selectedAddressId || cartItems.length === 0) {
+      setSameDayEligible(false);
+      setSameDayOption(DEFAULT_SAME_DAY_OPTION);
+      if (deliveryMode === 'same_day') setDeliveryMode('standard');
+      return;
+    }
+
+    setIsEligibilityChecking(true);
+    try {
+      const addrId = await resolveAddressId();
+      const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
+      const pin = selectedAddr?.pincode || '';
+      const res = await storefrontSameDayDeliveryApi.getEligibility({
+        addressId: addrId || undefined,
+        pincode: pin || undefined,
+      });
+      const eligible = Boolean(res?.eligible);
+      setSameDayEligible(eligible);
+      setSameDayOption(
+        eligible
+          ? {
+              available: true,
+              deliveryCharges: 0,
+              etaLabel: 'Same day',
+              reason: null,
+            }
+          : {
+              available: false,
+              deliveryCharges: null,
+              etaLabel: null,
+              reason: res?.reason || null,
+            }
+      );
+      if (!eligible && deliveryMode === 'same_day') {
+        setDeliveryMode('standard');
+      }
+    } catch (err: any) {
+      console.warn('SDD eligibility notice:', err?.message);
+      setSameDayEligible(false);
+      setSameDayOption(DEFAULT_SAME_DAY_OPTION);
+      if (deliveryMode === 'same_day') setDeliveryMode('standard');
+    } finally {
+      setIsEligibilityChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    checkSameDayEligibility();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAddressId, cartItems.length]);
+
+  // Same Day forces online full payment
+  useEffect(() => {
+    if (isSameDayCheckout && paymentMode !== 'online') {
+      setPaymentMode('online');
+    }
+  }, [isSameDayCheckout, paymentMode]);
+
+  // --------------------------------------------------------------------------
   // Phase 1: Two-Phase Commit - Fetch Server Authoritative Quote
   // --------------------------------------------------------------------------
   const fetchAuthoritativeQuote = async () => {
@@ -523,57 +612,70 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       return;
     }
 
-    let addrIdToUse = selectedAddressId;
-    if (!isValidObjectId(addrIdToUse)) {
-      const addrObj = addresses.find((a) => a.id === selectedAddressId);
-      if (addrObj) {
-        addrIdToUse = await ensureAddressSavedOnServer(addrObj);
-      }
-    }
-
-    if (!isValidObjectId(addrIdToUse)) {
+    const addrIdToUse = await resolveAddressId();
+    if (!addrIdToUse) {
       setIsQuoteLoading(false);
       return;
     }
 
     setIsQuoteLoading(true);
 
-    const hint = paymentMode === 'cod' ? 'cod' : 'online';
-    const plan = paymentMode === 'advance' ? 'advance' : 'full';
-    const balanceColl = paymentMode === 'online' ? 'online' : 'cod';
-
     try {
-      const qRes = await storefrontCheckoutApi.getQuote({
-        addressId: addrIdToUse,
-        paymentMethodHint: hint,
-        paymentPlan: plan,
-        paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
-        balanceCollection: balanceColl,
-        couponCode: appliedCoupon || undefined,
-        shippingSpeed,
-      });
-
-      if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined || qRes.isDeliverable === false)) {
-        const standardOn = qRes.standardDeliveryEnabled !== false;
-        if (standardOn && qRes.deliveryCharges != null) {
-          setStandardDeliveryCharges(Number(qRes.deliveryCharges));
+      if (deliveryMode === 'same_day') {
+        const qRes = await storefrontSameDayDeliveryApi.quote({
+          addressId: addrIdToUse,
+          couponCode: appliedCoupon || undefined,
+        });
+        if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined)) {
+          setServerQuote({
+            ...qRes,
+            deliveryMode: 'same_day',
+            deliveryCharges: 0,
+            codAvailable: false,
+            advanceAvailable: false,
+            isDeliverable: qRes.isDeliverable !== false,
+          });
+          setPaymentMode('online');
         }
-        setShippingSpeed('standard');
-        setServerQuote(qRes);
-        setCheckoutSettings((prev) => ({
-          ...prev,
-          standardDeliveryEnabled: qRes.standardDeliveryEnabled !== false,
-          ...(qRes.checkoutPolicy
-            ? {
-                codEnabled: qRes.checkoutPolicy.codEnabled !== false,
-                partialPaymentEnabled: qRes.checkoutPolicy.partialPaymentEnabled !== false,
-                partialPaymentPercent: Number(qRes.checkoutPolicy.partialPaymentPercent) || 25,
-              }
-            : {}),
-        }));
+      } else {
+        const hint = paymentMode === 'cod' ? 'cod' : 'online';
+        const plan = paymentMode === 'advance' ? 'advance' : 'full';
+        const balanceColl = paymentMode === 'online' ? 'online' : 'cod';
+
+        const qRes = await storefrontCheckoutApi.getQuote({
+          addressId: addrIdToUse,
+          paymentMethodHint: hint,
+          paymentPlan: plan,
+          paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
+          balanceCollection: balanceColl,
+          couponCode: appliedCoupon || undefined,
+          deliveryMode: 'standard',
+        });
+
+        if (qRes && (qRes.quoteId || qRes.amountPayable !== undefined || qRes.isDeliverable === false)) {
+          const standardOn = qRes.standardDeliveryEnabled !== false;
+          if (standardOn && qRes.deliveryCharges != null) {
+            setStandardDeliveryCharges(Number(qRes.deliveryCharges));
+          }
+          setServerQuote({ ...qRes, deliveryMode: 'standard' });
+          setCheckoutSettings((prev) => ({
+            ...prev,
+            standardDeliveryEnabled: qRes.standardDeliveryEnabled !== false,
+            ...(qRes.checkoutPolicy
+              ? {
+                  codEnabled: qRes.checkoutPolicy.codEnabled !== false,
+                  partialPaymentEnabled: qRes.checkoutPolicy.partialPaymentEnabled !== false,
+                  partialPaymentPercent: Number(qRes.checkoutPolicy.partialPaymentPercent) || 25,
+                }
+              : {}),
+          }));
+        }
       }
     } catch (err: any) {
       console.warn('Quote fetch notice:', err?.message);
+      if (deliveryMode === 'same_day') {
+        setDeliveryMode('standard');
+      }
     } finally {
       setIsQuoteLoading(false);
     }
@@ -581,7 +683,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   useEffect(() => {
     fetchAuthoritativeQuote();
-  }, [selectedAddressId, paymentMode, appliedCoupon, cartItems.length, shippingSpeed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAddressId, paymentMode, appliedCoupon, cartItems.length, deliveryMode]);
 
   // Fallback to online payment if COD is disabled by backend policy
   useEffect(() => {
@@ -780,9 +883,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setIsPlacingOrder(true);
 
     try {
-      const plan = paymentMode === 'advance' ? 'advance' : 'full';
-      const paymentMethod = paymentMode === 'cod' ? 'cod' : 'online';
-      const balanceCollection = paymentMode === 'online' ? 'online' : 'cod';
+      const usingSameDay = deliveryMode === 'same_day';
+      const plan = usingSameDay ? 'full' : paymentMode === 'advance' ? 'advance' : 'full';
+      const paymentMethod = usingSameDay ? 'online' : paymentMode === 'cod' ? 'cod' : 'online';
+      const balanceCollection = usingSameDay ? 'online' : paymentMode === 'online' ? 'online' : 'cod';
 
       // Step A: Ensure we have a valid MongoDB Address ID
       let effectiveAddressId = selectedAddressId;
@@ -801,17 +905,33 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       let activeQuote = serverQuote;
       if (!activeQuote?.quoteId) {
         try {
-          activeQuote = await storefrontCheckoutApi.getQuote({
-            addressId: effectiveAddressId,
-            paymentMethodHint: paymentMethod,
-            paymentPlan: plan,
-            paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
-            balanceCollection,
-            couponCode: appliedCoupon || undefined,
-            shippingSpeed: 'standard',
-          });
-          if (activeQuote?.quoteId || activeQuote?.isDeliverable === false) {
-            setServerQuote(activeQuote);
+          if (usingSameDay) {
+            activeQuote = await storefrontSameDayDeliveryApi.quote({
+              addressId: effectiveAddressId,
+              couponCode: appliedCoupon || undefined,
+            });
+            if (activeQuote?.quoteId) {
+              setServerQuote({
+                ...activeQuote,
+                deliveryMode: 'same_day',
+                deliveryCharges: 0,
+                codAvailable: false,
+                advanceAvailable: false,
+              });
+            }
+          } else {
+            activeQuote = await storefrontCheckoutApi.getQuote({
+              addressId: effectiveAddressId,
+              paymentMethodHint: paymentMethod,
+              paymentPlan: plan,
+              paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
+              balanceCollection,
+              couponCode: appliedCoupon || undefined,
+              deliveryMode: 'standard',
+            });
+            if (activeQuote?.quoteId || activeQuote?.isDeliverable === false) {
+              setServerQuote({ ...activeQuote, deliveryMode: 'standard' });
+            }
           }
         } catch (quoteErr: any) {
           console.warn('Quote generation error:', quoteErr?.message);
@@ -831,14 +951,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         return;
       }
 
-      // Step C: Lock Payment Choice (POST /api/checkout/confirm)
-      await storefrontCheckoutApi.confirmQuote({
-        quoteId: activeQuote.quoteId,
-        paymentMethod,
-        paymentPlan: plan,
-        paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
-        balanceCollection,
-      });
+      // Step C: Confirm quote (SDD or standard)
+      let sddCreatePayload: Record<string, unknown> | null = null;
+      if (usingSameDay) {
+        const confirmed = await storefrontSameDayDeliveryApi.confirm({
+          quoteId: activeQuote.quoteId,
+        });
+        sddCreatePayload = (confirmed?.next?.payload as Record<string, unknown>) || null;
+      } else {
+        await storefrontCheckoutApi.confirmQuote({
+          quoteId: activeQuote.quoteId,
+          paymentMethod,
+          paymentPlan: plan,
+          paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
+          balanceCollection,
+        });
+      }
 
       // Step D: Place Order (POST /api/orders/items with Idempotency-Key & x-storefront)
       const orderIntentPayload = isGift ? {
@@ -852,16 +980,35 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         packagingTheme: 'Classic Saffron Gold'
       } : undefined;
 
-      const orderPayload = {
-        addressId: effectiveAddressId,
-        paymentMethod,
-        onlinePaymentMode: plan === 'advance' ? 'advance' : 'full',
-        balanceCollection,
-        paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
-        quoteId: activeQuote.quoteId,
-        couponCode: appliedCoupon || undefined,
-        orderIntent: orderIntentPayload,
-      };
+      const orderPayload = usingSameDay
+        ? {
+            addressId: String(
+              (sddCreatePayload?.addressId as string) || effectiveAddressId
+            ),
+            paymentMethod: String(
+              (sddCreatePayload?.paymentMethod as string) || 'online'
+            ),
+            onlinePaymentMode: String(
+              (sddCreatePayload?.onlinePaymentMode as string) || 'full'
+            ),
+            quoteId: String((sddCreatePayload?.quoteId as string) || activeQuote.quoteId),
+            deliveryMode: 'same_day' as const,
+            couponCode:
+              (sddCreatePayload?.couponCode as string | undefined) ||
+              appliedCoupon ||
+              undefined,
+            orderIntent: orderIntentPayload,
+          }
+        : {
+            addressId: effectiveAddressId,
+            paymentMethod,
+            onlinePaymentMode: plan === 'advance' ? 'advance' : 'full',
+            balanceCollection,
+            paymentAdvancePercent: plan === 'advance' ? advancePercent : undefined,
+            quoteId: activeQuote.quoteId,
+            couponCode: appliedCoupon || undefined,
+            orderIntent: orderIntentPayload,
+          };
 
       const orderRes = await storefrontCheckoutApi.createOrder(orderPayload);
 
@@ -966,8 +1113,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     } catch (error: any) {
       const msg = String(error?.message || '');
-      if (/same_day_unavailable|same day delivery is no longer available/i.test(msg)) {
-        setShippingSpeed('standard');
+      if (/same_day_unavailable|same day delivery is no longer available|SAME_DAY/i.test(msg)) {
+        setDeliveryMode('standard');
         alert('Same day delivery is no longer available. Standard delivery has been selected — please review charges and try again.');
       } else {
         alert('Checkout error: ' + (msg || 'Failed to place order. Please try again.'));
@@ -1581,8 +1728,29 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       </div>
                     )}
 
-                    {/* Courier Serviceability Banner */}
-                    {isDeliveryChecking ? (
+                    {/* Same Day vs Standard (when pincode eligible) */}
+                    {selectedAddressId && (isEligibilityChecking || sameDayEligible) && (
+                      <div className="pt-1">
+                        {isEligibilityChecking ? (
+                          <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#A44101]" />
+                            <span>Checking same day eligibility for this pincode…</span>
+                          </div>
+                        ) : (
+                          <CheckoutShippingSpeedCards
+                            selected={deliveryMode}
+                            standardCharges={standardDeliveryCharges}
+                            sameDayOption={sameDayOption}
+                            standardEnabled={checkoutSettings.standardDeliveryEnabled !== false}
+                            disabled={isQuoteLoading}
+                            onSelect={(mode) => setDeliveryMode(mode)}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Courier Serviceability Banner (standard only) */}
+                    {!isSameDayCheckout && (isDeliveryChecking ? (
                       <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold">
                         <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#A44101]" />
                         <span>Verifying pincode courier serviceability &amp; delivery speed...</span>
@@ -1601,7 +1769,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                           Serviceable
                         </span>
                       </div>
-                    )}
+                    ))}
 
                     {/* Proper Product Price Calculation & Authoritative Breakdown */}
                     {renderPriceCalculation()}
@@ -1681,10 +1849,18 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       <div>
                         <h2 className="text-base font-bold text-navy">Select Mode of Payment</h2>
                         <p className="text-xs text-slate-500">
-                          Instant Razorpay UPI, Advance Split, or Cash on Delivery.
+                          {isSameDayCheckout
+                            ? 'Same Day requires full online payment (no COD or advance).'
+                            : 'Instant Razorpay UPI, Advance Split, or Cash on Delivery.'}
                         </p>
                       </div>
                     </div>
+
+                    {isSameDayCheckout && (
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
+                        Same Day delivery selected — pay the full amount online. Shipping fee is free.
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       {/* OPTION 1: Full Online Payment via Razorpay */}
@@ -1716,8 +1892,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         )}
                       </label>
 
-                      {/* OPTION 2: Partial Payment (Advance Online + Balance on Delivery) */}
-                      {checkoutSettings.partialPaymentEnabled && (
+                      {/* OPTION 2: Partial Payment — hidden for Same Day */}
+                      {!isSameDayCheckout && checkoutSettings.partialPaymentEnabled && (
                         <label className={`p-4 rounded-xl border-2 flex flex-col gap-3 cursor-pointer transition-all ${paymentMode === 'advance' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
                           }`}>
                           <div className="flex items-center justify-between">
@@ -1765,8 +1941,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         </label>
                       )}
 
-                      {/* OPTION 3: Full Cash on Delivery (COD) - Only rendered if enabled by store policy */}
-                      {checkoutSettings.codEnabled && (
+                      {/* OPTION 3: Full COD — hidden for Same Day (online full only) */}
+                      {!isSameDayCheckout && checkoutSettings.codEnabled && (
                         <label className={`p-4 rounded-xl border-2 flex items-center justify-between cursor-pointer transition-all ${paymentMode === 'cod' ? 'border-[#A44101] bg-orange-50/20 shadow-2xs' : 'border-slate-200 hover:border-slate-300'
                           }`}>
                           <div className="flex items-center gap-3">

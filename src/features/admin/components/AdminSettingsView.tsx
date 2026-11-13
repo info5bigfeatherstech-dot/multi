@@ -32,7 +32,8 @@ import {
   adminCheckoutSettingsApi,
   adminShippingSettingsApi,
   adminShipmozoLabelSettingsApi,
-  adminStaffApi
+  adminStaffApi,
+  adminSameDayDeliveryApi,
 } from '../../../api/adminApi';
 import { AdminTab } from './AdminShell';
 import { AdminStaffView } from './AdminStaffView';
@@ -346,12 +347,6 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   const [sameDaySettings, setSameDaySettings] = useState<SameDaySettings>({
     enabled: false,
     pincodes: [],
-    openHour: 9,
-    cutoffHour: 14,
-    floorFeeInr: 0,
-    feeBuffer: 1.2,
-    warehouseLat: null,
-    warehouseLng: null,
   });
   const [sameDaySaving, setSameDaySaving] = useState(false);
   const [standardDeliverySettings, setStandardDeliverySettings] = useState<StandardDeliverySettings>({
@@ -362,9 +357,10 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
   const fetchDeliverySettings = async () => {
     setDeliveryLoading(true);
     try {
-      const [settingsRes, whRes] = await Promise.allSettled([
+      const [settingsRes, whRes, sddRes] = await Promise.allSettled([
         adminShippingSettingsApi.getSettings(),
         adminShippingSettingsApi.getWarehouses(),
+        adminSameDayDeliveryApi.getSettings(),
       ]);
 
       if (settingsRes.status === 'fulfilled' && settingsRes.value) {
@@ -388,21 +384,17 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
             ready: s.standardDelivery.ready,
           });
         }
-        if (s.sameDay) {
-          setSameDaySettings({
-            enabled: Boolean(s.sameDay.enabled),
-            pincodes: Array.isArray(s.sameDay.pincodes) ? s.sameDay.pincodes : [],
-            openHour: Number(s.sameDay.openHour) || 9,
-            cutoffHour: Number(s.sameDay.cutoffHour) || 14,
-            floorFeeInr: Number(s.sameDay.floorFeeInr) || 0,
-            feeBuffer: Number(s.sameDay.feeBuffer) || 1.2,
-            warehouseLat: s.sameDay.warehouseLat ?? null,
-            warehouseLng: s.sameDay.warehouseLng ?? null,
-            pincodeCount: s.sameDay.pincodeCount,
-            pincodeRestricted: s.sameDay.pincodeRestricted,
-            ready: s.sameDay.ready,
-          });
-        }
+      }
+
+      if (sddRes.status === 'fulfilled' && sddRes.value) {
+        const d = sddRes.value;
+        const pins = Array.isArray(d.pincodes) ? d.pincodes : [];
+        setSameDaySettings({
+          enabled: Boolean(d.enabled),
+          pincodes: pins,
+          pincodeCount: pins.length,
+          ready: Boolean(d.enabled && pins.length > 0),
+        });
       }
 
       if (whRes.status === 'fulfilled') {
@@ -1738,24 +1730,18 @@ export const AdminSettingsView: React.FC<AdminSettingsViewProps> = ({
                 onSave={async (next) => {
                   setSameDaySaving(true);
                   try {
-                    const saved = await adminShippingSettingsApi.updateSettings({ sameDay: next });
-                    if (saved?.sameDay) {
-                      setSameDaySettings({
-                        enabled: Boolean(saved.sameDay.enabled),
-                        pincodes: Array.isArray(saved.sameDay.pincodes) ? saved.sameDay.pincodes : next.pincodes,
-                        openHour: Number(saved.sameDay.openHour) || next.openHour,
-                        cutoffHour: Number(saved.sameDay.cutoffHour) || next.cutoffHour,
-                        floorFeeInr: Number(saved.sameDay.floorFeeInr) || next.floorFeeInr,
-                        feeBuffer: Number(saved.sameDay.feeBuffer) || next.feeBuffer,
-                        warehouseLat: saved.sameDay.warehouseLat ?? next.warehouseLat,
-                        warehouseLng: saved.sameDay.warehouseLng ?? next.warehouseLng,
-                        pincodeCount: saved.sameDay.pincodeCount,
-                        pincodeRestricted: saved.sameDay.pincodeRestricted,
-                        ready: saved.sameDay.ready,
-                      });
-                    } else {
-                      setSameDaySettings(next);
-                    }
+                    const saved = await adminSameDayDeliveryApi.updateSettings({
+                      enabled: next.enabled,
+                      pincodes: next.pincodes,
+                    });
+                    const pins = Array.isArray(saved?.pincodes) ? saved.pincodes : next.pincodes;
+                    const enabled = saved?.enabled != null ? Boolean(saved.enabled) : next.enabled;
+                    setSameDaySettings({
+                      enabled,
+                      pincodes: pins,
+                      pincodeCount: pins.length,
+                      ready: Boolean(enabled && pins.length > 0),
+                    });
                     showToast('Same Day delivery settings saved');
                   } catch (err: any) {
                     showToast(`Failed to save Same Day settings: ${err.message || 'Error'}`, 'error');

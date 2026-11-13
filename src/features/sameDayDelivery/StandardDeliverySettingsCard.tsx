@@ -58,7 +58,7 @@ export const StandardDeliverySettingsCard: React.FC<StandardDeliverySettingsCard
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
               Default checkout option. Turn this off to run Same Day only — checkout then
-              confirms only when the delivery pincode is Same Day serviceable.
+              offers Same Day only for eligible pincodes.
             </p>
           </div>
         </div>
